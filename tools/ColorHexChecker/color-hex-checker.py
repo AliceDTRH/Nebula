@@ -4,11 +4,11 @@ from os import sep, path, walk
 color_hex_matcher = re.compile('\"#[\dA-F]{6}\"', re.IGNORECASE)
 
 def get_bad_hexes_in_line(line):
-	bad_hexes = []
-	for matched_hex in color_hex_matcher.findall(line):
-		if any(x.isupper() for x in matched_hex):
-			bad_hexes.append(matched_hex)
-	return bad_hexes
+	return [
+		matched_hex
+		for matched_hex in color_hex_matcher.findall(line)
+		if any(x.isupper() for x in matched_hex)
+	]
 
 def get_bad_hex_lines_in_file(file):
 	bad_lines = {}
@@ -47,7 +47,7 @@ def main():
 						bad_hexes_by_path[file_path] = bad_hex_by_line
 
 	print_bad_hexes(bad_hexes_by_path)
-	if len(bad_hexes_by_path) > 0:
+	if bad_hexes_by_path:
 		sys.exit(1)
 
 if __name__ == "__main__":

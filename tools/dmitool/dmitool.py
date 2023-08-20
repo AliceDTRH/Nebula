@@ -1,12 +1,16 @@
 """ Python 2.7 wrapper for dmitool.
 """
+
 from __future__ import print_function
 import os
 import re
 from subprocess import Popen, PIPE
 
 _JAVA_PATH = ["java"]
-_DMITOOL_CMD = ["-jar", os.path.dirname(os.path.realpath(__file__)) + "/dmitool.jar"]
+_DMITOOL_CMD = [
+    "-jar",
+    f"{os.path.dirname(os.path.realpath(__file__))}/dmitool.jar",
+]
 
 
 def _dmitool_call(*dmitool_args, **popen_args):
@@ -17,7 +21,7 @@ def parse_prop(dict, key, deferred_value):
     try:
         dict[key] = deferred_value()
     except Exception as e:
-        raise Exception("Could not parse property '{}': {}".format(key, e))
+        raise Exception(f"Could not parse property '{key}': {e}")
     return False
 
 
@@ -41,7 +45,9 @@ def info(filepath):
     stdout, stderr = subproc.communicate()
 
     if subproc.returncode != 0:
-        print("Error in dmitool parsing {} - possibly empty or invalid DMI:\nstdout:\n{}\nstderr:\n{}".format(filepath, stdout, stderr))
+        print(
+            f"Error in dmitool parsing {filepath} - possibly empty or invalid DMI:\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        )
         raise Exception("dmitool execution failed")
 
     result = {}

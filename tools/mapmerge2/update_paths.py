@@ -34,7 +34,7 @@ def props_to_string(props):
 
 
 def string_to_props(propstring, verbose = False):
-    props = dict()
+    props = {}
     for raw_prop in re.split(split_re, propstring):
         if not raw_prop or raw_prop.strip() == ';':
             continue
@@ -49,18 +49,17 @@ def parse_rep_string(replacement_string, verbose = False):
     # translates /blah/blah {meme = "test",} into path,prop dictionary tuple
     match = re.match(replacement_re, replacement_string)
     path = match['path']
-    props = match['props']
-    if props:
+    if props := match['props']:
         prop_dict = string_to_props(props, verbose)
     else:
-        prop_dict = dict()
+        prop_dict = {}
     return path.strip(), prop_dict
 
 
 def update_path(dmm_data, replacement_string, verbose=False):
     old_path_part, new_path_part = replacement_string.split(':', maxsplit=1)
     old_path, old_path_props = parse_rep_string(old_path_part, verbose)
-    new_paths = list()
+    new_paths = []
     for replacement_def in new_path_part.split(','):
         new_path, new_path_props = parse_rep_string(replacement_def, verbose)
         new_paths.append((new_path, new_path_props))
@@ -75,10 +74,7 @@ def update_path(dmm_data, replacement_string, verbose=False):
     replacement_pattern = re.compile(rf"(?P<path>{re.escape(old_path)}{subtypes})\s*(:?{{(?P<props>.*)}})?$")
 
     def replace_def(match):
-        if match['props']:
-            old_props = string_to_props(match['props'], verbose)
-        else:
-            old_props = dict()
+        old_props = string_to_props(match['props'], verbose) if match['props'] else {}
         for filter_prop in old_path_props:
             if filter_prop not in old_props:
                 if old_path_props[filter_prop] == "@UNSET":
@@ -92,11 +88,8 @@ def update_path(dmm_data, replacement_string, verbose=False):
             print("Found match : {0}".format(match.group(0)))
         out_paths = []
         for new_path, new_props in new_paths:
-            if new_path == "@OLD":
-                out = match.group('path')
-            else:
-                out = new_path
-            out_props = dict()
+            out = match.group('path') if new_path == "@OLD" else new_path
+            out_props = {}
             for prop_name, prop_value in new_props.items():
                 if prop_name == "@OLD":
                     out_props = dict(old_props)
@@ -119,10 +112,7 @@ def update_path(dmm_data, replacement_string, verbose=False):
 
     def get_result(element):
         match = replacement_pattern.match(element)
-        if match:
-            return replace_def(match)
-        else:
-            return [element]
+        return replace_def(match) if match else [element]
 
     bad_keys = {}
     keys = list(dmm_data.dictionary.keys())
