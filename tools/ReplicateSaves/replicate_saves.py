@@ -20,7 +20,9 @@ def main():
 	mapname = sys.argv[1]
 	mapdir =  os.path.join("maps")
 	if not os.path.isdir(mapdir):
-		print("Cannot find directory '" + mapdir + "', make sure you are running this script from the root repository directory.")
+		print(
+			f"Cannot find directory '{mapdir}', make sure you are running this script from the root repository directory."
+		)
 		return
 
 	# Work out what maps we actually need to replicate to.
@@ -46,13 +48,15 @@ def main():
 	# Make sure we can actually see the save directory.
 	scrapedir = os.path.join("data", "player_saves")
 	if not os.path.isdir(scrapedir):
-		print("Cannot find directory '" + scrapedir + "', make sure you are running this script from the root repository directory.")
+		print(
+			f"Cannot find directory '{scrapedir}', make sure you are running this script from the root repository directory."
+		)
 		return
 
 	# Find existing saves for the target map, then replicate them to all our target map dirs.
 	# If they exist already, don't copy over, just move on.
 	filename_regex = r"character_([a-zA-Z_]+)_(\d+)\.json"
-	print("Scanning saves in " + scrapedir + "...")
+	print(f"Scanning saves in {scrapedir}...")
 	save_slots_to_update = []
 	saves_to_replicate = []
 	for (root, dirs, files) in os.walk(scrapedir):
@@ -60,7 +64,7 @@ def main():
 			match = re.match(filename_regex, file, re.I)
 			if match is None:
 				continue
-			if match.group(1) != mapname:
+			if match[1] != mapname:
 				continue
 			savefile = os.path.join(root, file)
 			with open(savefile, "r") as loadedsave:
@@ -74,7 +78,7 @@ def main():
 								writesave.write(line)
 							wrote = wrote+1
 				if wrote > 0:
-					print("Wrote " + str(wrote) + " copies of " + file + ".")
+					print(f"Wrote {str(wrote)} copies of {file}.")
 
 	# Collect slot names for each user to update their preferences.json
 	for (root, dirs, files) in os.walk(scrapedir):

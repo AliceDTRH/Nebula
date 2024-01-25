@@ -63,7 +63,7 @@ validPrefixes = [
 
 
 def dictToTuples(inp):
-    return [(k, v) for k, v in inp.items()]
+    return list(inp.items())
 
 changelog_cache = os.path.join(args.ymlDir, '.all_changelog.yml')
 
@@ -119,7 +119,7 @@ if failed_cache_read and os.path.isfile(args.targetFile):
                     if changeT.name != 'li':
                         continue
                     val = changeT.decode_contents(formatter="html")
-                    newdat = {changeT['class'][0] + '': val + ''}
+                    newdat = {changeT['class'][0] + '': f'{val}'}
                     if newdat not in changes:
                         changes += [newdat]
 
@@ -140,7 +140,7 @@ for fileName in glob.glob(os.path.join(args.ymlDir, "*.yml")):
     if name == 'example':
         continue
     fileName = os.path.abspath(fileName)
-    print(' Reading {}...'.format(fileName))
+    print(f' Reading {fileName}...')
     cl = {}
     with open(fileName, 'r',encoding='utf-8') as f:
         cl = yaml.load(f, Loader=yaml.SafeLoader)
@@ -187,14 +187,19 @@ with open(args.targetFile.replace('.htm', '.dry.htm') if args.dryRun else args.t
     for _date in reversed(sorted(all_changelog_entries.keys())):
         if not (today - _date < weekstoshow):
             continue
-        entry_htm = '\n'
-        entry_htm += '\t\t\t<h2 class="date">{date}</h2>\n'.format(date=_date.strftime(dateformat))
+        entry_htm = '\n' + '\t\t\t<h2 class="date">{date}</h2>\n'.format(
+            date=_date.strftime(dateformat)
+        )
         write_entry = False
         for author in sorted(all_changelog_entries[_date].keys()):
             if len(all_changelog_entries[_date]) == 0:
                 continue
-            author_htm = '\t\t\t<h3 class="author">{author} updated:</h3>\n'.format(author=author)
-            author_htm += '\t\t\t<ul class="changes bgimages16">\n'
+            author_htm = (
+                '\t\t\t<h3 class="author">{author} updated:</h3>\n'.format(
+                    author=author
+                )
+                + '\t\t\t<ul class="changes bgimages16">\n'
+            )
             changes_added = []
             for (css_class, change) in (dictToTuples(e)[0] for e in all_changelog_entries[_date][author]):
                 if change in changes_added:

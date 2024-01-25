@@ -37,19 +37,21 @@ for root, subdirs, files in walk(args.dir):
 						continue
 					last_comment_index = line.rfind('//')
 					if last_comment_index >= 0:
-						line = line[0:last_comment_index].strip()
+						line = line[:last_comment_index].strip()
 					if line == 'desc = ""':
 						continue
 					if line.endswith('"'):
-						print_line = True
-						for end_desc_exception in end_desc_exceptions:
-							if line.endswith(end_desc_exception):
-								print_line = False
-								break
-						for exception in exceptions:
-							if file_path.endswith(exception[0]) and line == exception[1]:
-								print_line = False
-								break
+						print_line = next(
+							(
+								False
+								for exception in exceptions
+								if file_path.endswith(exception[0]) and line == exception[1]
+							),
+							not any(
+								line.endswith(end_desc_exception)
+								for end_desc_exception in end_desc_exceptions
+							),
+						)
 						if not print_line:
 							continue
 						print(file_path, ' ', line, ' ', line_number)

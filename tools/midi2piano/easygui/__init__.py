@@ -71,6 +71,7 @@ Works based on the software may be released under a proprietary license or as cl
 http://en.wikipedia.org/wiki/BSD_licenses#3-clause_license_.28.22New_BSD_License.22.29
 
 """
+
 egversion = __doc__.split()[1]
 
 __all__ = ['ynbox'
@@ -124,16 +125,8 @@ else:
 """
 
 
-if sys.hexversion >= 0x020600F0:
-    runningPython26 = True
-else:
-    runningPython26 = False
-
-if sys.hexversion >= 0x030000F0:
-    runningPython3 = True
-else:
-    runningPython3 = False
-
+runningPython26 = sys.hexversion >= 0x020600F0
+runningPython3 = sys.hexversion >= 0x030000F0
 try:
     from PIL import Image   as PILImage
     from PIL import ImageTk as PILImageTk
@@ -173,7 +166,7 @@ Terminating.
     sys.exit(0)
 
 def dq(s):
-    return '"%s"' % s
+    return f'"{s}"'
 
 rootWindowPosition = "+300+200"
 
@@ -292,8 +285,7 @@ def boolbox(msg="Shall I continue?"
             returns 0
     """
     reply = buttonbox(msg=msg, choices=choices, title=title, image=image)
-    if reply == choices[0]: return 1
-    else: return 0
+    return 1 if reply == choices[0] else 0
 
 
 #-----------------------------------------------------------------------
@@ -357,11 +349,9 @@ def buttonbox(msg="",title=" "
     if root:
         root.withdraw()
         boxRoot = Toplevel(master=root)
-        boxRoot.withdraw()
     else:
         boxRoot = Tk()
-        boxRoot.withdraw()
-
+    boxRoot.withdraw()
     boxRoot.protocol('WM_DELETE_WINDOW', denyWindowManagerClose )
     boxRoot.title(title)
     boxRoot.iconname('Dialog')
@@ -381,22 +371,21 @@ def buttonbox(msg="",title=" "
         if os.path.exists(imageFilename):
             if ext.lower() in [".gif", ".pgm", ".ppm"]:
                 tk_Image = PhotoImage(master=boxRoot, file=imageFilename)
-            else:
-                if PILisLoaded:
-                    try:
-                        pil_Image = PILImage.open(imageFilename)
-                        tk_Image = PILImageTk.PhotoImage(pil_Image, master=boxRoot)
-                    except:
-                        msg += ImageErrorMsg % (imageFilename,
-                            "\nThe Python Imaging Library (PIL) could not convert this file to a displayable image."
-                            "\n\nPIL reports:\n" + exception_format())
-
-                else:  # PIL is not loaded
+            elif PILisLoaded:
+                try:
+                    pil_Image = PILImage.open(imageFilename)
+                    tk_Image = PILImageTk.PhotoImage(pil_Image, master=boxRoot)
+                except:
                     msg += ImageErrorMsg % (imageFilename,
-                    "\nI could not import the Python Imaging Library (PIL) to display the image.\n\n"
-                    "You may need to install PIL\n"
-                    "(http://www.pythonware.com/products/pil/)\n"
-                    "to display " + ext + " image files.")
+                        "\nThe Python Imaging Library (PIL) could not convert this file to a displayable image."
+                        "\n\nPIL reports:\n" + exception_format())
+
+            else:  # PIL is not loaded
+                msg += ImageErrorMsg % (imageFilename,
+                "\nI could not import the Python Imaging Library (PIL) to display the image.\n\n"
+                "You may need to install PIL\n"
+                "(http://www.pythonware.com/products/pil/)\n"
+                "to display " + ext + " image files.")
 
         else:
             msg += ImageErrorMsg % (imageFilename, "\nImage file not found.")
@@ -489,14 +478,11 @@ def integerbox(msg=""
             + "upperbound of " + dq(str(upperbound)) , "Error")
 
     if msg == "":
-        msg = ("Enter an integer between " + str(lowerbound)
-            + " and "
-            + str(upperbound)
-            )
+        msg = f"Enter an integer between {str(lowerbound)} and {str(upperbound)}"
 
     while 1:
         reply = enterbox(msg, title, str(default), image=image, root=root)
-        if reply == None: return None
+        if reply is None: return None
 
         try:
             reply = int(reply)
@@ -638,9 +624,9 @@ def __multfillablebox(msg="Fill in values for the fields."
     fields = list(fields[:])  # convert possible tuples to a list
     values = list(values[:])  # convert possible tuples to a list
 
-    if   len(values) == len(fields): pass
+    if len(values) == len(fields): pass
     elif len(values) >  len(fields):
-        fields = fields[0:len(values)]
+        fields = fields[:len(values)]
     else:
         while len(values) < len(fields):
             values.append("")
@@ -709,7 +695,7 @@ def __multfillablebox(msg="Fill in values for the fields."
     commandButton  = okButton
     handler = __multenterboxGetText
     for selectionEvent in STANDARD_SELECTION_EVENTS:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
 
     # ------------------ cancel button -------------------------------
@@ -721,7 +707,7 @@ def __multfillablebox(msg="Fill in values for the fields."
     commandButton  = cancelButton
     handler = __multenterboxCancel
     for selectionEvent in STANDARD_SELECTION_EVENTS:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
 
     # ------------------- time for action! -----------------
@@ -739,9 +725,7 @@ def __multfillablebox(msg="Fill in values for the fields."
 def __multenterboxGetText(event):
     global __multenterboxText
 
-    __multenterboxText = []
-    for entryWidget in entryWidgets:
-        __multenterboxText.append(entryWidget.get())
+    __multenterboxText = [entryWidget.get() for entryWidget in entryWidgets]
     boxRoot.quit()
 
 
@@ -816,19 +800,17 @@ def __fillablebox(msg
     global boxRoot, __enterboxText, __enterboxDefaultText
     global cancelButton, entryWidget, okButton
 
-    if title == None: title == ""
-    if default == None: default = ""
+    if title is None: title == ""
+    if default is None: default = ""
     __enterboxDefaultText = default
     __enterboxText        = __enterboxDefaultText
 
     if root:
         root.withdraw()
         boxRoot = Toplevel(master=root)
-        boxRoot.withdraw()
     else:
         boxRoot = Tk()
-        boxRoot.withdraw()
-
+    boxRoot.withdraw()
     boxRoot.protocol('WM_DELETE_WINDOW', denyWindowManagerClose )
     boxRoot.title(title)
     boxRoot.iconname('Dialog')
@@ -848,22 +830,21 @@ def __fillablebox(msg
         if os.path.exists(imageFilename):
             if ext.lower() in [".gif", ".pgm", ".ppm"]:
                 tk_Image = PhotoImage(master=boxRoot, file=imageFilename)
-            else:
-                if PILisLoaded:
-                    try:
-                        pil_Image = PILImage.open(imageFilename)
-                        tk_Image = PILImageTk.PhotoImage(pil_Image, master=boxRoot)
-                    except:
-                        msg += ImageErrorMsg % (imageFilename,
-                            "\nThe Python Imaging Library (PIL) could not convert this file to a displayable image."
-                            "\n\nPIL reports:\n" + exception_format())
-
-                else:  # PIL is not loaded
+            elif PILisLoaded:
+                try:
+                    pil_Image = PILImage.open(imageFilename)
+                    tk_Image = PILImageTk.PhotoImage(pil_Image, master=boxRoot)
+                except:
                     msg += ImageErrorMsg % (imageFilename,
-                    "\nI could not import the Python Imaging Library (PIL) to display the image.\n\n"
-                    "You may need to install PIL\n"
-                    "(http://www.pythonware.com/products/pil/)\n"
-                    "to display " + ext + " image files.")
+                        "\nThe Python Imaging Library (PIL) could not convert this file to a displayable image."
+                        "\n\nPIL reports:\n" + exception_format())
+
+            else:  # PIL is not loaded
+                msg += ImageErrorMsg % (imageFilename,
+                "\nI could not import the Python Imaging Library (PIL) to display the image.\n\n"
+                "You may need to install PIL\n"
+                "(http://www.pythonware.com/products/pil/)\n"
+                "to display " + ext + " image files.")
 
         else:
             msg += ImageErrorMsg % (imageFilename, "\nImage file not found.")
@@ -914,7 +895,7 @@ def __fillablebox(msg
     commandButton  = okButton
     handler = __enterboxGetText
     for selectionEvent in STANDARD_SELECTION_EVENTS:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
 
     # ------------------ cancel button -------------------------------
@@ -926,7 +907,7 @@ def __fillablebox(msg
     commandButton  = cancelButton
     handler = __enterboxCancel
     for selectionEvent in STANDARD_SELECTION_EVENTS:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
     # ------------------- time for action! -----------------
     entryWidget.focus_force()    # put the focus on the entryWidget
@@ -1036,7 +1017,7 @@ def __choicebox(msg
     # were given.
     #-------------------------------------------------------------------
     choices = list(choices[:])
-    if len(choices) == 0:
+    if not choices:
         choices = ["Program logic error - no choices were specified."]
     defaultButtons = ["OK", "Cancel"]
 
@@ -1047,7 +1028,7 @@ def __choicebox(msg
     lines_to_show = min(len(choices), 20)
     lines_to_show = 20
 
-    if title == None: title = ""
+    if title is None: title = ""
 
     # Initialize __choiceboxResults
     # This is the value that will be returned if the user clicks the close icon
@@ -1068,7 +1049,7 @@ def __choicebox(msg
     boxRoot.geometry(rootWindowPosition)
     boxRoot.expand=NO
     boxRoot.minsize(root_width, root_height)
-    rootWindowPosition = "+" + str(root_xpos) + "+" + str(root_ypos)
+    rootWindowPosition = f"+{root_xpos}+{root_ypos}"
     boxRoot.geometry(rootWindowPosition)
 
     # ---------------- put the frames in the window -----------------------------------------
@@ -1139,8 +1120,7 @@ def __choicebox(msg
     lastInserted = None
     choiceboxChoices = []
     for choice in choices:
-        if choice == lastInserted: pass
-        else:
+        if choice != lastInserted:
             choiceboxWidget.insert(END, choice)
             choiceboxChoices.append(choice)
             lastInserted = choice
@@ -1148,7 +1128,7 @@ def __choicebox(msg
     boxRoot.bind('<Any-Key>', KeyboardListener)
 
     # put the buttons in the buttonsFrame
-    if len(choices) > 0:
+    if choices:
         okButton = Button(buttonsFrame, takefocus=YES, text="OK", height=1, width=6)
         bindArrows(okButton)
         okButton.pack(expand=NO, side=TOP,  padx='2m', pady='1m', ipady="1m", ipadx="2m")
@@ -1157,7 +1137,7 @@ def __choicebox(msg
         commandButton  = okButton
         handler = __choiceboxGetChoice
         for selectionEvent in STANDARD_SELECTION_EVENTS:
-            commandButton.bind("<%s>" % selectionEvent, handler)
+            commandButton.bind(f"<{selectionEvent}>", handler)
 
         # now bind the keyboard events
         choiceboxWidget.bind("<Return>", __choiceboxGetChoice)
@@ -1175,11 +1155,11 @@ def __choicebox(msg
     commandButton  = cancelButton
     handler = __choiceboxCancel
     for selectionEvent in STANDARD_SELECTION_EVENTS:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
 
     # add special buttons for multiple select features
-    if len(choices) > 0 and __choiceboxMultipleSelect:
+    if choices and __choiceboxMultipleSelect:
         selectionButtonsFrame = Frame(messageFrame)
         selectionButtonsFrame.pack(side=RIGHT, fill=Y, expand=NO)
 
@@ -1320,8 +1300,8 @@ def exceptionbox(msg=None, title=None):
     Note that you do not need to (and cannot) pass an exception object
     as an argument.  The latest exception will automatically be used.
     """
-    if title == None: title = "Error Report"
-    if msg == None:
+    if title is None: title = "Error Report"
+    if msg is None:
         msg = "An error (exception) has occurred in the program."
 
     codebox(msg, title, exception_format())
@@ -1360,8 +1340,8 @@ def textbox(msg=""
     displayed in the textbox.
     """
 
-    if msg == None: msg = ""
-    if title == None: title = ""
+    if msg is None: msg = ""
+    if title is None: title = ""
 
     global boxRoot, __replyButtonText, __widgetTexts, buttonsFrame
     global rootWindowPosition
@@ -1386,7 +1366,7 @@ def textbox(msg=""
     boxRoot.geometry(rootWindowPosition)
     boxRoot.expand=NO
     boxRoot.minsize(root_width, root_height)
-    rootWindowPosition = "+" + str(root_xpos) + "+" + str(root_ypos)
+    rootWindowPosition = f"+{root_xpos}+{root_ypos}"
     boxRoot.geometry(rootWindowPosition)
 
     mainframe = Frame(master=boxRoot)
@@ -1406,17 +1386,16 @@ def textbox(msg=""
     buttonsFrame = Frame(message_and_buttonsFrame)
     buttonsFrame.pack(side=RIGHT, expand=NO)
 
+    character_width = int((root_width * 0.6) / MONOSPACE_FONT_SIZE)
     # -------------------- put widgets in the frames --------------------
 
     # put a textArea in the top frame
     if codebox:
-        character_width = int((root_width * 0.6) / MONOSPACE_FONT_SIZE)
         textArea = Text(textboxFrame,height=25,width=character_width, padx="2m", pady="1m")
         textArea.configure(wrap=NONE)
         textArea.configure(font=(MONOSPACE_FONT_FAMILY, MONOSPACE_FONT_SIZE))
 
     else:
-        character_width = int((root_width * 0.6) / MONOSPACE_FONT_SIZE)
         textArea = Text(
             textboxFrame
             , height=25
@@ -1474,18 +1453,19 @@ def textbox(msg=""
     commandButton  = okButton
     handler = __textboxOK
     for selectionEvent in ["Return","Button-1","Escape"]:
-        commandButton.bind("<%s>" % selectionEvent, handler)
+        commandButton.bind(f"<{selectionEvent}>", handler)
 
 
     # ----------------- the action begins ----------------------------------------
     try:
         # load the text into the textArea
-        if type(text) == type("abc"): pass
-        else:
+        if type(text) != type("abc"):
             try:
                 text = "".join(text)  # convert a list or a tuple to a string
             except:
-                msgbox("Exception when trying to convert "+ str(type(text)) + " to text in textArea")
+                msgbox(
+                    f"Exception when trying to convert {str(type(text))} to text in textArea"
+                )
                 sys.exit(16)
         textArea.insert(END,text, "normal")
 
@@ -1542,8 +1522,7 @@ def diropenbox(msg=None
         , initialfile=None
         )
     localRoot.destroy()
-    if not f: return None
-    return os.path.normpath(f)
+    return None if not f else os.path.normpath(f)
 
 
 
@@ -1553,10 +1532,9 @@ def diropenbox(msg=None
 def getFileDialogTitle(msg
     , title
     ):
-    if msg and title: return "%s - %s" % (title,msg)
-    if msg and not title: return str(msg)
-    if title and not msg: return str(title)
-    return None # no message and no title
+    if msg:
+        return f"{title} - {msg}" if title else str(msg)
+    return str(title) if title else None
 
 #-------------------------------------------------------------------
 # class FileTypeObject for use with fileopenbox
@@ -1573,29 +1551,28 @@ class FileTypeObject:
 
         elif type(filemask) == type([]): # a list
             if len(filemask) < 2:
-                raise AssertionError('Invalid filemask.\n'
-                +'List contains less than 2 members: "%s"' % filemask)
-            else:
-                self.name  = filemask[-1]
-                self.masks = list(filemask[:-1] )
+                raise AssertionError(
+                    'Invalid filemask.\n'
+                    + f'List contains less than 2 members: "{filemask}"'
+                )
+            self.name  = filemask[-1]
+            self.masks = list(filemask[:-1] )
         else:
-            raise AssertionError('Invalid filemask: "%s"' % filemask)
+            raise AssertionError(f'Invalid filemask: "{filemask}"')
 
     def __eq__(self,other):
-        if self.name == other.name: return True
-        return False
+        return self.name == other.name
 
     def add(self,other):
         for mask in other.masks:
-            if mask in self.masks: pass
-            else: self.masks.append(mask)
+            if mask not in self.masks:
+                self.masks.append(mask)
 
     def toTuple(self):
         return (self.name,tuple(self.masks))
 
     def isAll(self):
-        if self.name == "All files": return True
-        return False
+        return self.name == "All files"
 
     def initializeFromString(self, filemask):
         # remove everything except the extension from the filemask
@@ -1603,7 +1580,7 @@ class FileTypeObject:
         if self.ext == "" : self.ext = ".*"
         if self.ext == ".": self.ext = ".*"
         self.name = self.getName()
-        self.masks = ["*" + self.ext]
+        self.masks = [f"*{self.ext}"]
 
     def getName(self):
         e = self.ext
@@ -1612,9 +1589,7 @@ class FileTypeObject:
         if e == ".py" : return "Python files"
         if e == ".pyc" : return "Python files"
         if e == ".xls": return "Excel files"
-        if e.startswith("."):
-            return e[1:].upper() + " files"
-        return e.upper() + " files"
+        return f"{e[1:].upper()} files" if e.startswith(".") else f"{e.upper()} files"
 
 
 #-------------------------------------------------------------------
@@ -1706,8 +1681,7 @@ def fileopenbox(msg=None
 
     localRoot.destroy()
 
-    if not f: return None
-    return os.path.normpath(f)
+    return None if not f else os.path.normpath(f)
 
 
 #-------------------------------------------------------------------
@@ -1742,8 +1716,7 @@ def filesavebox(msg=None
         , filetypes=filetypes
         )
     localRoot.destroy()
-    if not f: return None
-    return os.path.normpath(f)
+    return None if not f else os.path.normpath(f)
 
 
 #-------------------------------------------------------------------
@@ -1779,23 +1752,20 @@ def fileboxSetup(default,filetypes):
     #------------------------------------------------------------------
     # make sure that the list of filetypes includes the ALL FILES type.
     #------------------------------------------------------------------
-    if ALL_filetypes_was_specified:
-        pass
-    elif allFileTypeObject == initialFileTypeObject:
-        pass
-    else:
+    if (
+        not ALL_filetypes_was_specified
+        and allFileTypeObject != initialFileTypeObject
+    ):
         filetypeObjects.insert(0,allFileTypeObject)
     #------------------------------------------------------------------
     # Make sure that the list includes the initialFileTypeObject
     # in the position in the list that will make it the default.
     # This changed between Python version 2.5 and 2.6
     #------------------------------------------------------------------
-    if len(filetypeObjects) == 0:
+    if not filetypeObjects:
         filetypeObjects.append(initialFileTypeObject)
 
-    if initialFileTypeObject in (filetypeObjects[0], filetypeObjects[-1]):
-        pass
-    else:
+    if initialFileTypeObject not in (filetypeObjects[0], filetypeObjects[-1]):
         if runningPython26:
             filetypeObjects.append(initialFileTypeObject)
         else:
@@ -1846,7 +1816,7 @@ def __put_buttons_in_buttonframe(choices):
         commandButton  = tempButton
         handler = __buttonEvent
         for selectionEvent in STANDARD_SELECTION_EVENTS:
-            commandButton.bind("<%s>" % selectionEvent, handler)
+            commandButton.bind(f"<{selectionEvent}>", handler)
 
 #-----------------------------------------------------------------------
 #
@@ -1950,10 +1920,8 @@ settings.store()
         if not os.path.isfile(self.filename): return self
 
         try:
-            f = open(self.filename,"rb")
-            unpickledObject = pickle.load(f)
-            f.close()
-
+            with open(self.filename,"rb") as f:
+                unpickledObject = pickle.load(f)
             for key in list(self.__dict__.keys()):
                 default = self.__dict__[key]
                 self.__dict__[key] = unpickledObject.__dict__.get(key,default)
@@ -1968,9 +1936,8 @@ settings.store()
         Note that if the directory for the pickle file does not already exist,
         the store operation will fail.
         """
-        f = open(self.filename, "wb")
-        pickle.dump(self, f)
-        f.close()
+        with open(self.filename, "wb") as f:
+            pickle.dump(self, f)
 
 
     def kill(self):

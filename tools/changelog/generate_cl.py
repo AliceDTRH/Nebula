@@ -21,6 +21,7 @@ GITHUB_REPOSITORY: Github action variable representing the active repo (Action p
 BOT_TOKEN: A repository account token, this will allow the action to push the changes (Action provided)
 GITHUB_SHA: The SHA associated with the commit that triggered the action (Action provided)
 """
+
 import os
 import io
 import re
@@ -58,22 +59,18 @@ pr_body = pr.body
 pr_number = pr.number
 pr_author = pr.user.name or pr.user.login
 
-write_cl = {}
 try:
     cl = CL_BODY.search(pr_body)
-    cl_list = CL_SPLIT.findall(cl.group(3))
+    cl_list = CL_SPLIT.findall(cl[3])
 except AttributeError:
     print("No CL found!")
     exit(0) # Change to '0' if you do not want the action to fail when no CL is provided
 
 
-if cl.group(2) is not None:
-    write_cl['author'] = cl.group(2).lstrip()
-else:
-    write_cl['author'] = pr_author
-
-write_cl['delete-after'] = True
-
+write_cl = {
+    'author': cl[2].lstrip() if cl[2] is not None else pr_author,
+    'delete-after': True,
+}
 with open(Path.cwd().joinpath("tools/changelog/tags.yml")) as file:
     tags = yaml.safe_load(file)
 

@@ -45,8 +45,7 @@ mismatches_by_file = { }
 def get_tag_matches(line):
 	mismatch_count_by_tag = { }
 	for tag_tuple in tag_tuples:
-		mismatch_count = 0
-		mismatch_count += len(tag_tuple[1].findall(line))
+		mismatch_count = 0 + len(tag_tuple[1].findall(line))
 		mismatch_count -= len(tag_tuple[2].findall(line))
 		if mismatch_count != 0:
 			mismatch_count_by_tag[tag_tuple[0]] = mismatch_count
@@ -54,31 +53,30 @@ def get_tag_matches(line):
 
 # Support def that simply checks if a given dictionary in the format tag/list of unmatched lines has mismatch entries.
 def has_mismatch(match_list):
-	for tag, list_of_mismatched_lines in match_list.items():
-		if(len(list_of_mismatched_lines) > 0):
-			return 1
-	return 0
+	return next(
+		(
+			1
+			for tag, list_of_mismatched_lines in match_list.items()
+			if (len(list_of_mismatched_lines) > 0)
+		),
+		0,
+	)
 
 def arrange_mismatches(mismatches_by_tag, mismatch_line, mismatch_counts):
 	for tag, mismatch_count in mismatch_counts.items():
 		stack_of_existing_mismatches = mismatches_by_tag[tag]
-		for i in range(0, abs(mismatch_count)):
+		for _ in range(0, abs(mismatch_count)):
 			if len(stack_of_existing_mismatches) == 0:
 				if(mismatch_count > 0):
 					stack_of_existing_mismatches.append(mismatch_line)
 				else:
 					stack_of_existing_mismatches.append(-mismatch_line)
+			elif stack_of_existing_mismatches[0] > 0 and mismatch_count > 0:
+				stack_of_existing_mismatches.append(mismatch_line)
+			elif stack_of_existing_mismatches[0] > 0 or mismatch_count >= 0:
+				stack_of_existing_mismatches.pop()
 			else:
-				if stack_of_existing_mismatches[0] > 0:
-					if mismatch_count > 0:
-						stack_of_existing_mismatches.append(mismatch_line)
-					else:
-						stack_of_existing_mismatches.pop()
-				else:
-					if mismatch_count < 0:
-						stack_of_existing_mismatches.append(-mismatch_line)
-					else:
-						stack_of_existing_mismatches.pop()
+				stack_of_existing_mismatches.append(-mismatch_line)
 
 
 # This section parses all *.dm files in the given directory, recursively.
