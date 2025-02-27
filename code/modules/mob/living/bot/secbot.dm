@@ -7,10 +7,8 @@
 	desc = "A little security robot.  He looks less than thrilled."
 	icon = 'icons/mob/bot/secbot.dmi'
 	icon_state = "secbot0"
-	var/attack_state = "secbot-c"
 	layer = MOB_LAYER
-	maxHealth = 50
-	health = 50
+	max_health = 50
 	req_access = list(list(access_security, access_forensics_lockers))
 	botcard_access = list(access_security, access_sec_doors, access_forensics_lockers, access_morgue, access_maint_tunnels)
 
@@ -20,6 +18,7 @@
 
 	RequiresAccessToToggle = 1 // Haha no
 
+	var/attack_state = "secbot-c"
 	var/idcheck = 0 // If true, arrests for having weapons without authorization.
 	var/check_records = 0 // If true, arrests people without a record.
 	var/check_arrest = 1 // If true, arrests people who are set to arrest.
@@ -39,12 +38,9 @@
 	will_patrol = 1
 
 /mob/living/bot/secbot/Initialize()
-	stun_baton = new(src)
-	stun_baton.bcell = new /obj/item/cell/infinite(stun_baton)
-	stun_baton.set_status(1, null)
-	. = ..()
-
+	stun_baton = new /obj/item/baton/infinite(src)
 	handcuffs = new(src)
+	. = ..()
 
 /mob/living/bot/secbot/Destroy()
 	qdel(stun_baton)
@@ -55,11 +51,11 @@
 
 /mob/living/bot/secbot/turn_on()
 	..()
-	stun_baton.set_status(on, null)
+	stun_baton.set_cell_status(on, null)
 
 /mob/living/bot/secbot/turn_off()
 	..()
-	stun_baton.set_status(on, null)
+	stun_baton.set_cell_status(on, null)
 
 /mob/living/bot/secbot/on_update_icon()
 	..()
@@ -70,19 +66,19 @@
 	. += "<b>Automatic Security Unit</b>"
 
 /mob/living/bot/secbot/GetInteractPanel()
-	. = "Check for weapon authorization: <a href='?src=\ref[src];command=idcheck'>[idcheck ? "Yes" : "No"]</a>"
-	. += "<br>Check security records: <a href='?src=\ref[src];command=ignorerec'>[check_records ? "Yes" : "No"]</a>"
-	. += "<br>Check arrest status: <a href='?src=\ref[src];command=ignorearr'>[check_arrest ? "Yes" : "No"]</a>"
-	. += "<br>Report arrests: <a href='?src=\ref[src];command=declarearrests'>[declare_arrests ? "Yes" : "No"]</a>"
-	. += "<br>Auto patrol: <a href='?src=\ref[src];command=patrol'>[will_patrol ? "On" : "Off"]</a>"
+	. = "Check for weapon authorization: <a href='byond://?src=\ref[src];command=idcheck'>[idcheck ? "Yes" : "No"]</a>"
+	. += "<br>Check security records: <a href='byond://?src=\ref[src];command=ignorerec'>[check_records ? "Yes" : "No"]</a>"
+	. += "<br>Check arrest status: <a href='byond://?src=\ref[src];command=ignorearr'>[check_arrest ? "Yes" : "No"]</a>"
+	. += "<br>Report arrests: <a href='byond://?src=\ref[src];command=declarearrests'>[declare_arrests ? "Yes" : "No"]</a>"
+	. += "<br>Auto patrol: <a href='byond://?src=\ref[src];command=patrol'>[will_patrol ? "On" : "Off"]</a>"
 
 /mob/living/bot/secbot/GetInteractMaintenance()
 	. = "Threat identifier status: "
 	switch(emagged)
 		if(0)
-			. += "<a href='?src=\ref[src];command=emag'>Normal</a>"
+			. += "<a href='byond://?src=\ref[src];command=emag'>Normal</a>"
 		if(1)
-			. += "<a href='?src=\ref[src];command=emag'>Scrambled (DANGER)</a>"
+			. += "<a href='byond://?src=\ref[src];command=emag'>Scrambled (DANGER)</a>"
 		if(2)
 			. += "ERROROROROROR-----"
 
@@ -107,10 +103,10 @@
 				if(emagged < 2)
 					emagged = !emagged
 
-/mob/living/bot/secbot/attackby(var/obj/item/O, var/mob/user)
-	var/curhealth = health
+/mob/living/bot/secbot/attackby(var/obj/item/used_item, var/mob/user)
+	var/curhealth = current_health
 	. = ..()
-	if(health < curhealth)
+	if(current_health < curhealth)
 		react_to_attack(user)
 
 /mob/living/bot/secbot/emag_act(var/remaining_charges, var/mob/user)
@@ -123,11 +119,11 @@
 		return 1
 
 /mob/living/bot/secbot/bullet_act(var/obj/item/projectile/P)
-	var/curhealth = health
+	var/curhealth = current_health
 	var/mob/shooter = P.firer
 	. = ..()
 	//if we already have a target just ignore to avoid lots of checking
-	if(!target && health < curhealth && istype(shooter) && (shooter in view(world.view, src)))
+	if(!target && current_health < curhealth && istype(shooter) && (shooter in view(world.view, src)))
 		react_to_attack(shooter)
 
 /mob/living/bot/secbot/proc/begin_arrest(mob/target, var/threat)
@@ -136,7 +132,7 @@
 		broadcast_security_hud_message("[src] is arresting a level [threat] suspect <b>[suspect_name]</b> in <b>[get_area_name(src)]</b>.", src)
 	say("Down on the floor, [suspect_name]! You have [SECBOT_WAIT_TIME] seconds to comply.")
 	playsound(src.loc, pick(preparing_arrest_sounds), 50)
-	events_repository.register(/decl/observ/moved, target, src, /mob/living/bot/secbot/proc/target_moved)
+	events_repository.register(/decl/observ/moved, target, src, TYPE_PROC_REF(/mob/living/bot/secbot, target_moved))
 
 /mob/living/bot/secbot/proc/target_moved(atom/movable/moving_instance, atom/old_loc, atom/new_loc)
 	if(get_dist(get_turf(src), get_turf(target)) >= 1)
@@ -154,17 +150,17 @@
 	..()
 	events_repository.unregister(/decl/observ/moved, target, src)
 	awaiting_surrender = -1
-	walk_to(src, 0)
+	stop_automove()
 
 /mob/living/bot/secbot/startPatrol()
 	if(!locked) // Stop running away when we set you up
 		return
 	..()
 
-/mob/living/bot/secbot/confirmTarget(var/atom/A)
+/mob/living/bot/secbot/confirmTarget(atom/target)
 	if(!..())
 		return 0
-	return (check_threat(A) >= SECBOT_THREAT_ARREST)
+	return (check_threat(target) >= SECBOT_THREAT_ARREST)
 
 /mob/living/bot/secbot/lookForTargets()
 	for(var/mob/living/M in view(src))
@@ -179,56 +175,60 @@
 			return
 
 /mob/living/bot/secbot/handleAdjacentTarget()
-	var/mob/living/carbon/human/H = target
+	var/mob/living/human/H = target
 	var/threat = check_threat(target)
-	if(awaiting_surrender < SECBOT_WAIT_TIME && istype(H) && !H.lying && threat < SECBOT_THREAT_ATTACK)
+	if(awaiting_surrender < SECBOT_WAIT_TIME && istype(H) && !H.current_posture.prone && threat < SECBOT_THREAT_ATTACK)
 		if(awaiting_surrender == -1)
 			begin_arrest(target, threat)
 		++awaiting_surrender
 	else
-		UnarmedAttack(target)
+		UnarmedAttack(target, TRUE)
 
-/mob/living/bot/secbot/proc/cuff_target(var/mob/living/carbon/C)
-	if(istype(C) && !C.get_equipped_item(slot_handcuffed_str))
-		handcuffs.place_handcuffs(C, src)
-	resetTarget() //we're done, failed or not. Don't want to get stuck if C is not
+/mob/living/bot/secbot/proc/cuff_target(var/mob/living/target)
+	if(istype(target) && !target.get_equipped_item(slot_handcuffed_str))
+		handcuffs.place_handcuffs(target, src)
+	resetTarget() //we're done, failed or not. Don't want to get stuck if target is not
+
+/mob/living/bot/get_target_zone()
+	if(!client)
+		return BP_CHEST
+	return ..()
 
 /mob/living/bot/secbot/UnarmedAttack(var/mob/M, var/proximity)
-	if(!..())
+
+	. = ..()
+	if(.)
 		return
 
 	if(!istype(M))
-		return
+		return FALSE
 
-	var/mob/living/carbon/human/H = M
-	if(istype(H) && H.lying)
+	var/mob/living/human/H = M
+	if(istype(H) && H.current_posture.prone)
 		cuff_target(H)
-		return
+		return TRUE
 
-	if(istype(M, /mob/living/simple_animal))
-		a_intent = I_HURT
+	if(isanimal(M))
+		set_intent(I_FLAG_HARM)
 	else
-		a_intent = I_GRAB
+		set_intent(I_FLAG_GRAB)
 
-	stun_baton.attack(M, src, BP_CHEST) //robots and turrets aim for center of mass
+	stun_baton.use_on_mob(M, src) //robots and turrets aim for center of mass
 	flick(attack_state, src)
+	return TRUE
 
-/mob/living/bot/secbot/explode()
-	visible_message("<span class='warning'>[src] blows apart!</span>")
-	var/turf/Tsec = get_turf(src)
-	new /obj/item/assembly/prox_sensor(Tsec)
-	new /obj/item/baton(Tsec)
-	if(prob(50))
-		new /obj/item/robot_parts/l_arm(Tsec)
-
-	spark_at(src, cardinal_only = TRUE)
-
-	new /obj/effect/decal/cleanable/blood/oil(Tsec)
-	qdel(src)
+/mob/living/bot/secbot/gib(do_gibs = TRUE)
+	var/turf/my_turf = get_turf(src)
+	. = ..()
+	if(. && my_turf)
+		new /obj/item/assembly/prox_sensor(my_turf)
+		new /obj/item/baton(my_turf)
+		if(prob(50))
+			new /obj/item/robot_parts/l_arm(my_turf)
 
 /mob/living/bot/secbot/proc/target_name(mob/living/T)
 	if(ishuman(T))
-		var/mob/living/carbon/human/H = T
+		var/mob/living/human/H = T
 		return H.get_id_name("unidentified person")
 	return "unidentified lifeform"
 

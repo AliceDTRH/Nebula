@@ -2,16 +2,19 @@
 	icon = 'icons/obj/robot_component.dmi' // Cyborgs radio icons should look like the component.
 	icon_state = "radio"
 	canhear_range = 0
-	cell = null
 	power_usage = 0
 	is_spawnable_type = FALSE
 	var/shut_up = 1
 
+/obj/item/radio/borg/setup_power_supply(loaded_cell_type, accepted_cell_type, power_supply_extension_type, charge_value)
+	SHOULD_CALL_PARENT(FALSE)
+	return
+
 /obj/item/radio/borg/can_receive_message(var/check_network_membership)
 	. = ..() && isrobot(loc)
 	if(.)
-		var/mob/living/silicon/robot/R = loc
-		if(!R.handle_radio_transmission())
+		var/mob/living/silicon/robot/robot = loc
+		if(!robot.handle_radio_transmission())
 			return FALSE
 
 /obj/item/radio/borg/ert
@@ -29,8 +32,8 @@
 /obj/item/radio/borg/talk_into(mob/living/M, message, message_mode, var/verb = "says", var/decl/language/speaking = null)
 	. = ..()
 	if(isrobot(loc))
-		var/mob/living/silicon/robot/R = src.loc
-		R.handle_radio_transmission()
+		var/mob/living/silicon/robot/robot = src.loc
+		robot.handle_radio_transmission()
 
 /obj/item/radio/borg/OnTopic(mob/user, href_list, datum/topic_state/state)
 	if((. = ..()))

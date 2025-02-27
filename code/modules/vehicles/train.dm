@@ -4,8 +4,8 @@
 
 	move_delay = 1
 
-	health = 100
-	maxhealth = 100
+	current_health = 100
+	max_health = 100
 	fire_dam_coeff = 0.7
 	brute_dam_coeff = 0.5
 
@@ -29,12 +29,12 @@
 		if(T.lead || T.is_train_head())
 			latch(T)
 
-/obj/vehicle/train/examine(mob/user)
+/obj/vehicle/train/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (lead)
-		to_chat(user, SPAN_NOTICE("It is hitched to \the [lead]."))
+		. += SPAN_NOTICE("It is hitched to \the [lead].")
 	if (tow)
-		to_chat(user, SPAN_NOTICE("It is towing \the [tow]."))
+		. += SPAN_NOTICE("It is towing \the [tow].")
 
 /obj/vehicle/train/Move()
 	var/old_loc = get_turf(src)
@@ -58,16 +58,16 @@
 			A.Move(T)	//bump things away when hit
 
 	if(emagged)
-		if(istype(A, /mob/living))
+		if(isliving(A))
 			var/mob/living/M = A
 			visible_message("<span class='warning'>[src] knocks over [M]!</span>")
 			var/def_zone = ran_zone()
 			M.apply_effects(5, 5)				//knock people down if you hit them
 			M.apply_damage(22 / move_delay, BRUTE, def_zone)	// and do damage according to how fast the train is going
-			if(istype(load, /mob/living/carbon/human))
+			if(ishuman(load))
 				var/mob/living/D = load
 				to_chat(D, "<span class='warning'>You hit [M]!</span>")
-				msg_admin_attack("[D.name] ([D.ckey]) hit [M.name] ([M.ckey]) with [src]. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)")
+				msg_admin_attack("[D.name] ([D.ckey]) hit [M.name] ([M.ckey]) with [src]. (<A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)")
 
 
 //-------------------------------------------
@@ -103,14 +103,14 @@
 	to_chat(user, "<span class='notice'>You climb down from [src].</span>")
 	return 1
 
-/obj/vehicle/train/handle_mouse_drop(atom/over, mob/user)
+/obj/vehicle/train/handle_mouse_drop(atom/over, mob/user, params)
 	if(istype(over, /obj/vehicle/train))
 		var/obj/vehicle/train/beep = over
 		beep.latch(src, user)
 		return TRUE
 	. = ..()
 
-/obj/vehicle/train/receive_mouse_drop(var/atom/dropping, mob/user)
+/obj/vehicle/train/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && istype(dropping, /atom/movable))
 		if(!load(dropping))
@@ -135,7 +135,7 @@
 	set category = "Object"
 	set src in view(1)
 
-	if(!istype(usr, /mob/living/carbon/human))
+	if(!ishuman(usr))
 		return
 
 	if(!CanPhysicallyInteract(usr))

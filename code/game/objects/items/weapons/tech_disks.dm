@@ -3,11 +3,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 /obj/item/disk
 	name                   = "data disk"
-	desc                   = "A standard 3.5 inches floppy disk for storing computer files... What's even an inch?"
+	desc                   = "A standard 3.5-inch floppy disk for storing computer files... What's even an inch?"
 	icon                   = 'icons/obj/items/device/diskette.dmi'
 	icon_state             = ICON_STATE_WORLD
 	w_class                = ITEM_SIZE_TINY
-	material               = /decl/material/solid/plastic
+	material               = /decl/material/solid/organic/plastic
 	matter                 = list(/decl/material/solid/metal/steel = MATTER_AMOUNT_TRACE)
 	throw_range            = 10
 	throw_speed            = 6
@@ -31,6 +31,7 @@
 	if(existing && existing != F)
 		delete_file(F.filename)
 
+	F.holder = weakref(src)
 	LAZYSET(stored_files, F.filename, F)
 	free_blocks = clamp(round(free_blocks - F.block_size), 0, block_capacity)
 	return TRUE
@@ -53,6 +54,15 @@
 	// do not qdel; should be GC'd once it has no references anyway
 	F.holder = null
 	LAZYREMOVE(stored_files, name)
+	return TRUE
+
+/**Renames a file's handle on the disk. Does not rename the file itself. */
+/obj/item/disk/proc/rename_file(var/oldname, var/newname, var/force = FALSE)
+	var/datum/computer_file/data/F = LAZYACCESS(stored_files, oldname)
+	if(!F || (F.unrenamable && !force))
+		return FALSE
+	stored_files -= oldname
+	stored_files[newname] = F
 	return TRUE
 
 /**Like a full disk format. Erase all files, even if write protected! */
@@ -90,7 +100,7 @@
 // Random Data Disk
 ///////////////////////////////////////////////////////////////////////////////
 /obj/item/disk/random/Initialize(ml, material_key)
-	color = get_random_colour()
+	set_color(get_random_colour())
 	. = ..()
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,9 +122,24 @@
 	var/datum/fabricator_recipe/blueprint
 
 /obj/item/disk/design_disk/attack_hand(mob/user)
-	if(user.a_intent != I_HURT || !blueprint || !user.check_dexterity(DEXTERITY_KEYBOARDS))
+	if(!user.check_intent(I_FLAG_HARM) || !blueprint || !user.check_dexterity(DEXTERITY_KEYBOARDS))
 		return ..()
 	blueprint = null
 	SetName(initial(name))
 	to_chat(user, SPAN_DANGER("You flick the erase switch and wipe \the [src]."))
 	return TRUE
+
+///////////////////////////////////////////////////////////////////////////////
+// Exploration and Mining Data Disk
+///////////////////////////////////////////////////////////////////////////////
+/obj/item/disk/survey
+	name = "survey data disk"
+	color = COLOR_DARK_BROWN
+	var/data = 0
+
+/obj/item/disk/survey/get_examine_strings(mob/user, distance, infix, suffix)
+	. = ..()
+	. += "A tiny indicator on \the [src] shows it holds [data] good explorer point\s."
+
+/obj/item/disk/survey/get_base_value()
+	. = holographic ? 0 : (sqrt(data) * 5)

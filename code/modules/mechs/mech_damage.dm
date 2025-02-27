@@ -28,7 +28,7 @@
 		. = ..()
 
 /mob/living/exosuit/resolve_item_attack(var/obj/item/I, var/mob/living/user, var/def_zone)
-	if(!I.force)
+	if(!I.expend_attack_force(user))
 		user.visible_message(SPAN_NOTICE("\The [user] bonks \the [src] harmlessly with \the [I]."))
 		return
 
@@ -58,11 +58,12 @@
 			if (prob(chance))
 				if (enter(AM, silent = TRUE, check_incap = FALSE, instant = TRUE))
 					visible_message(SPAN_NOTICE("[message]"))
-					return
+					return TRUE
 
 	if (LAZYLEN(pilots) && (!hatch_closed || !prob(body.pilot_coverage)))
 		var/mob/living/pilot = pick(pilots)
 		return pilot.hitby(AM, TT)
+
 	. = ..()
 
 /mob/living/exosuit/bullet_act(obj/item/projectile/P, def_zone, used_weapon)
@@ -80,19 +81,22 @@
 		if(body_armor)
 			. += body_armor
 
-/mob/living/exosuit/updatehealth()
-	maxHealth = body ? body.mech_health : 0
-	health = maxHealth-(getFireLoss()+getBruteLoss())
+/mob/living/exosuit/get_max_health()
+	return (body ? body.mech_health : 0)
 
-/mob/living/exosuit/adjustFireLoss(var/amount, var/obj/item/mech_component/MC = pick(list(arms, legs, body, head)))
+/mob/living/exosuit/get_total_life_damage()
+	return (get_damage(BURN)+get_damage(BRUTE))
+
+/mob/living/exosuit/adjustFireLoss(var/amount, var/obj/item/mech_component/MC = pick(list(arms, legs, body, head)), var/do_update_health = TRUE)
 	if(MC)
 		MC.take_burn_damage(amount)
-		MC.update_health()
+		if(do_update_health)
+			update_health() // TODO: unify these procs somehow instead of having weird brute-wrapping behavior as the default.
 
-/mob/living/exosuit/adjustBruteLoss(var/amount, var/obj/item/mech_component/MC = pick(list(arms, legs, body, head)))
+/mob/living/exosuit/adjustBruteLoss(var/amount, var/obj/item/mech_component/MC = pick(list(arms, legs, body, head)), var/do_update_health = TRUE)
 	if(MC)
 		MC.take_brute_damage(amount)
-		MC.update_health()
+	..()
 
 /mob/living/exosuit/proc/zoneToComponent(var/zone)
 	switch(zone)
@@ -105,7 +109,7 @@
 		else
 			return body
 
-/mob/living/exosuit/apply_damage(var/damage = 0,var/damagetype = BRUTE, var/def_zone = null, var/damage_flags = 0, var/used_weapon = null, var/armor_pen, var/silent = FALSE)
+/mob/living/exosuit/apply_damage(damage = 0, damagetype = BRUTE, def_zone, damage_flags = 0, obj/used_weapon, armor_pen, silent = FALSE, obj/item/organ/external/given_organ)
 	if(!damage)
 		return 0
 
@@ -142,9 +146,9 @@
 	//Only 3 types of damage concern mechs and vehicles
 	switch(damagetype)
 		if(BRUTE)
-			adjustBruteLoss(damage, target)
+			take_damage(damage, inflicter = target)
 		if(BURN)
-			adjustFireLoss(damage, target)
+			take_damage(damage, BURN, inflicter = target)
 		if(IRRADIATE)
 			for(var/mob/living/pilot in pilots)
 				pilot.apply_damage(damage, IRRADIATE, def_zone, damage_flags, used_weapon)
@@ -152,8 +156,6 @@
 	if((damagetype == BRUTE || damagetype == BURN) && prob(25+(damage*2)))
 		sparks.set_up(3,0,src)
 		sparks.start()
-	updatehealth()
-
 	return 1
 
 /mob/living/exosuit/rad_act(var/severity)
@@ -164,7 +166,7 @@
 	if(!hatch_closed || (body.pilot_coverage < 100)) //Open, environment is the source
 		return .
 	var/list/after_armor = modify_damage_by_armor(null, ., IRRADIATE, DAM_DISPERSED, src, 0, TRUE)
-	return after_armor[1]	
+	return after_armor[1]
 
 /mob/living/exosuit/getFireLoss()
 	var/total = 0
@@ -200,6 +202,6 @@
 			for(var/thing in pilots)
 				var/mob/pilot = thing
 				pilot.emp_act(severity)
-				
+
 /mob/living/exosuit/get_bullet_impact_effect_type(def_zone)
 	return BULLET_IMPACT_METAL

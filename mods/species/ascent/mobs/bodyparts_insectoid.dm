@@ -1,81 +1,34 @@
-/datum/inventory_slot/gripper/midlimb
-	slot_name = "Midlimb"
-	slot_id = BP_M_HAND
-	requires_organ_tag = BP_M_HAND
-	ui_label = "M"
-	ui_loc = "CENTER,BOTTOM+1:14"
-
-/obj/item/organ/external/hand/insectoid/midlimb
-	name = "central grasper"
-	joint = "central wrist"
-	organ_tag = BP_M_HAND
-	parent_organ = BP_CHEST
-	amputation_point = "central wrist"
-	icon_position = 0
-	encased = "carapace"
-	gripper_type = /datum/inventory_slot/gripper/midlimb
-
-/datum/inventory_slot/gripper/upper_left_hand
-	slot_name = "Left Upper Hand"
-	slot_id = BP_L_HAND_UPPER
-	requires_organ_tag = BP_L_HAND_UPPER
-	ui_label = "UL"
-	hand_sort_priority = 2
-
-/obj/item/organ/external/hand/insectoid/upper
-	name = "left raptorial"
-	joint = "left upper wrist"
-	amputation_point = "left upper wrist"
-	organ_tag = BP_L_HAND_UPPER
-	gripper_type = /datum/inventory_slot/gripper/upper_left_hand
-
-/obj/item/organ/external/hand/insectoid/upper/get_manual_dexterity()
-	return (..() & ~(DEXTERITY_WEAPONS|DEXTERITY_COMPLEX_TOOLS))
-
-/datum/inventory_slot/gripper/upper_right_hand
-	slot_name = "Right Upper Hand"
-	slot_id = BP_R_HAND_UPPER
-	requires_organ_tag = BP_R_HAND_UPPER
-	ui_label = "UR"
-	hand_sort_priority = 2
-
-/obj/item/organ/external/hand/right/insectoid/upper
-	name = "right raptorial"
-	joint = "right upper wrist"
-	amputation_point = "right upper wrist"
-	organ_tag = BP_R_HAND_UPPER
-	gripper_type = /datum/inventory_slot/gripper/upper_right_hand
-
-/obj/item/organ/external/hand/right/insectoid/upper/get_manual_dexterity()
-	return (..() & ~(DEXTERITY_WEAPONS|DEXTERITY_COMPLEX_TOOLS))
+/datum/action/item_action/organ/ascent
+	button_icon = 'mods/species/ascent/icons/actions.dmi'
 
 /obj/item/organ/internal/egg_sac/insectoid
 	name = "gyne egg-sac"
 	action_button_name = "Produce Egg"
 	organ_tag = BP_EGG
+	default_action_type = /datum/action/item_action/organ/ascent
 	var/egg_metabolic_cost = 100
 
 /obj/item/organ/internal/egg_sac/insectoid/refresh_action_button()
 	. = ..()
-	if(.)
+	if(. && istype(action))
 		action.button_icon_state = "egg-on"
-		if(action.button) action.button.UpdateIcon()
+		action.button?.update_icon()
 
 /obj/item/organ/internal/egg_sac/insectoid/attack_self(var/mob/user)
 	. = ..()
-	var/mob/living/carbon/H = user
+	var/mob/living/living_user = user
 	if(.)
-		if(H.incapacitated())
-			to_chat(H, SPAN_WARNING("You can't produce eggs in your current state."))
+		if(living_user.incapacitated())
+			to_chat(living_user, SPAN_WARNING("You can't produce eggs in your current state."))
 			return
-		if(H.nutrition < egg_metabolic_cost)
-			to_chat(H, SPAN_WARNING("You are too ravenously hungry to produce more eggs."))
+		if(living_user.nutrition < egg_metabolic_cost)
+			to_chat(living_user, SPAN_WARNING("You are too ravenously hungry to produce more eggs."))
 			return
-		if(do_after(H, 5 SECONDS, H, FALSE))
-			H.adjust_nutrition(-1 * egg_metabolic_cost)
-			H.visible_message(SPAN_NOTICE("\icon[H] [H] carelessly deposits an egg on \the [get_turf(src)]."))
-			var/obj/structure/insectoid_egg/egg = new(get_turf(H)) // splorp
-			egg.lineage = H.dna.lineage
+		if(do_after(living_user, 5 SECONDS, living_user, FALSE))
+			living_user.adjust_nutrition(-1 * egg_metabolic_cost)
+			living_user.visible_message(SPAN_NOTICE("\icon[living_user] [living_user] carelessly deposits an egg on \the [get_turf(src)]."))
+			var/obj/structure/insectoid_egg/egg = new(get_turf(living_user)) // splorp
+			egg.lineage = living_user.get_gyne_lineage()
 
 /obj/item/organ/external/foot/insectoid/mantid
 	name = "left tail tip"

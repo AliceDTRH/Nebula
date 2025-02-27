@@ -11,26 +11,27 @@
 	hard_cap_round = 3
 	min_player_age = 18
 	faction = "paramount"
-	default_outfit = /decl/hierarchy/outfit/paramount
+	default_outfit = /decl/outfit/paramount
 
-/decl/hierarchy/outfit/paramount
+/decl/outfit/paramount
 	name =    "Special Role - Paramount Grandmaster"
 	head =    /obj/item/clothing/head/helmet/space/psi_amp
-	uniform = /obj/item/clothing/under/psysuit
-	suit =    /obj/item/clothing/suit/wizrobe/psypurple
+	uniform = /obj/item/clothing/jumpsuit/psysuit
+	suit =    /obj/item/clothing/suit/paramount
 	shoes =   /obj/item/clothing/shoes/jackboots
-	back =    /obj/item/storage/backpack/satchel
-	gloves =  /obj/item/clothing/gloves/color/grey
+	back =    /obj/item/backpack/satchel
+	gloves =  /obj/item/clothing/gloves/grey
 	id_type = /obj/item/card/id/syndicate
 
-/decl/special_role/paramount/equip(var/mob/living/carbon/human/player)
+/decl/special_role/paramount/equip_role(var/mob/living/human/player)
 	. = ..()
 	if(.)
 		player.set_psi_rank(PSI_REDACTION, 3,     defer_update = TRUE)
 		player.set_psi_rank(PSI_COERCION, 3,      defer_update = TRUE)
 		player.set_psi_rank(PSI_PSYCHOKINESIS, 3, defer_update = TRUE)
 		player.set_psi_rank(PSI_ENERGISTICS, 3,   defer_update = TRUE)
-		player.psi.update(TRUE)
+		var/datum/ability_handler/psionics/psi = player.get_ability_handler(/datum/ability_handler/psionics)
+		psi?.update(TRUE)
 
 /decl/special_role/paramount/create_objectives(var/datum/mind/player)
 

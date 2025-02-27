@@ -3,17 +3,21 @@
 /turf/space,
 /area/space)
 "b" = (
-/turf/simulated/wall,
+/turf/wall,
 /area/space)
 "c" = (
-/turf/simulated/floor/tiled,
+/turf/floor/tiled,
 /area/space)
 "e" = (
 /obj/abstract/landmark/latejoin,
-/turf/simulated/floor/tiled,
+/turf/floor/tiled,
 /area/space)
 "R" = (
 /obj/abstract/level_data_spawner/player,
+/turf/space,
+/area/space)
+"X" = (
+/obj/abstract/landmark/latejoin/observer,
 /turf/space,
 /area/space)
 
@@ -60,7 +64,7 @@ a
 a
 a
 a
-a
+X
 a
 a
 a

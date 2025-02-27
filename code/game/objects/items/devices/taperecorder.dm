@@ -1,13 +1,15 @@
 /obj/item/taperecorder
 	name = "universal recorder"
 	desc = "A device that can record to cassette tapes, and play them. It automatically translates the content in playback."
-	icon = 'icons/obj/items/device/tape_recorder.dmi'
-	icon_state = "taperecorder"
-	item_state = "analyzer"
+	icon = 'icons/obj/items/device/tape_recorder/tape_recorder.dmi'
+	icon_state = ICON_STATE_WORLD
 	w_class = ITEM_SIZE_SMALL
-
 	material = /decl/material/solid/metal/aluminium
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
+	obj_flags = OBJ_FLAG_CONDUCTIBLE
+	slot_flags = SLOT_LOWER_BODY
+	throw_speed = 4
+	throw_range = 20
 
 	var/emagged = 0.0
 	var/recording = 0.0
@@ -17,16 +19,10 @@
 	var/canprint = 1
 	var/datum/wires/taperecorder/wires = null // Wires datum
 	var/maintenance = 0
-	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	slot_flags = SLOT_LOWER_BODY
-	throwforce = 2
-	throw_speed = 4
-	throw_range = 20
 
 /obj/item/taperecorder/Initialize()
 	. = ..()
 	wires = new(src)
-	set_extension(src, /datum/extension/base_icon_state, icon_state)
 	if(ispath(mytape))
 		mytape = new mytape(src)
 	global.listening_objects += src
@@ -37,30 +33,28 @@
 
 /obj/item/taperecorder/Destroy()
 	QDEL_NULL(wires)
-	global.listening_objects -= src
 	if(mytape)
 		qdel(mytape)
 		mytape = null
 	return ..()
 
-
-/obj/item/taperecorder/attackby(obj/item/I, mob/user, params)
-	if(IS_SCREWDRIVER(I))
+/obj/item/taperecorder/attackby(obj/item/used_item, mob/user, params)
+	if(IS_SCREWDRIVER(used_item))
 		maintenance = !maintenance
 		to_chat(user, "<span class='notice'>You [maintenance ? "open" : "secure"] the lid.</span>")
-		return
-	if(istype(I, /obj/item/magnetic_tape))
+		return TRUE
+	if(istype(used_item, /obj/item/magnetic_tape))
 		if(mytape)
 			to_chat(user, "<span class='notice'>There's already a tape inside.</span>")
-			return
-		if(!user.try_unequip(I))
-			return
-		I.forceMove(src)
-		mytape = I
-		to_chat(user, "<span class='notice'>You insert [I] into [src].</span>")
+			return TRUE
+		if(!user.try_unequip(used_item))
+			return TRUE
+		used_item.forceMove(src)
+		mytape = used_item
+		to_chat(user, "<span class='notice'>You insert [used_item] into [src].</span>")
 		update_icon()
-		return
-	..()
+		return TRUE
+	return ..()
 
 
 /obj/item/taperecorder/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
@@ -96,10 +90,10 @@
 	mytape = null
 	update_icon()
 
-/obj/item/taperecorder/examine(mob/user, distance)
+/obj/item/taperecorder/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1 && maintenance)
-		to_chat(user, "<span class='notice'>The wires are exposed.</span>")
+		. += SPAN_NOTICE("The wires are exposed.")
 
 /obj/item/taperecorder/hear_talk(mob/living/M, msg, var/verb="says", decl/language/speaking=null)
 	if(mytape && recording)
@@ -110,14 +104,6 @@
 			mytape.record_speech("[M.name] [speaking.format_message_plain(msg, verb)]")
 		else
 			mytape.record_speech("[M.name] [verb], \"[msg]\"")
-
-
-/obj/item/taperecorder/see_emote(mob/M, text, var/emote_type)
-	if(emote_type != AUDIBLE_MESSAGE) //only hearable emotes
-		return
-	if(mytape && recording)
-		mytape.record_speech("[strip_html_properly(text)]")
-
 
 /obj/item/taperecorder/show_message(msg, type, alt, alt_type)
 	var/recordedtext
@@ -355,62 +341,57 @@
 	sleep(300)
 	canprint = 1
 
-
 /obj/item/taperecorder/attack_self(mob/user)
 	if(maintenance)
 		wires.Interact(user)
 		return
-
 	if(recording || playing)
 		stop()
 	else
 		record()
 
-
 /obj/item/taperecorder/on_update_icon()
 	. = ..()
-	var/datum/extension/base_icon_state/bis = get_extension(src, /datum/extension/base_icon_state)
-
+	icon_state = get_world_inventory_state()
 	if(!mytape)
-		icon_state = "[bis.base_icon_state]_empty"
+		icon_state = "[icon_state]_empty"
 	else if(recording)
-		icon_state = "[bis.base_icon_state]_recording"
+		icon_state = "[icon_state]_recording"
 	else if(playing)
-		icon_state = "[bis.base_icon_state]_playing"
+		icon_state = "[icon_state]_playing"
 	else
-		icon_state = "[bis.base_icon_state]_idle"
+		icon_state = "[icon_state]_idle"
 
 /obj/item/magnetic_tape
 	name = "tape"
 	desc = "A magnetic tape that can hold up to ten minutes of content."
-	icon = 'icons/obj/items/device/tape_casette.dmi'
-	icon_state = "tape_white"
-	item_state = "analyzer"
-	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/plastic
+	icon = 'icons/obj/items/device/tape_recorder/tape_casette_white.dmi'
+	icon_state = ICON_STATE_WORLD
+	w_class = ITEM_SIZE_SMALL
+	material = /decl/material/solid/organic/plastic
 	matter = list(
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_TRACE
 	)
-	force = 1
-	throwforce = 0
+	_base_attack_force = 1
 	var/max_capacity = 600
 	var/used_capacity = 0
 	var/list/storedinfo = new/list()
 	var/list/timestamp = new/list()
 	var/ruined = 0
 	var/doctored = 0
+	/// Whether we draw the ruined ribbon overlay when ruined.
+	var/draw_ribbon_if_ruined = TRUE
 
-//draw_ribbon: Whether we draw the ruined ribbon overlay. Only used by quantum tape.
-//#FIXME: Probably should be handled better.
-/obj/item/magnetic_tape/on_update_icon(var/draw_ribbon = TRUE)
+/obj/item/magnetic_tape/on_update_icon()
 	. = ..()
-	if(draw_ribbon && ruined && max_capacity)
-		add_overlay(overlay_image(icon, "ribbonoverlay", flags = RESET_COLOR))
-
+	icon_state = get_world_inventory_state()
+	if(draw_ribbon_if_ruined && ruined && max_capacity)
+		add_overlay(overlay_image(icon, "[icon_state]_ribbonoverlay", flags = RESET_COLOR))
 
 /obj/item/magnetic_tape/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
 	ruin()
+	return ..()
 
 /obj/item/magnetic_tape/attack_self(mob/user)
 	if(!ruined)
@@ -440,22 +421,22 @@
 	storedinfo += "*\[[time2text(used_capacity*10,"mm:ss")]\] [text]"
 
 
-/obj/item/magnetic_tape/attackby(obj/item/I, mob/user, params)
-	if(user.incapacitated())
-		return
-	if(ruined && IS_SCREWDRIVER(I))
+/obj/item/magnetic_tape/attackby(obj/item/used_item, mob/user, params)
+	if(user.incapacitated()) // TODO: this may not be necessary since OnClick checks before starting the attack chain
+		return TRUE
+	if(ruined && IS_SCREWDRIVER(used_item))
 		if(!max_capacity)
 			to_chat(user, "<span class='notice'>There is no tape left inside.</span>")
-			return
+			return TRUE
 		to_chat(user, "<span class='notice'>You start winding the tape back in...</span>")
 		if(do_after(user, 120, target = src))
 			to_chat(user, "<span class='notice'>You wound the tape back in.</span>")
 			fix()
-		return
-	else if(IS_PEN(I))
+		return TRUE
+	else if(IS_PEN(used_item))
 		if(loc == user)
 			var/new_name = input(user, "What would you like to label the tape?", "Tape labeling") as null|text
-			if(isnull(new_name)) return
+			if(isnull(new_name)) return TRUE
 			new_name = sanitize_safe(new_name)
 			if(new_name)
 				SetName("tape - '[new_name]'")
@@ -463,12 +444,14 @@
 			else
 				SetName("tape")
 				to_chat(user, "<span class='notice'>You scratch off the label.</span>")
-		return
-	else if(IS_WIRECUTTER(I))
+		return TRUE
+	else if(IS_WIRECUTTER(used_item))
 		cut(user)
-	else if(istype(I, /obj/item/magnetic_tape/loose))
-		join(user, I)
-	..()
+		return TRUE
+	else if(istype(used_item, /obj/item/magnetic_tape/loose))
+		join(user, used_item)
+		return TRUE
+	return ..()
 
 /obj/item/magnetic_tape/proc/cut(mob/user)
 	if(!LAZYLEN(timestamp))
@@ -477,7 +460,7 @@
 	var/list/output = list("<center>")
 	for(var/i=1, i < timestamp.len, i++)
 		var/time = "\[[time2text(timestamp[i]*10,"mm:ss")]\]"
-		output += "[time]<br><a href='?src=\ref[src];cut_after=[i]'>-----CUT------</a><br>"
+		output += "[time]<br><a href='byond://?src=\ref[src];cut_after=[i]'>-----CUT------</a><br>"
 	output += "</center>"
 
 	var/datum/browser/popup = new(user, "tape_cutting", "Cutting tape", 170, 600)
@@ -527,28 +510,31 @@
 
 //Random colour tapes
 /obj/item/magnetic_tape/random/Initialize()
+	icon = pick(list(
+		'icons/obj/items/device/tape_recorder/tape_casette_white.dmi',
+		'icons/obj/items/device/tape_recorder/tape_casette_blue.dmi',
+		'icons/obj/items/device/tape_recorder/tape_casette_red.dmi',
+		'icons/obj/items/device/tape_recorder/tape_casette_yellow.dmi',
+		'icons/obj/items/device/tape_recorder/tape_casette_purple.dmi'
+	))
 	. = ..()
-	icon_state = "tape_[pick("white", "blue", "red", "yellow", "purple")]"
 
 /obj/item/magnetic_tape/loose
 	name = "magnetic tape"
 	desc = "Quantum-enriched self-repairing nanotape, used for magnetic storage of information."
-	icon = 'icons/obj/items/device/tape_casette.dmi'
-	icon_state = "magtape"
+	icon = 'icons/obj/items/device/tape_recorder/tape_casette_loose.dmi'
 	ruined = TRUE
+	draw_ribbon_if_ruined = FALSE
 
 /obj/item/magnetic_tape/loose/fix()
 	return
 
-/obj/item/magnetic_tape/loose/on_update_icon()
-	. = ..(FALSE)
-
 /obj/item/magnetic_tape/loose/get_loose_tape()
 	return
 
-/obj/item/magnetic_tape/loose/examine(mob/user, distance)
+/obj/item/magnetic_tape/loose/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
-		to_chat(user, "<span class='notice'>It looks long enough to hold [max_capacity] seconds worth of recording.</span>")
+		. += SPAN_NOTICE("It looks long enough to hold [max_capacity] seconds worth of recording.")
 		if(doctored && user.skill_check(SKILL_FORENSICS, SKILL_PROF))
-			to_chat(user, "<span class='notice'>It has been tampered with...</span>")
+			. += SPAN_WARNING("It has been tampered with...")

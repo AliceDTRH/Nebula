@@ -5,6 +5,7 @@
 	body_parts_covered = 0
 	armor = list(ARMOR_MELEE = 55, ARMOR_BULLET = 55, ARMOR_LASER = 55, ARMOR_ENERGY = 55, ARMOR_BOMB = 55, ARMOR_BIO = 100, ARMOR_RAD = 100)
 	flags_inv = 0
+	accessory_slot = null // cannot be equipped on top of helmets because this isn't really even an actual clothing item
 
 /obj/item/clothing/head/fated/equipped(mob/living/user, slot)
 	. = ..()
@@ -12,7 +13,7 @@
 		canremove = FALSE
 		to_chat(user, SPAN_DANGER("<font size=3>\The [src] shatters your mind as it sears through [user.isSynthetic() ? "metal and circuitry" : "flesh and bone"], embedding itself into your skull!</font>"))
 		SET_STATUS_MAX(user, STAT_PARA, 5)
-		addtimer(CALLBACK(src, .proc/activate_role), 5 SECONDS)
+		addtimer(CALLBACK(src, PROC_REF(activate_role)), 5 SECONDS)
 	else
 		canremove = TRUE
 		name = initial(name)
@@ -25,8 +26,8 @@
 	if(istype(starbearer) && !canremove)
 		name = "halo of starfire"
 		desc = "Beware the fire of the star-bearers; it is too terrible to touch."
-		starbearer.add_aura(new /obj/aura/regenerating(starbearer))
-		body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_ARMS|SLOT_HEAD|SLOT_FACE|SLOT_EYES|SLOT_HANDS|SLOT_FEET
+		starbearer.add_mob_modifier(/decl/mob_modifier/regeneration, source = src)
+		body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_ARMS|SLOT_HEAD|SLOT_FACE|SLOT_EYES|SLOT_HANDS|SLOT_FEET|SLOT_TAIL
 		item_flags |= ITEM_FLAG_AIRTIGHT
 
 /obj/item/clothing/head/fated/verb/perform_division()
@@ -50,19 +51,19 @@
 
 	var/atom/blade
 	for(var/obj/item/held in shuffle(user.get_held_items()))
-		if(has_edge(held))
+		if(held.has_edge())
 			blade = held
 			break
 	if(!blade)
 		to_chat(user, SPAN_WARNING("You have no blade with which to divide."))
 		return
 
-	var/decl/pronouns/G = user.get_pronouns()
-	user.visible_message(SPAN_DANGER("\The [user] raises [G.his] [blade.name] to shoulder level!"))
+	var/decl/pronouns/pronouns = user.get_pronouns()
+	user.visible_message(SPAN_DANGER("\The [user] raises [pronouns.his] [blade.name] to shoulder level!"))
 	playsound(user.loc, 'sound/effects/sanctionedaction_prep.ogg', 100, 1)
 
 	if(do_after(user, 1 SECOND, progress = 0, same_direction = 1))
-		user.visible_message(SPAN_DANGER("\The [user] swings [G.his] [blade.name] in a blazing arc!"))
+		user.visible_message(SPAN_DANGER("\The [user] swings [pronouns.his] [blade.name] in a blazing arc!"))
 		playsound(user.loc, 'sound/effects/sanctionedaction_cut.ogg', 100, 1)
 		var/obj/item/projectile/sanctionedaction/cut = new(user.loc)
 		cut.launch(get_edge_target_turf(get_turf(user.loc), user.dir), user.get_target_zone())
@@ -77,8 +78,8 @@
 
 /obj/item/projectile/sanctionedaction/check_penetrate(var/atom/A)
 	. = TRUE
-	if(istype(A, /mob/living/carbon/human))
-		var/mob/living/carbon/human/H = A
+	if(ishuman(A))
+		var/mob/living/human/H = A
 		var/list/external_organs = H.get_external_organs()
 		if(LAZYLEN(external_organs))
 			var/obj/item/organ/external/E = pick(external_organs)
@@ -112,5 +113,5 @@
 	animate(src, alpha = 255, time = 3)
 	sleep(13)
 	animate(src, alpha = 0, time = 40)
-	sleep(40)
-	qdel(src)
+	if(!QDELING(src))
+		QDEL_IN(src, 4 SECONDS)

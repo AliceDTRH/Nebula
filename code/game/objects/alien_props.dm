@@ -7,14 +7,14 @@
 	icon = 'icons/obj/xenoarchaeology.dmi'
 	icon_state = "unknown1"
 	maxcharge = 5000
-	origin_tech = "{'powerstorage':7}"
-	var/static/base_icon
+	origin_tech = @'{"powerstorage":7}'
+	var/base_icon_state
 
 /obj/item/cell/alien/on_update_icon()
 	. = ..()
-	if(!base_icon)
-		base_icon = pick("instrument", "unknown1", "unknown3", "unknown4")
-	icon_state = base_icon
+	if(!base_icon_state)
+		base_icon_state = pick("instrument", "unknown1", "unknown3", "unknown4")
+	icon_state = base_icon_state
 
 // APC
 #define APC_UPDATE_ALLGOOD 128
@@ -65,8 +65,7 @@
 	. = ..()
 	if(!random_light_color)
 		random_light_color = get_random_colour(FALSE, 100, 255)
-	b_color = random_light_color
-	color = random_light_color
+	set_color(random_light_color) // if stuff starts exploding due to too-early update_icon calls it's this thing's fault
 
 //Airlock
 /obj/machinery/door/airlock/alien

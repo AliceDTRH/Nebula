@@ -1,4 +1,6 @@
 /obj/item/ammo_magazine/speedloader
+	name = "speed loader"
+	desc = "A speed loader for revolvers."
 	icon = 'icons/obj/ammo/speedloader.dmi'
 	icon_state = ICON_STATE_WORLD
 	caliber = CALIBER_PISTOL_MAGNUM
@@ -16,14 +18,16 @@
 
 /obj/item/ammo_magazine/speedloader/on_update_icon()
 	. = ..()
-	if(!length(stored_ammo))
+	var/ammo_count = get_stored_ammo_count()
+	if(!ammo_count)
 		return
+	create_initial_contents() // Not ideal, but we need instances for the icon gen.
 	switch(icon_state)
 		if("world")
 			var/ammo_state = "world-some"
-			if(length(stored_ammo) == 1)
+			if(ammo_count == 1)
 				ammo_state = "world-one"
-			else if(length(stored_ammo) == max_ammo)
+			else if(ammo_count == max_ammo)
 				ammo_state = "world-full"
 			var/obj/item/ammo_casing/A = stored_ammo[1]
 			add_overlay(overlay_image(icon, ammo_state, A.color, RESET_COLOR))
@@ -62,8 +66,9 @@
 		overlays += I
 
 /obj/item/ammo_magazine/shotholder/attack_hand(mob/user)
-	if(loc != user || user.a_intent != I_HURT || !length(stored_ammo) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
+	if(loc != user || !user.check_intent(I_FLAG_HARM) || !length(stored_ammo) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
 		return ..()
+	create_initial_contents()
 	var/obj/item/ammo_casing/C = stored_ammo[stored_ammo.len]
 	stored_ammo -= C
 	user.put_in_hands(C)
@@ -128,7 +133,7 @@
 /obj/item/ammo_magazine/pistol
 	name = "pistol magazine"
 	icon_state = "pistol"
-	origin_tech = "{'combat':2}"
+	origin_tech = @'{"combat":2}'
 	mag_type = MAGAZINE
 	caliber = CALIBER_PISTOL
 	material = /decl/material/solid/metal/steel
@@ -176,7 +181,7 @@
 /obj/item/ammo_magazine/box/smallpistol
 	name = "ammunition box (pistol, small)"
 	icon_state = "smallpistol"
-	origin_tech = "{'combat':2}"
+	origin_tech = @'{"combat":2}'
 	material = /decl/material/solid/metal/steel
 	caliber = CALIBER_PISTOL_SMALL
 	ammo_type = /obj/item/ammo_casing/pistol/small
@@ -185,7 +190,7 @@
 /obj/item/ammo_magazine/box/pistol
 	name = "ammunition box (pistol)"
 	icon_state = "smallpistol"
-	origin_tech = "{'combat':2}"
+	origin_tech = @'{"combat":2}'
 	caliber = CALIBER_PISTOL
 	material = /decl/material/solid/metal/steel
 	ammo_type = /obj/item/ammo_casing/pistol
@@ -201,7 +206,7 @@
 	ammo_type = /obj/item/ammo_casing/pistol/emp
 	caliber = CALIBER_PISTOL
 	max_ammo = 15
-	origin_tech = "{'combat':2,'magnets':2,'powerstorage':2}"
+	origin_tech = @'{"combat":2,"magnets":2,"powerstorage":2}'
 
 /obj/item/ammo_magazine/box/emp/smallpistol
 	name = "ammunition box (pistol, small, haywire)"
@@ -210,12 +215,12 @@
 	ammo_type = /obj/item/ammo_casing/pistol/small/emp
 	caliber = CALIBER_PISTOL_SMALL
 	max_ammo = 8
-	origin_tech = "{'combat':2,'magnets':2,'powerstorage':2}"
+	origin_tech = @'{"combat":2,"magnets":2,"powerstorage":2}'
 
 /obj/item/ammo_magazine/rifle
 	name = "assault rifle magazine"
 	icon_state = "bullup"
-	origin_tech = "{'combat':2}"
+	origin_tech = @'{"combat":2}'
 	mag_type = MAGAZINE
 	caliber = CALIBER_RIFLE
 	material = /decl/material/solid/metal/steel
@@ -233,7 +238,7 @@
 /obj/item/ammo_magazine/rifle/drum
 	name = "machine gun drum magazine"
 	icon_state = "drum"
-	origin_tech = "{'combat':2}"
+	origin_tech = @'{"combat":2}'
 	mag_type = MAGAZINE
 	caliber = CALIBER_RIFLE
 	material = /decl/material/solid/metal/steel

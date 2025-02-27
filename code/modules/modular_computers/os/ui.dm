@@ -61,7 +61,7 @@
 	. = min(., extension_status(user))
 
 // Handles user's GUI input
-/datum/extension/interactive/os/extension_act(href, href_list, user)
+/datum/extension/interactive/os/extension_act(href, href_list, mob/user)
 	if( href_list["PC_exit"] )
 		kill_program(active_program)
 		return TOPIC_HANDLED
@@ -94,7 +94,7 @@
 		system_shutdown()
 		return TOPIC_HANDLED
 	if( href_list["PC_minimize"] )
-		minimize_program(usr)
+		minimize_program(user)
 		return TOPIC_HANDLED
 
 	if( href_list["PC_killprogram"] )
@@ -105,7 +105,7 @@
 
 		kill_program(P)
 		update_uis()
-		to_chat(usr, "<span class='notice'>Program [P.filename].[P.filetype] with PID [rand(100,999)] has been killed.</span>")
+		to_chat(user, "<span class='notice'>Program [P.filename].[P.filetype] with PID [rand(100,999)] has been killed.</span>")
 		return TOPIC_HANDLED
 
 	if( href_list["PC_runprogram"] )
@@ -117,22 +117,23 @@
 		return TOPIC_REFRESH
 
 	if( href_list["PC_terminal"] )
-		open_terminal(usr)
+		open_terminal(user)
 		return TOPIC_HANDLED
 
 	if( href_list["PC_login"])
-		login_prompt(usr)
+		login_prompt(user)
 		return TOPIC_REFRESH
 
 	if( href_list["PC_logout"])
-		logout_account(usr)
+		logout_account(user)
 		return TOPIC_REFRESH
 
 /datum/extension/interactive/os/proc/regular_ui_update()
 	var/ui_update_needed = 0
 	var/obj/item/stock_parts/computer/battery_module/battery_module = get_component(PART_BATTERY)
 	if(battery_module)
-		var/batery_percent = battery_module.battery.percent()
+		var/obj/item/cell/battery = battery_module.get_cell()
+		var/batery_percent = battery?.percent()
 		if(last_battery_percent != batery_percent) //Let's update UI on percent change
 			ui_update_needed = 1
 			last_battery_percent = batery_percent
@@ -173,9 +174,10 @@
 /datum/extension/interactive/os/proc/get_header_data(file_browser = FALSE)
 	var/list/data = list()
 	var/obj/item/stock_parts/computer/battery_module/battery_module = get_component(PART_BATTERY)
-	if(battery_module)
-		switch(battery_module.battery.percent())
-			if(80 to 200) // 100 should be maximal but just in case..
+	var/obj/item/cell/battery = battery_module?.get_cell()
+	if(battery)
+		switch(battery.percent())
+			if(80 to 200) // 100 should be maximal but just in case...
 				data["PC_batteryicon"] = "batt_100.gif"
 			if(60 to 80)
 				data["PC_batteryicon"] = "batt_80.gif"
@@ -187,7 +189,7 @@
 				data["PC_batteryicon"] = "batt_20.gif"
 			else
 				data["PC_batteryicon"] = "batt_5.gif"
-		data["PC_batterypercent"] = "[round(battery_module.battery.percent())] %"
+		data["PC_batterypercent"] = "[round(battery.percent())] %"
 		data["PC_showbatteryicon"] = 1
 	else
 		data["PC_batteryicon"] = "batt_5.gif"

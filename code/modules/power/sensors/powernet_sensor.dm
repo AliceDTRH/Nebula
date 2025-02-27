@@ -8,11 +8,11 @@
 // This is used in NanoUI, for example.
 
 /obj/machinery/power/sensor
-	name = "Powernet Sensor"
-	desc = "Small machine which transmits data about specific powernet."
+	name = "powernet sensor"
+	desc = "A sensor that records and transmits data about its connected power network."
 	anchored = TRUE
 	density = FALSE
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	icon = 'icons/obj/objects.dmi'
 	icon_state = "floor_beacon" // If anyone wants to make better sprite, feel free to do so without asking me.
 
@@ -36,8 +36,11 @@
 		var/area/A = get_area(src)
 		if(!A)
 			return // in nullspace
-		id_tag = "[A.proper_name] #[sequential_id(A.name + "power/sensor")]"
-	name = "[id_tag] - Powernet Sensor"
+		var/suffix = uniqueness_repository.Generate(/datum/uniqueness_generator/id_sequential, "[A.proper_name]power/sensor", 1) // unlike sequential_id, starts at 1 instead of 100
+		if(suffix == 1)
+			suffix = null
+		id_tag = "[A.proper_name][suffix ? " #[suffix]" : null]"
+	name = "[id_tag] - powernet sensor"
 
 // Proc: check_grid_warning()
 // Parameters: None

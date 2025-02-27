@@ -47,22 +47,6 @@
 
 	return jointext(result, ", ")
 
-/proc/get_game_time()
-	var/static/time_offset = 0
-	var/static/last_time = 0
-	var/static/last_usage = 0
-
-	var/wtime = world.time
-	var/wusage = world.tick_usage * 0.01
-
-	if(last_time < wtime && last_usage > 1)
-		time_offset += last_usage - 1
-
-	last_time = wtime
-	last_usage = wusage
-
-	return wtime + (time_offset + wusage) * world.tick_lag
-
 var/global/roundstart_hour
 var/global/station_date = ""
 var/global/next_station_date_change = 1 DAY
@@ -84,25 +68,38 @@ var/global/next_station_date_change = 1 DAY
 /proc/time_stamp()
 	return time2text(station_time_in_ticks, "hh:mm:ss")
 
-/* Returns 1 if it is the selected month and day */
-/proc/isDay(var/month, var/day)
-	if(isnum(month) && isnum(day))
-		var/MM = text2num(time2text(world.timeofday, "MM")) // get the current month
-		var/DD = text2num(time2text(world.timeofday, "DD")) // get the current day
-		if(month == MM && day == DD)
-			return 1
-
-		// Uncomment this out when debugging!
-		//else
-			//return 1
-
 var/global/next_duration_update = 0
 var/global/last_round_duration = 0
 var/global/round_start_time = 0
 
-/hook/roundstart/proc/start_timer()
-	round_start_time = world.time
-	return 1
+/proc/ticks2shortreadable(tick_time, separator = ":")
+	var/hours = round(tick_time / (1 HOUR))
+	var/minutes = round((tick_time % (1 HOUR)) / (1 MINUTE))
+	var/seconds = round((tick_time % (1 MINUTE)) / (1 SECOND))
+	var/out = list()
+
+	if(hours > 0)
+		out += "[hours]"
+
+	if(minutes > 0)
+		if(minutes < 10 && hours > 0)
+			out += "0[minutes]"
+		else
+			out += "[minutes]"
+	else if(hours > 0)
+		out += "00"
+
+	if(seconds > 0)
+		if(seconds < 10 && (minutes > 0 || hours > 0))
+			out += "0[seconds]"
+		else
+			out += "[seconds]"
+	else if(minutes > 0 || hours > 0)
+		out += "00"
+
+	if(length(out))
+		return jointext(out, separator)
+	return null
 
 /proc/ticks2readable(tick_time)
 	var/hours = round(tick_time / (1 HOUR))
@@ -117,7 +114,7 @@ var/global/round_start_time = 0
 		out += "[seconds] second\s"
 	if(length(out))
 		return english_list(out)
-	return null
+	return "less than a second"
 
 /proc/roundduration2text()
 	if(!round_start_time)
@@ -126,7 +123,7 @@ var/global/round_start_time = 0
 		return last_round_duration
 
 	var/mills = round_duration_in_ticks // 1/10 of a second, not real milliseconds but whatever
-	//var/secs = ((mills % 36000) % 600) / 10 //Not really needed, but I'll leave it here for refrence.. or something
+	//var/secs = ((mills % 36000) % 600) / 10 //Not really needed, but I'll leave it here for reference or something
 	var/mins = round((mills % 36000) / 600)
 	var/hours = round(mills / 36000)
 
@@ -136,10 +133,6 @@ var/global/round_start_time = 0
 	last_round_duration = "[hours]:[mins]"
 	next_duration_update = world.time + 1 MINUTES
 	return last_round_duration
-
-/hook/startup/proc/set_roundstart_hour()
-	roundstart_hour = rand(0, 23)
-	return TRUE
 
 var/global/midnight_rollovers = 0
 var/global/rollovercheck_last_timeofday = 0

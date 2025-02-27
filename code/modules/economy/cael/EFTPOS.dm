@@ -3,7 +3,7 @@
 	desc = "Swipe your ID card to make purchases electronically."
 	icon = 'icons/obj/items/device/eftpos.dmi'
 	icon_state = "eftpos"
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(/decl/material/solid/silicon = MATTER_AMOUNT_REINFORCEMENT, /decl/material/solid/metal/copper = MATTER_AMOUNT_REINFORCEMENT)
 	var/machine_id = ""
 	var/eftpos_name = "Default EFTPOS scanner"
@@ -35,27 +35,21 @@
 	txt += "2. Lock the new transaction. If you want to modify or cancel the transaction, you simply have to reset your EFTPOS device.<br>"
 	txt += "3. Give the EFTPOS device to your customer, he/she must finish the transaction by swiping their ID card or a charge card with enough funds.<br>"
 	txt += "4. If everything is done correctly, the money will be transferred. To unlock the device you will have to reset the EFTPOS device.<br>"
-	
+
 	var/obj/item/paper/R = new(src.loc, null, txt, "Steps to success: Correct EFTPOS Usage")
-	R.apply_custom_stamp(
-		overlay_image('icons/obj/bureaucracy.dmi', icon_state = "paper_stamp-boss", flags = RESET_COLOR), 
-		"by \the [src]")
+	R.apply_custom_stamp('icons/obj/items/stamps/stamp_boss.dmi', "by \the [src]")
 
 	//by default, connect to the station account
 	//the user of the EFTPOS device can change the target account though, and no-one will be the wiser (except whoever's being charged)
 	linked_account = station_account
 
 /obj/item/eftpos/proc/print_reference()
-	var/obj/item/paper/R = new(src.loc, null, 
-		"<b>[eftpos_name] reference</b><br><br>Access code: [access_code]<br><br><b>Do not lose or misplace this code.</b><br>", 
+	var/obj/item/paper/R = new(src.loc, null,
+		"<b>[eftpos_name] reference</b><br><br>Access code: [access_code]<br><br><b>Do not lose or misplace this code.</b><br>",
 		"Reference: [eftpos_name]")
-	R.apply_custom_stamp(
-		overlay_image('icons/obj/bureaucracy.dmi', icon_state = "paper_stamp-boss", flags = RESET_COLOR), 
-		"by the [src]")
-	
-	
+	R.apply_custom_stamp('icons/obj/items/stamps/stamp_boss.dmi', "by \the [src]")
 	var/obj/item/parcel/D = new(R.loc, null, R, "EFTPOS access code")
-	D.attach_label(usr, null, "EFTPOS access code")
+	D.attach_label(null, null, "EFTPOS access code")
 
 /obj/item/eftpos/attack_self(mob/user)
 	if(get_dist(src,user) <= 1)
@@ -63,7 +57,7 @@
 		dat += "<i>This terminal is</i> [machine_id]. <i>Report this code when contacting IT Support</i><br>"
 		var/decl/currency/cur = GET_DECL(currency)
 		if(transaction_locked)
-			dat += "<a href='?src=\ref[src];choice=toggle_lock'>Back[transaction_paid ? "" : " (authentication required)"]</a><br><br>"
+			dat += "<a href='byond://?src=\ref[src];choice=toggle_lock'>Back[transaction_paid ? "" : " (authentication required)"]</a><br><br>"
 			dat += "Transaction purpose: <b>[transaction_purpose]</b><br>"
 			dat += "Value: <b>[cur.format_value(transaction_amount)]</b><br>"
 			dat += "Linked account: <b>[linked_account ? linked_account.owner_name : "None"]</b><hr>"
@@ -71,31 +65,32 @@
 				dat += "<i>This transaction has been processed successfully.</i><hr>"
 			else
 				dat += "<i>Swipe your card below the line to finish this transaction.</i><hr>"
-				dat += "<a href='?src=\ref[src];choice=scan_card'>\[------\]</a>"
+				dat += "<a href='byond://?src=\ref[src];choice=scan_card'>\[------\]</a>"
 		else
-			dat += "<a href='?src=\ref[src];choice=toggle_lock'>Lock in new transaction</a><br><br>"
+			dat += "<a href='byond://?src=\ref[src];choice=toggle_lock'>Lock in new transaction</a><br><br>"
 
-			dat += "<a href='?src=\ref[src];choice=trans_purpose'>Transaction purpose: [transaction_purpose]</a><br>"
-			dat += "Value: <a href='?src=\ref[src];choice=trans_value'>[cur.format_value(transaction_amount)]</a><br>"
-			dat += "Linked account: <a href='?src=\ref[src];choice=link_account'>[linked_account ? linked_account.owner_name : "None"]</a><hr>"
-			dat += "<a href='?src=\ref[src];choice=change_code'>Change access code</a><br>"
-			dat += "<a href='?src=\ref[src];choice=change_id'>Change EFTPOS ID</a><br>"
-			dat += "Scan card to reset access code <a href='?src=\ref[src];choice=reset'>\[------\]</a>"
+			dat += "<a href='byond://?src=\ref[src];choice=trans_purpose'>Transaction purpose: [transaction_purpose]</a><br>"
+			dat += "Value: <a href='byond://?src=\ref[src];choice=trans_value'>[cur.format_value(transaction_amount)]</a><br>"
+			dat += "Linked account: <a href='byond://?src=\ref[src];choice=link_account'>[linked_account ? linked_account.owner_name : "None"]</a><hr>"
+			dat += "<a href='byond://?src=\ref[src];choice=change_code'>Change access code</a><br>"
+			dat += "<a href='byond://?src=\ref[src];choice=change_id'>Change EFTPOS ID</a><br>"
+			dat += "Scan card to reset access code <a href='byond://?src=\ref[src];choice=reset'>\[------\]</a>"
 		show_browser(user, dat, "window=eftpos")
 	else
 		close_browser(user, "window=eftpos")
 
-/obj/item/eftpos/attackby(obj/item/O, user)
+/obj/item/eftpos/attackby(obj/item/used_item, user)
 
-	var/obj/item/card/id/I = O.GetIdCard()
+	var/obj/item/card/id/I = used_item.GetIdCard()
 
 	if(I)
 		if(linked_account)
-			scan_card(I, O)
+			scan_card(I, used_item)
 		else
-			to_chat(usr, "[html_icon(src)]<span class='warning'>Unable to connect to linked account.</span>")
-	else if (istype(O, /obj/item/charge_stick))
-		var/obj/item/charge_stick/E = O
+			to_chat(user, "[html_icon(src)]<span class='warning'>Unable to connect to linked account.</span>")
+		return TRUE
+	else if (istype(used_item, /obj/item/charge_stick))
+		var/obj/item/charge_stick/E = used_item
 		if (linked_account)
 			if(transaction_locked && !transaction_paid)
 				if(!E.is_locked() && transaction_amount <= E.loaded_worth)
@@ -108,14 +103,14 @@
 						visible_message("[html_icon(src)] \The [src] chimes.")
 						transaction_paid = 1
 					else
-						to_chat(usr, "[html_icon(src)]<span class='warning'>Transaction failed! Please try again.</span>")
+						to_chat(user, "[html_icon(src)]<span class='warning'>Transaction failed! Please try again.</span>")
 				else
-					to_chat(usr, "[html_icon(src)]<span class='warning'>\The [O] doesn't have that much money!</span>")
+					to_chat(user, "[html_icon(src)]<span class='warning'>\The [used_item] doesn't have that much money!</span>")
 		else
-			to_chat(usr, "[html_icon(src)]<span class='warning'>EFTPOS is not connected to an account.</span>")
-
+			to_chat(user, "[html_icon(src)]<span class='warning'>EFTPOS is not connected to an account.</span>")
+		return TRUE
 	else
-		..()
+		return ..()
 
 /obj/item/eftpos/Topic(var/href, var/href_list)
 	if(href_list["choice"])
@@ -173,14 +168,14 @@
 					to_chat(usr, "[html_icon(src)]<span class='warning'>No account connected to send transactions to.</span>")
 			if("scan_card")
 				if(linked_account)
-					var/obj/item/I = usr.get_active_hand()
+					var/obj/item/I = usr.get_active_held_item()
 					if (istype(I, /obj/item/card))
 						scan_card(I)
 				else
 					to_chat(usr, "[html_icon(src)]<span class='warning'>Unable to link accounts.</span>")
 			if("reset")
 				//reset the access code - requires HoP/captain access
-				var/obj/item/I = usr.get_active_hand()
+				var/obj/item/I = usr.get_active_held_item()
 				if (istype(I, /obj/item/card))
 					var/obj/item/card/id/C = I
 					if((access_cent_captain in C.access) || (access_hop in C.access) || (access_captain in C.access))

@@ -7,82 +7,45 @@
 		if(M)
 			LAZYDISTINCTADD(., M)
 
-/proc/random_hair_style(gender, species)
-	var/decl/species/mob_species = get_species_by_key(species || global.using_map.default_species)
-	var/list/valid_styles = mob_species?.get_hair_style_types(gender)
-	return length(valid_styles) ? pick(valid_styles) : /decl/sprite_accessory/hair/bald
-
-/proc/random_facial_hair_style(gender, var/species)
-	var/decl/species/mob_species = get_species_by_key(species || global.using_map.default_species)
-	var/list/valid_styles = mob_species?.get_facial_hair_style_types(gender)
-	return length(valid_styles) ? pick(valid_styles) : /decl/sprite_accessory/facial_hair/shaved
-
 /proc/random_name(gender, species)
 	if(species)
 		var/decl/species/current_species = get_species_by_key(species)
 		if(current_species)
-			var/decl/cultural_info/current_culture = GET_DECL(current_species.default_cultural_info[TAG_CULTURE])
-			if(current_culture)
-				return current_culture.get_random_name(null, gender)
-	return capitalize(pick(gender == FEMALE ? global.first_names_female : global.first_names_male)) + " " + capitalize(pick(global.last_names))
+			var/decl/background_detail/background = current_species.get_default_background_datum_by_flag(BACKGROUND_FLAG_NAMING)
+			if(background)
+				return background.get_random_name(null, gender)
+	return capitalize(pick(gender == FEMALE ? global.using_map.first_names_female : global.using_map.first_names_male)) + " " + capitalize(pick(global.using_map.last_names))
 
 /proc/random_skin_tone(var/decl/bodytype/current_bodytype)
-	var/bodytype_tone = current_bodytype ? 35 - current_bodytype.max_skin_tone() : -185
-	switch(pick(60;"caucasian", 15;"afroamerican", 10;"african", 10;"latino", 5;"albino"))
-		if("caucasian")		. = -10
-		if("afroamerican")	. = -115
-		if("african")		. = -165
-		if("latino")		. = -55
-		if("albino")		. = 34
-		else				. = rand(bodytype_tone,34)
-
-	return min(max(. + rand(-25, 25), bodytype_tone), 34)
-
-/proc/skintone2racedescription(tone)
-	switch (tone)
-		if(30 to INFINITY)		return "albino"
-		if(20 to 30)			return "pale"
-		if(5 to 15)				return "light skinned"
-		if(-10 to 5)			return "white"
-		if(-25 to -10)			return "tan"
-		if(-45 to -25)			return "darker skinned"
-		if(-65 to -45)			return "brown"
-		if(-INFINITY to -65)	return "black"
-		else					return "unknown"
-
-/proc/RoundHealth(health)
-	var/list/icon_states = icon_states('icons/mob/hud_med.dmi')
-	for(var/icon_state in icon_states)
-		if(health >= text2num(icon_state))
-			return icon_state
-	return icon_states[icon_states.len] // If we had no match, return the last element
+	var/adjusted_max_skin_tone = current_bodytype ? 35 - current_bodytype.max_skin_tone() : -185
+	return clamp(rand(current_bodytype ? 35 - current_bodytype.max_skin_tone() : -185, 34), adjusted_max_skin_tone, 34)
 
 //checks whether this item is a module of the robot it is located in.
 /proc/is_robot_module(var/obj/item/thing)
 	if(!thing)
 		return FALSE
-	if(istype(thing.loc, /mob/living/exosuit))
+	if(isexosuit(thing.loc))
 		return FALSE
-	if(!istype(thing.loc, /mob/living/silicon/robot))
+	if(!isrobot(thing.loc))
 		return FALSE
-	var/mob/living/silicon/robot/R = thing.loc
-	return (thing in R.module.equipment)
+	var/mob/living/silicon/robot/robot = thing.loc
+	return (thing in robot.module.equipment)
 
 /proc/get_exposed_defense_zone(var/atom/movable/target)
 	return pick(BP_HEAD, BP_L_HAND, BP_R_HAND, BP_L_FOOT, BP_R_FOOT, BP_L_ARM, BP_R_ARM, BP_L_LEG, BP_R_LEG, BP_CHEST, BP_GROIN)
 
-/proc/do_mob(mob/user , mob/target, time = 30, target_zone = 0, uninterruptible = 0, progress = 1, incapacitation_flags = INCAPACITATION_DEFAULT, check_holding = TRUE)
+/proc/do_mob(mob/user, mob/target, time = 30, target_zone = 0, uninterruptible = 0, progress = 1, incapacitation_flags = INCAPACITATION_DEFAULT, check_holding = TRUE)
 	if(!user || !target)
 		return 0
 	var/user_loc = user.loc
 
 	var/drifting = 0
-	if(!user.Process_Spacemove(0) && user.inertia_dir)
+	if(user.is_space_movement_permitted() == SPACE_MOVE_FORBIDDEN && user.inertia_dir)
 		drifting = 1
 
 	var/target_loc = target.loc
 
-	var/holding = check_holding && user.get_active_hand()
+	var/holding = check_holding && user.get_active_held_item()
 	var/datum/progressbar/progbar
 	if (progress)
 		progbar = new(user, time, target)
@@ -112,7 +75,7 @@
 			. = 0
 			break
 
-		if(check_holding && user.get_active_hand() != holding)
+		if(check_holding && user.get_active_held_item() != holding)
 			. = 0
 			break
 
@@ -123,7 +86,7 @@
 	if (progbar)
 		qdel(progbar)
 
-/proc/do_after(mob/user, delay, atom/target = null, check_holding = 1, progress = 1, incapacitation_flags = INCAPACITATION_DEFAULT, same_direction = 0, can_move = 0, max_distance, check_in_view = 0)
+/proc/do_after(mob/user, delay, atom/target = null, check_holding = TRUE, progress = TRUE, incapacitation_flags = INCAPACITATION_DEFAULT, same_direction = FALSE, can_move = FALSE, max_distance, check_in_view = FALSE, set_cooldown = FALSE)
 	if(!user)
 		return 0
 	var/atom/target_loc = null
@@ -138,14 +101,17 @@
 	var/atom/original_loc = user.loc
 
 	var/drifting = 0
-	if(!user.Process_Spacemove(0) && user.inertia_dir)
+	if(user.is_space_movement_permitted() == SPACE_MOVE_FORBIDDEN && user.inertia_dir)
 		drifting = 1
 
-	var/holding = user.get_active_hand()
+	var/holding = user.get_active_held_item()
 
 	var/datum/progressbar/progbar
 	if (progress)
 		progbar = new(user, delay, target)
+
+	if(set_cooldown && delay)
+		user.setClickCooldown(delay)
 
 	var/endtime = world.time + delay
 	var/starttime = world.time
@@ -172,7 +138,7 @@
 			break
 
 		if(check_holding)
-			if(user.get_active_hand() != holding)
+			if(user.get_active_held_item() != holding)
 				. = 0
 				break
 
@@ -242,8 +208,8 @@
 			if((M.stat != DEAD) || (!M.client))
 				continue
 			//They need a brain!
-			if(istype(M, /mob/living/carbon/human))
-				var/mob/living/carbon/human/H = M
+			if(ishuman(M))
+				var/mob/living/human/H = M
 				if(H.should_have_organ(BP_BRAIN) && !H.has_brain())
 					continue
 			if(M.ckey == find_key)
@@ -275,7 +241,7 @@
 		return val
 	if(istext(val))
 		var/list/vals = splittext(val, "x")
-		return FLOOR(max(text2num(vals[1]), text2num(vals[2]))/2)
+		return floor(max(text2num(vals[1]), text2num(vals[2]))/2)
 	return 0
 
 // If all of these flags are present, it should come out at exactly 1. Yes, this
@@ -321,3 +287,15 @@ var/global/list/bodypart_coverage_cache = list()
 /proc/get_sorted_mob_list()
 	. = sortTim(SSmobs.mob_list.Copy(), /proc/cmp_name_asc)
 	. = sortTim(., /proc/cmp_mob_sortvalue_asc)
+
+/proc/transfer_key_from_mob_to_mob(var/mob/from_mob, var/mob/to_mob)
+	if(!from_mob || !from_mob.key || !to_mob)
+		return FALSE
+	var/initial_key = from_mob.key
+	if(to_mob.key)
+		to_mob.ghostize()
+	if(from_mob.mind)
+		from_mob.mind.transfer_to(to_mob)
+	if(initial_key && to_mob.key != initial_key)
+		to_mob.key = initial_key
+	return to_mob.key == initial_key

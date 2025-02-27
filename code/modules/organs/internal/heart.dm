@@ -5,13 +5,13 @@
 	icon_state = "heart-on"
 	dead_icon = "heart-off"
 	prosthetic_icon = "heart-prosthetic"
+	damage_reduction = 0.7
+	relative_size = 5
+	max_damage = 45
 	var/pulse = PULSE_NORM
 	var/heartbeat = 0
 	var/beat_sound = 'sound/effects/singlebeat.ogg'
 	var/tmp/next_blood_squirt = 0
-	damage_reduction = 0.7
-	relative_size = 5
-	max_damage = 45
 	var/open
 	var/list/external_pump
 
@@ -28,9 +28,9 @@
 		if(pulse)
 			handle_heartbeat()
 			if(pulse == PULSE_2FAST && prob(1))
-				take_internal_damage(0.5)
+				take_damage(0.5)
 			if(pulse == PULSE_THREADY && prob(5))
-				take_internal_damage(0.5)
+				take_damage(0.5)
 		handle_blood()
 	..()
 
@@ -47,7 +47,7 @@
 	if(pulse_mod > 2 && !is_stable)
 		var/damage_chance = (pulse_mod - 2) ** 2
 		if(prob(damage_chance))
-			take_internal_damage(0.5)
+			take_damage(0.5)
 
 	// Now pulse mod is impacted by shock stage and other things too
 	if(owner.shock_stage > 30)
@@ -68,14 +68,15 @@
 	//If heart is stopped, it isn't going to restart itself randomly.
 	if(pulse == PULSE_NONE)
 		return
-	else //and if it's beating, let's see if it should
-		var/should_stop = prob(80) && owner.get_blood_circulation() < BLOOD_VOLUME_SURVIVE //cardiovascular shock, not enough liquid to pump
-		should_stop = should_stop || prob(max(0, owner.getBrainLoss() - owner.maxHealth * 0.75)) //brain failing to work heart properly
-		should_stop = should_stop || (prob(5) && pulse == PULSE_THREADY) //erratic heart patterns, usually caused by oxyloss
-		if(should_stop) // The heart has stopped due to going into traumatic or cardiovascular shock.
-			to_chat(owner, "<span class='danger'>Your heart has stopped!</span>")
-			pulse = PULSE_NONE
-			return
+
+	//and if it's beating, let's see if it should
+	var/should_stop = prob(80) && oxy < BLOOD_VOLUME_SURVIVE //cardiovascular shock, not enough liquid to pump
+	should_stop = should_stop || prob(max(0, owner.get_damage(BRAIN) - owner.get_max_health() * 0.75)) //brain failing to work heart properly
+	should_stop = should_stop || (prob(5) && pulse == PULSE_THREADY) //erratic heart patterns, usually caused by oxyloss
+	if(should_stop) // The heart has stopped due to going into traumatic or cardiovascular shock.
+		to_chat(owner, SPAN_DANGER("Your heart has stopped!"))
+		pulse = PULSE_NONE
+		return
 
 	// Pulse normally shouldn't go above PULSE_2FAST
 	pulse = clamp(PULSE_NORM + pulse_mod, PULSE_SLOW, PULSE_2FAST)
@@ -113,7 +114,7 @@
 		return
 
 	//Dead or cryosleep people do not pump the blood.
-	if(!owner || owner.is_in_stasis() || owner.stat == DEAD || owner.bodytemperature < 170)
+	if(!owner || owner.has_mob_modifier(/decl/mob_modifier/stasis) || owner.stat == DEAD || owner.bodytemperature < 170)
 		return
 
 	if(pulse != PULSE_NONE || BP_IS_PROSTHETIC(src))
@@ -128,25 +129,25 @@
 			var/open_wound
 			if(temp.status & ORGAN_BLEEDING)
 
-				for(var/datum/wound/W in temp.wounds)
+				for(var/datum/wound/wound in temp.wounds)
 
-					if(!open_wound && (W.damage_type == CUT || W.damage_type == PIERCE) && W.damage && !W.is_treated())
+					if(!open_wound && (wound.damage_type == CUT || wound.damage_type == PIERCE) && wound.damage && !wound.is_treated())
 						open_wound = TRUE
 
-					if(W.bleeding())
+					if(wound.bleeding())
 						if(temp.applied_pressure)
 							if(ishuman(temp.applied_pressure))
-								var/mob/living/carbon/human/H = temp.applied_pressure
+								var/mob/living/human/H = temp.applied_pressure
 								H.bloody_hands(src, 0)
 							//somehow you can apply pressure to every wound on the organ at the same time
 							//you're basically forced to do nothing at all, so let's make it pretty effective
-							var/min_eff_damage = max(0, W.damage - 10) / 6 //still want a little bit to drip out, for effect
-							blood_max += max(min_eff_damage, W.damage - 30) / 40
+							var/min_eff_damage = max(0, wound.damage - 10) / 6 //still want a little bit to drip out, for effect
+							blood_max += max(min_eff_damage, wound.damage - 30) / 40
 						else
-							blood_max += W.damage / 40
+							blood_max += wound.damage / 40
 
 			if(temp.status & ORGAN_ARTERY_CUT)
-				var/bleed_amount = FLOOR((owner.vessel.total_volume / (temp.applied_pressure || !open_wound ? 400 : 250))*temp.arterial_bleed_severity)
+				var/bleed_amount = floor((owner.vessel.total_volume / (temp.applied_pressure || !open_wound ? 400 : 250))*temp.arterial_bleed_severity)
 				if(bleed_amount)
 					if(open_wound)
 						blood_max += bleed_amount
@@ -172,12 +173,12 @@
 				FONT_HUGE(SPAN_DANGER("Blood sprays out from your [spray_organ]!"))
 			)
 			SET_STATUS_MAX(owner, STAT_STUN, 1)
-			owner.set_status(STAT_BLURRY, 2)
+			owner.set_status_condition(STAT_BLURRY, 2)
 
 			//AB occurs every heartbeat, this only throttles the visible effect
 			next_blood_squirt = world.time + 80
 			var/turf/sprayloc = get_turf(owner)
-			blood_max -= owner.drip(CEILING(blood_max/3), sprayloc)
+			blood_max -= owner.drip(ceil(blood_max/3), sprayloc)
 			if(blood_max > 0)
 				blood_max -= owner.blood_squirt(blood_max, sprayloc)
 				if(blood_max > 0)
@@ -189,6 +190,10 @@
 	return is_usable() && (pulse > PULSE_NONE || BP_IS_PROSTHETIC(src) || (owner.status_flags & FAKEDEATH))
 
 /obj/item/organ/internal/heart/listen()
+
+	if(!owner || (status & (ORGAN_DEAD|ORGAN_CUT_AWAY)))
+		return "no pulse"
+
 	if(BP_IS_PROSTHETIC(src) && is_working())
 		if(is_bruised())
 			return "sputtering pump"
@@ -214,10 +219,7 @@
 
 	. = "[pulsesound] pulse"
 
-/obj/item/organ/internal/heart/get_mechanical_assisted_descriptor()
-	return "pacemaker-assisted [name]"
-
-/obj/item/organ/internal/heart/rejuvenate(ignore_organ_aspects)
+/obj/item/organ/internal/heart/rejuvenate(ignore_organ_traits)
 	. = ..()
 	if(!BP_IS_PROSTHETIC(src))
 		pulse = PULSE_NORM

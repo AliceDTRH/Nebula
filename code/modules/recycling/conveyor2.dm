@@ -81,21 +81,22 @@ var/global/list/all_conveyor_switches = list()
 			if(items_moved >= 10)
 				break
 
+/obj/machinery/conveyor/grab_attack(obj/item/grab/grab, mob/user)
+	step(grab.affecting, get_dir(grab.affecting.loc, src))
+	return TRUE
+
 // attack with item, place item on conveyor
-/obj/machinery/conveyor/attackby(var/obj/item/I, mob/user)
-	if(istype(I, /obj/item/grab))
-		var/obj/item/grab/G = I
-		step(G.affecting, get_dir(G.affecting.loc, src))
-		return
-	if(IS_CROWBAR(I))
+/obj/machinery/conveyor/attackby(var/obj/item/used_item, mob/user)
+	if(IS_CROWBAR(used_item))
 		if(!(stat & BROKEN))
 			var/obj/item/conveyor_construct/C = new/obj/item/conveyor_construct(src.loc)
 			C.id_tag = id_tag
 			transfer_fingerprints_to(C)
 		to_chat(user, "<span class='notice'>You remove the conveyor belt.</span>")
 		qdel(src)
-		return
-	user.try_unequip(I, get_turf(src))
+	else
+		user.try_unequip(used_item, get_turf(src))
+	return TRUE
 
 // make the conveyor broken
 // also propagate inoperability to any connected conveyor with the same id_tag
@@ -206,13 +207,15 @@ var/global/list/all_conveyor_switches = list()
 		last_pos = position
 		position = 0
 
-/obj/machinery/conveyor_switch/attackby(obj/item/I, mob/user, params)
-	if(IS_CROWBAR(I))
-		var/obj/item/conveyor_switch_construct/C = new/obj/item/conveyor_switch_construct(src.loc)
-		C.id_tag = id_tag
-		transfer_fingerprints_to(C)
-		to_chat(user, "<span class='notice'>You deattach the conveyor switch.</span>")
-		qdel(src)
+/obj/machinery/conveyor_switch/attackby(obj/item/used_item, mob/user, params)
+	if(!IS_CROWBAR(used_item))
+		return ..()
+	var/obj/item/conveyor_switch_construct/C = new/obj/item/conveyor_switch_construct(src.loc)
+	C.id_tag = id_tag
+	transfer_fingerprints_to(C)
+	to_chat(user, "<span class='notice'>You detach the conveyor switch.</span>")
+	qdel(src)
+	return TRUE
 
 /obj/machinery/conveyor_switch/oneway
 	var/convdir = 1 //Set to 1 or -1 depending on which way you want the convayor to go. (In other words keep at 1 and set the proper dir on the belts.)
@@ -235,18 +238,19 @@ var/global/list/all_conveyor_switches = list()
 	desc = "A conveyor belt assembly. Must be linked to a conveyor control switch assembly before placement."
 	w_class = ITEM_SIZE_HUGE
 	material = /decl/material/solid/metal/steel
-	matter = list(/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT)
+	matter = list(/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT)
 	var/id_tag
 
-/obj/item/conveyor_construct/attackby(obj/item/I, mob/user, params)
-	..()
-	if(istype(I, /obj/item/conveyor_switch_construct))
-		to_chat(user, "<span class='notice'>You link the switch to the conveyor belt assembly.</span>")
-		var/obj/item/conveyor_switch_construct/C = I
-		id_tag = C.id_tag
+/obj/item/conveyor_construct/attackby(obj/item/used_item, mob/user, params)
+	if(!istype(used_item, /obj/item/conveyor_switch_construct))
+		return ..()
+	to_chat(user, "<span class='notice'>You link the switch to the conveyor belt assembly.</span>")
+	var/obj/item/conveyor_switch_construct/C = used_item
+	id_tag = C.id_tag
+	return TRUE
 
 /obj/item/conveyor_construct/afterattack(atom/A, mob/user, proximity)
-	if(!proximity || !istype(A, /turf/simulated/floor) || user.incapacitated())
+	if(!proximity || !istype(A, /turf/floor) || user.incapacitated())
 		return
 	var/area/area = get_area(A)
 	if(!istype(area) || (area.area_flags & AREA_FLAG_SHUTTLE))
@@ -278,7 +282,7 @@ var/global/list/all_conveyor_switches = list()
 	id_tag = sequential_id("conveyor_switch_construct")
 
 /obj/item/conveyor_switch_construct/afterattack(atom/A, mob/user, proximity)
-	if(!proximity || !istype(A, /turf/simulated/floor) || user.incapacitated())
+	if(!proximity || !istype(A, /turf/floor) || user.incapacitated())
 		return
 	var/area/area = get_area(A)
 	if(!istype(area) || (area.area_flags & AREA_FLAG_SHUTTLE))
@@ -297,10 +301,10 @@ var/global/list/all_conveyor_switches = list()
 
 /obj/item/conveyor_switch_construct/oneway
 	name = "one-way conveyor switch assembly"
-	desc = "An one-way conveyor control switch assembly."
+	desc = "A one-way conveyor control switch assembly."
 
 /obj/item/conveyor_switch_construct/oneway/afterattack(atom/A, mob/user, proximity)
-	if(!proximity || !istype(A, /turf/simulated/floor) || user.incapacitated())
+	if(!proximity || !istype(A, /turf/floor) || user.incapacitated())
 		return
 	var/area/area = get_area(A)
 	if(!istype(area) || (area.area_flags & AREA_FLAG_SHUTTLE))

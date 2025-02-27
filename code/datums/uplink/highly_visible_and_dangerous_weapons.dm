@@ -41,7 +41,7 @@
 	desc = "A kit with a pocket-sized holdout pistol, silencer, and an extra magazine. \
 			Attaching the silencer will make it too big to conceal in your pocket."
 	item_cost = 32
-	path = /obj/item/storage/box/syndie_kit/silenced
+	path = /obj/item/box/syndie_kit/silenced
 
 /datum/uplink_item/item/badassery/money_cannon
 	name = "Modified Money Cannon"
@@ -51,7 +51,7 @@
 
 /datum/uplink_item/item/visible_weapons/energy_gun
 	name = "Energy Gun"
-	desc = "A energy based sidearm with three different lethality settings."
+	desc = "An energy-based sidearm with three different lethality settings."
 	item_cost = 32
 	path = /obj/item/gun/energy/gun
 
@@ -59,7 +59,7 @@
 	name = "Magnum Revolver"
 	desc = "A high-caliber revolver. Includes an extra speedloader of ammo."
 	item_cost = 56
-	path = /obj/item/storage/backpack/satchel/syndie_kit/revolver
+	path = /obj/item/backpack/satchel/syndie_kit/revolver
 
 /datum/uplink_item/item/visible_weapons/grenade_launcher
 	name = "Grenade Launcher"
@@ -71,14 +71,14 @@
 //These are for traitors (or other antags, perhaps) to have the option of purchasing some merc gear.
 /datum/uplink_item/item/visible_weapons/smg
 	name = "Standard Submachine Gun"
-	desc = "A quick-firing weapon with three togglable fire modes."
+	desc = "A quick-firing weapon with three toggleable fire modes."
 	item_cost = 52
 	path = /obj/item/gun/projectile/automatic/smg
 	antag_roles = list(/decl/special_role/mercenary)
 
 /datum/uplink_item/item/visible_weapons/assaultrifle
 	name = "Assault Rifle"
-	desc = "A common rifle with three togglable fire modes."
+	desc = "A common rifle with three toggleable fire modes."
 	item_cost = 60
 	path = /obj/item/gun/projectile/automatic/assault_rifle
 	antag_roles = list(/decl/special_role/mercenary)
@@ -93,12 +93,12 @@
 	name = "Anti-materiel Sniper Rifle"
 	desc = "A secure briefcase that contains an immensely powerful penetrating rifle, as well as seven extra sniper rounds."
 	item_cost = 68
-	path = /obj/item/storage/secure/briefcase/heavysniper
+	path = /obj/item/secure_storage/briefcase/heavysniper
 	antag_roles = list(/decl/special_role/mercenary)
 
 /datum/uplink_item/item/visible_weapons/combat_shotgun
 	name = "Pump Shotgun"
-	desc = "A high compacity, pump-action shotgun regularly used for repelling boarding parties in close range scenarios."
+	desc = "A high capacity, pump-action shotgun regularly used for repelling boarding parties in close range scenarios."
 	item_cost = 52
 	path = /obj/item/gun/projectile/shotgun/pump
 	antag_roles = list(/decl/special_role/mercenary)
@@ -111,7 +111,7 @@
 
 /datum/uplink_item/item/visible_weapons/flechetterifle
 	name = "Flechette Rifle"
-	desc = "A railgun with two togglable fire modes, able to launch flechette ammunition at incredible speeds."
+	desc = "A railgun with two toggleable fire modes, able to launch flechette ammunition at incredible speeds."
 	item_cost = 60
 	path = /obj/item/gun/magnetic/railgun/flechette
 	antag_roles = list(/decl/special_role/mercenary)

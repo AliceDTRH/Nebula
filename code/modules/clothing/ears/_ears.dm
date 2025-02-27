@@ -6,10 +6,9 @@
 	icon_state = ICON_STATE_WORLD
 	gender = PLURAL
 	w_class = ITEM_SIZE_TINY
-	throwforce = 2
 	slot_flags = SLOT_EARS
+	fallback_slot = slot_l_ear_str
 
-/obj/item/clothing/ears/update_clothing_icon()
-	if (ismob(src.loc))
-		var/mob/M = src.loc
-		M.update_inv_ears()
+/obj/item/clothing/ears/get_associated_equipment_slots()
+	. = ..()
+	LAZYDISTINCTADD(., global.ear_slots)

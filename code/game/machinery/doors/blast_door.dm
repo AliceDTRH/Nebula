@@ -15,9 +15,9 @@
 	can_open_manually = FALSE
 
 	// Icon states for different shutter types. Simply change this instead of rewriting the update_icon proc.
-	var/icon_state_open = null
+	icon_state_open = null
+	icon_state_closed = null
 	var/icon_state_opening = null
-	var/icon_state_closed = null
 	var/icon_state_closing = null
 
 	var/icon_state_open_broken = null
@@ -36,7 +36,6 @@
 	//turning this off prevents awkward zone geometry in places like medbay lobby, for example.
 	block_air_zones = 0
 
-	var/begins_closed = TRUE
 	var/decl/material/implicit_material
 	autoset_access = FALSE // Uses different system with buttons.
 	pry_mod = 1.35
@@ -55,20 +54,13 @@
 	base_type = /obj/machinery/door/blast
 
 /obj/machinery/door/blast/Initialize()
+	implicit_material = GET_DECL(/decl/material/solid/metal/plasteel)
 	. = ..()
 
-	if(!begins_closed)
-		icon_state = icon_state_open
-		set_density(0)
-		set_opacity(0)
-		layer = open_layer
-
-	implicit_material = GET_DECL(/decl/material/solid/metal/plasteel)
-
-/obj/machinery/door/blast/examine(mob/user)
+/obj/machinery/door/blast/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if((stat & BROKEN))
-		to_chat(user, "It's broken.")
+		. += SPAN_DANGER("It's broken.")
 
 // Proc: Bumped()
 // Parameters: 1 (AM - Atom that tried to walk through this object)
@@ -146,16 +138,17 @@
 		force_close()
 
 /obj/machinery/door/blast/get_material()
+	RETURN_TYPE(/decl/material)
 	return implicit_material
 
 // Proc: attackby()
-// Parameters: 2 (C - Item this object was clicked with, user - Mob which clicked this object)
+// Parameters: 2 (used_item - Item this object was clicked with, user - Mob which clicked this object)
 // Description: If we are clicked with crowbar or wielded fire axe, try to manually open the door.
 // This only works on broken doors or doors without power. Also allows repair with Plasteel.
-/obj/machinery/door/blast/attackby(obj/item/C, mob/user)
-	add_fingerprint(user, 0, C)
+/obj/machinery/door/blast/attackby(obj/item/used_item, mob/user)
+	add_fingerprint(user, 0, used_item)
 	if(!panel_open) //Do this here so the door won't change state while prying out the circuit
-		if(IS_CROWBAR(C) || (istype(C, /obj/item/twohanded/fireaxe) && C:wielded == 1))
+		if(IS_CROWBAR(used_item) || (istype(used_item, /obj/item/bladed/axe/fire) && used_item.is_held_twohanded()))
 			if(((stat & NOPOWER) || (stat & BROKEN)) && !( operating ))
 				to_chat(user, "<span class='notice'>You begin prying at \the [src]...</span>")
 				if(do_after(user, 2 SECONDS, src))
@@ -164,25 +157,26 @@
 					to_chat(user, "<span class='warning'>You must remain still while working on \the [src].</span>")
 			else
 				to_chat(user, "<span class='notice'>[src]'s motors resist your effort.</span>")
-			return
-	if(istype(C, /obj/item/stack/material) && C.get_material_type() == /decl/material/solid/metal/plasteel)
-		var/amt = CEILING((maxhealth - health)/150)
+			return TRUE
+	if(istype(used_item, /obj/item/stack/material) && used_item.get_material_type() == /decl/material/solid/metal/plasteel)
+		var/amt = ceil((get_max_health() - current_health)/150)
 		if(!amt)
 			to_chat(user, "<span class='notice'>\The [src] is already fully functional.</span>")
-			return
-		var/obj/item/stack/P = C
-		if(!P.can_use(amt))
+			return TRUE
+		var/obj/item/stack/stack = used_item
+		if(!stack.can_use(amt))
 			to_chat(user, "<span class='warning'>You don't have enough sheets to repair this! You need at least [amt] sheets.</span>")
-			return
+			return TRUE
 		to_chat(user, "<span class='notice'>You begin repairing \the [src]...</span>")
 		if(do_after(user, 5 SECONDS, src))
-			if(P.use(amt))
+			if(stack.use(amt))
 				to_chat(user, "<span class='notice'>You have repaired \the [src].</span>")
 				repair()
 			else
 				to_chat(user, "<span class='warning'>You don't have enough sheets to repair this! You need at least [amt] sheets.</span>")
 		else
 			to_chat(user, "<span class='warning'>You must remain still while working on \the [src].</span>")
+		return TRUE
 	return ..()
 
 // Proc: open()
@@ -195,7 +189,7 @@
 	force_open()
 
 	if(autoclose)
-		addtimer(CALLBACK(src, .proc/close), 15 SECONDS, TIMER_UNIQUE|TIMER_OVERRIDE)
+		addtimer(CALLBACK(src, PROC_REF(close)), 15 SECONDS, TIMER_UNIQUE|TIMER_OVERRIDE)
 
 	return TRUE
 
@@ -217,7 +211,7 @@
 // Parameters: None
 // Description: Fully repairs the blast door.
 /obj/machinery/door/blast/proc/repair()
-	health = maxhealth
+	current_health = get_max_health()
 	set_broken(FALSE)
 	queue_icon_update()
 
@@ -243,7 +237,7 @@
 /decl/public_access/public_method/close_door_delayed
 	name = "delayed close door"
 	desc = "Closes the door if possible, after a short delay."
-	call_proc = /obj/machinery/door/blast/proc/delayed_close
+	call_proc = TYPE_PROC_REF(/obj/machinery/door/blast, delayed_close)
 
 /decl/stock_part_preset/radio/receiver/blast_door
 	frequency = BLAST_DOORS_FREQ
@@ -320,7 +314,7 @@
 	icon_state_closed_broken = "closed_broken"
 
 	min_force = 30
-	maxhealth = 1000
+	max_health = 1000
 	block_air_zones = 1
 
 	var/icon_lower_door_open = "open_bottom"
@@ -362,7 +356,7 @@
 	open_sound = 'sound/machines/shutters_open.ogg'
 	close_sound = 'sound/machines/shutters_close.ogg'
 	min_force = 15
-	maxhealth = 500
+	max_health = 500
 	explosion_resistance = 10
 	pry_mod = 0.55
 	frame_type = /obj/structure/door_assembly/blast/shutter

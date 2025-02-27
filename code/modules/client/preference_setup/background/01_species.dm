@@ -1,12 +1,15 @@
+/datum/category_item/player_setup_item/background
+	abstract_type = /datum/category_item/player_setup_item/background
+
 /datum/category_item/player_setup_item/background/species
 	name = "Species"
 	sort_order = 1
 	var/hide_species = TRUE
 
-/datum/category_item/player_setup_item/background/species/save_character(datum/pref_record_writer/W)
-	W.write("species", pref.species)
+/datum/category_item/player_setup_item/background/species/save_character(datum/pref_record_writer/writer)
+	writer.write("species", pref.species)
 
-/datum/category_item/player_setup_item/background/species/load_character(datum/pref_record_reader/R)
+/datum/category_item/player_setup_item/background/species/preload_character(datum/pref_record_reader/R)
 	pref.species = R.read("species")
 
 /datum/category_item/player_setup_item/background/species/sanitize_character()
@@ -16,7 +19,7 @@
 /datum/category_item/player_setup_item/background/species/proc/sanitize_species()
 
 	if(!pref.species || !get_species_by_key(pref.species))
-		pref.species = global.using_map.default_species
+		pref.set_species(global.using_map.default_species)
 	var/decl/species/mob_species = get_species_by_key(pref.species)
 	var/decl/bodytype/mob_bodytype = mob_species.get_bodytype_by_name(pref.bodytype) || mob_species.default_bodytype
 	var/decl/pronouns/pronouns = get_pronouns_by_gender(pref.gender)
@@ -35,7 +38,7 @@
 	var/list/playables = list()
 
 	for(var/s in prefilter)
-		if(!check_rights(R_ADMIN, 0) && config.usealienwhitelist)
+		if(!check_rights(R_ADMIN, 0) && get_config_value(/decl/config/toggle/use_alien_whitelist))
 			var/decl/species/checking_species = get_species_by_key(s)
 			if(!(checking_species.spawn_flags & SPECIES_CAN_JOIN))
 				continue
@@ -47,12 +50,12 @@
 	. += "<table width = '100%'>"
 	. += "<tr><td colspan=3><center><h3>Species</h3></center></td></tr>"
 	. += "<tr><td colspan=3><center>"
-	for(var/s in get_playable_species())
+	for(var/s in playables)
 		var/decl/species/list_species = get_species_by_key(s)
 		if(pref.species == list_species.name)
 			. += "<span class='linkOn'>[list_species.name]</span> "
 		else
-			. += "<a href='?src=\ref[src];set_species=[list_species.name]'>[list_species.name]</a> "
+			. += "<a href='byond://?src=\ref[src];set_species=[list_species.name]'>[list_species.name]</a> "
 	. += "</center><hr/></td></tr>"
 
 	. += "<tr>"
@@ -71,7 +74,7 @@
 	if(hide_species && length(desc) > 200)
 		desc = "[copytext(desc, 1, 194)] <small>\[...\]</small>"
 	. += "<td width>[desc]</td>"
-	. += "<td width = '50px'><a href='?src=\ref[src];toggle_species_verbose=1'>[hide_species ? "Expand" : "Collapse"]</a></td>"
+	. += "<td width = '50px'><a href='byond://?src=\ref[src];toggle_species_verbose=1'>[hide_species ? "Expand" : "Collapse"]</a></td>"
 
 	. += "</tr>"
 
@@ -90,17 +93,16 @@
 		var/choice = href_list["set_species"]
 		if(choice != pref.species)
 
-			pref.species = choice
-			pref.sanitize_preferences()
-			//reset hairstyle prefs
-			ResetAllHair()
-			// reset colors
-			var/decl/species/mob_species = pref.get_species_decl()
-			mob_species.handle_post_species_pref_set(pref)
-			// reset markings
-			var/decl/bodytype/mob_bodytype = pref.get_bodytype_decl()
-			mob_bodytype.handle_post_bodytype_pref_set(pref)
+			if(!check_rights(R_ADMIN, 0) && get_config_value(/decl/config/toggle/use_alien_whitelist))
+				var/decl/species/new_species = get_species_by_key(choice)
+				if(!new_species)
+					return TOPIC_REFRESH
+				if(!(new_species.spawn_flags & SPECIES_CAN_JOIN))
+					return TOPIC_REFRESH
+				else if((new_species.spawn_flags & SPECIES_IS_WHITELISTED) && !is_alien_whitelisted(preference_mob(), new_species))
+					return TOPIC_REFRESH
 
+			pref.set_species(choice)
 			return TOPIC_REFRESH_UPDATE_PREVIEW
 
 	. = ..()

@@ -13,14 +13,14 @@
  */
 /obj/item/retractor
 	name = "retractor"
-	desc = "Retracts stuff."
+	desc = "A surgical tool for widening incisions or adjusting bones."
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "retractor"
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	drop_sound = 'sound/foley/knifedrop3.ogg'
 
 /obj/item/retractor/Initialize()
@@ -32,14 +32,14 @@
  */
 /obj/item/hemostat
 	name = "hemostat"
-	desc = "You think you have seen this before."
+	desc = "A surgical tool for clamping veins or manipulating internal organs."
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "hemostat"
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	attack_verb = list("attacked", "pinched")
 	drop_sound = 'sound/foley/knifedrop3.ogg'
 
@@ -52,7 +52,7 @@
  */
 /obj/item/cautery
 	name = "cautery"
-	desc = "This stops bleeding."
+	desc = "A surgical tool for halting bleeding or closing incisions."
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "cautery"
 	material = /decl/material/solid/metal/steel
@@ -62,7 +62,7 @@
 	)
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	attack_verb = list("burnt")
 
 /obj/item/cautery/Initialize()
@@ -81,14 +81,14 @@
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	force = 15.0
+	_base_attack_force = 15
 	w_class = ITEM_SIZE_NORMAL
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	attack_verb = list("drilled")
 
 /obj/item/surgicaldrill/Initialize()
 	. = ..()
-	set_extension(src, /datum/extension/tool, list(TOOL_DRILL = TOOL_QUALITY_DEFAULT))
+	set_extension(src, /datum/extension/tool, list(TOOL_SURGICAL_DRILL = TOOL_QUALITY_DEFAULT))
 
 /*
  * Scalpel
@@ -99,20 +99,19 @@
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "scalpel"
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	force = 10
-	sharp = 1
-	edge = 1
+	sharp = TRUE
+	edge = TRUE
 	w_class = ITEM_SIZE_TINY
 	slot_flags = SLOT_EARS
-	throwforce = 5
 	throw_speed = 3
 	throw_range = 5
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	attack_verb = list("attacked", "slashed", "stabbed", "sliced", "torn", "ripped", "diced", "cut")
-	pickup_sound = 'sound/foley/knife1.ogg' 
+	pickup_sound = 'sound/foley/knife1.ogg'
 	drop_sound = 'sound/foley/knifedrop3.ogg'
+	_base_attack_force = 10
 	var/tool_quality = TOOL_QUALITY_DEFAULT
 
 /obj/item/scalpel/Initialize()
@@ -126,47 +125,47 @@
 	name = "laser scalpel"
 	desc = "A scalpel augmented with a directed laser, for more precise cutting without blood entering the field.  This one looks basic and could be improved."
 	icon_state = "scalpel_laser1_on"
-	damtype = BURN
-	force = 10
+	atom_damage_type =  BURN
+	_base_attack_force = 10
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	pickup_sound = 'sound/foley/pickup2.ogg'
 	tool_quality = TOOL_QUALITY_DECENT
-	origin_tech = "{'biotech':2,'materials':2,'magnets':2}"
+	origin_tech = @'{"biotech":2,"materials":2,"magnets":2}'
 
 /obj/item/scalpel/laser/upgraded
 	name = "upgraded laser scalpel"
 	desc = "A scalpel augmented with a directed laser, for more precise cutting without blood entering the field.  This one looks somewhat advanced."
-	force = 12
+	_base_attack_force = 12
 	icon_state = "scalpel_laser2_on"
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/silver = MATTER_AMOUNT_TRACE
 	)
 	tool_quality = TOOL_QUALITY_GOOD
-	origin_tech = "{'biotech':3,'materials':4,'magnets':4}"
+	origin_tech = @'{"biotech":3,"materials":4,"magnets":4}'
 
 /obj/item/scalpel/laser/advanced
 	name = "advanced laser scalpel"
 	desc = "A scalpel augmented with a directed laser, for more precise cutting without blood entering the field.  This one looks to be the pinnacle of precision energy cutlery!"
 	icon_state = "scalpel_laser3_on"
-	force = 15
+	_base_attack_force = 15
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/silver = MATTER_AMOUNT_TRACE,
 		/decl/material/solid/metal/gold = MATTER_AMOUNT_TRACE
 	)
 	tool_quality = TOOL_QUALITY_BEST
-	origin_tech = "{'biotech':4,'materials':6,'magnets':5}"
+	origin_tech = @'{"biotech":4,"materials":6,"magnets":5}'
 
 /obj/item/incision_manager
 	name = "incision management system"
 	desc = "A true extension of the surgeon's body, this marvel combines several medical tools into one modular package."
-	sharp = 1
-	edge = 1
-	damtype = BURN
+	sharp = TRUE
+	edge = TRUE
+	atom_damage_type =  BURN
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "scalpel_manager_on"
-	force = 7
+	_base_attack_force = 7
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
@@ -175,14 +174,14 @@
 		/decl/material/solid/gemstone/diamond = MATTER_AMOUNT_TRACE
 	)
 	pickup_sound = 'sound/foley/pickup2.ogg'
-	origin_tech = "{'biotech':4,'materials':7,'magnets':5,'programming':4}"
+	origin_tech = @'{"biotech":4,"materials":7,"magnets":5,"programming":4}'
 
 /obj/item/incision_manager/Initialize()
 	. = ..()
 	set_extension(src, /datum/extension/tool/variable, list(
 		TOOL_SAW =       TOOL_QUALITY_GOOD,
-		TOOL_SCALPEL =   TOOL_QUALITY_GOOD, 
-		TOOL_RETRACTOR = TOOL_QUALITY_GOOD, 
+		TOOL_SCALPEL =   TOOL_QUALITY_GOOD,
+		TOOL_RETRACTOR = TOOL_QUALITY_GOOD,
 		TOOL_HEMOSTAT =  TOOL_QUALITY_GOOD
 	))
 
@@ -196,19 +195,18 @@
 	icon_state = "saw3"
 	hitsound = 'sound/weapons/circsawhit.ogg'
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	force = 15.0
 	w_class = ITEM_SIZE_NORMAL
-	throwforce = 9
 	throw_speed = 3
 	throw_range = 5
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 	attack_verb = list("attacked", "slashed", "sawed", "cut")
-	sharp = 1
-	edge = 1
+	sharp = TRUE
+	edge = TRUE
 	pickup_sound = 'sound/foley/pickup2.ogg'
 	drop_sound = 'sound/foley/knifedrop3.ogg'
+	_base_attack_force = 15
 
 /obj/item/circular_saw/Initialize()
 	. = ..()
@@ -222,12 +220,10 @@
 	name = "bone gel"
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "bone-gel"
-	force = 0
 	w_class = ITEM_SIZE_SMALL
 	item_flags = ITEM_FLAG_NO_BLUDGEON
 	obj_flags = OBJ_FLAG_HOLLOW
-	throwforce = 1
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 
 /obj/item/bonegel/Initialize()
 	. = ..()
@@ -238,11 +234,10 @@
 	desc = "Surgical needles and thread in a handy sterile package."
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "fixovein"
-	force = 0
-	throwforce = 1
-	origin_tech = "{'materials':1,'biotech':3}"
+	origin_tech = @'{"materials":1,"biotech":3}'
 	w_class = ITEM_SIZE_SMALL
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
+	_base_attack_force = 1
 
 /obj/item/sutures/Initialize()
 	. = ..()
@@ -250,10 +245,9 @@
 
 /obj/item/bonesetter
 	name = "bone setter"
+	desc = "A surgical tool for manipulating and setting bones."
 	icon = 'icons/obj/surgery.dmi'
 	icon_state = "bone setter"
-	force = 8.0
-	throwforce = 9
 	throw_speed = 3
 	throw_range = 5
 	w_class = ITEM_SIZE_SMALL
@@ -262,6 +256,7 @@
 	drop_sound = 'sound/foley/knifedrop3.ogg'
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
+	_base_attack_force = 8.0
 
 /obj/item/bonesetter/Initialize()
 	. = ..()

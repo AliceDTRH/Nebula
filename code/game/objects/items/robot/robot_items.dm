@@ -7,18 +7,17 @@
 ***********************************************************************/
 /obj/item/borg/overdrive
 	name = "overdrive"
-	icon = 'icons/obj/decals.dmi'
+	icon = 'icons/obj/signs/warnings.dmi'
 	icon_state = "shock"
 
 /**********************************************************************
 						HUD/SIGHT things
 ***********************************************************************/
 /obj/item/borg/sight
-	icon = 'icons/obj/decals.dmi'
-	icon_state = "securearea"
+	icon = 'icons/obj/signs/warnings.dmi'
+	icon_state = "secureareaold"
 	var/sight_mode = null
-	var/hud_type
-
+	var/glasses_hud_type
 
 /obj/item/borg/sight/xray
 	name = "\proper x-ray vision"
@@ -51,7 +50,7 @@
 	name = "medical hud"
 	icon_state = ICON_STATE_WORLD
 	icon = 'icons/clothing/eyes/hud_medical.dmi'
-	hud_type = HUD_MEDICAL
+	glasses_hud_type = HUD_MEDICAL
 
 /obj/item/borg/sight/hud/med/Initialize()
 	. = ..()
@@ -61,7 +60,7 @@
 	name = "security hud"
 	icon_state = ICON_STATE_WORLD
 	icon = 'icons/clothing/eyes/hud_security.dmi'
-	hud_type = HUD_SECURITY
+	glasses_hud_type = HUD_SECURITY
 
 /obj/item/borg/sight/hud/Initialize()
 	. = ..()
@@ -72,7 +71,7 @@
 	name = "janitor hud"
 	icon_state = ICON_STATE_WORLD
 	icon = 'icons/clothing/eyes/hud_janitor.dmi'
-	hud_type = HUD_JANITOR
+	glasses_hud_type = HUD_JANITOR
 
 /obj/item/borg/sight/hud/jani/Initialize()
 	. = ..()

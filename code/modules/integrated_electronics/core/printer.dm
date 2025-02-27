@@ -46,75 +46,77 @@
 	assembly.creator = key_name(user)
 	cloning = FALSE
 
-/obj/item/integrated_circuit_printer/proc/recycle(obj/item/O, mob/user, obj/item/electronic_assembly/assembly)
-	if(!O.canremove) //in case we have an augment circuit
+/obj/item/integrated_circuit_printer/proc/recycle(obj/item/used_item, mob/user, obj/item/electronic_assembly/assembly)
+	if(!used_item.canremove) //in case we have an augment circuit
 		return
-	for(var/material in O.matter)
-		if(materials[material] + O.matter[material] > metal_max)
+	for(var/material in used_item.matter)
+		if(materials[material] + used_item.matter[material] > metal_max)
 			var/decl/material/material_datum = GET_DECL(material)
 			if(material_datum)
 				to_chat(user, "<span class='notice'>[src] can't hold any more [material_datum.name]!</span>")
 			return
-	for(var/material in O.matter)
-		materials[material] += O.matter[material]
+	for(var/material in used_item.matter)
+		materials[material] += used_item.matter[material]
 	if(assembly)
-		assembly.remove_component(O)
+		assembly.remove_component(used_item)
 	if(user)
-		to_chat(user, "<span class='notice'>You recycle [O]!</span>")
-	qdel(O)
+		to_chat(user, "<span class='notice'>You recycle [used_item]!</span>")
+	qdel(used_item)
 	return TRUE
 
-/obj/item/integrated_circuit_printer/attackby(obj/item/O, mob/user)
-	if(istype(O, /obj/item/stack/material))
-		var/obj/item/stack/material/M = O
-		var/amt = M.amount
-		if(amt * SHEET_MATERIAL_AMOUNT + materials[M.material.type] > metal_max)
-			amt = -round(-(metal_max - materials[M.material.type]) / SHEET_MATERIAL_AMOUNT) //round up
-		if(M.use(amt))
-			materials[M.material.type] = min(metal_max, materials[M.material.type] + amt * SHEET_MATERIAL_AMOUNT)
-			to_chat(user, "<span class='warning'>You insert [M.material.solid_name] into \the [src].</span>")
-			if(user)
-				attack_self(user) // We're really bad at refreshing the UI, so this is the best we've got.
-	if(istype(O, /obj/item/disk/integrated_circuit/upgrade/advanced))
+/obj/item/integrated_circuit_printer/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/stack/material))
+		var/obj/item/stack/material/stack = used_item
+		var/amt = stack.amount
+		if(amt * SHEET_MATERIAL_AMOUNT + materials[stack.material.type] > metal_max)
+			amt = ceil((metal_max - materials[stack.material.type]) / SHEET_MATERIAL_AMOUNT)
+		if(!stack.use(amt))
+			return FALSE
+		materials[stack.material.type] = min(metal_max, materials[stack.material.type] + amt * SHEET_MATERIAL_AMOUNT)
+		to_chat(user, "<span class='warning'>You insert [stack.material.solid_name] into \the [src].</span>")
+		if(user)
+			attack_self(user) // We're really bad at refreshing the UI, so this is the best we've got.
+		return TRUE
+	if(istype(used_item, /obj/item/disk/integrated_circuit/upgrade/advanced))
 		if(upgraded)
 			to_chat(user, "<span class='warning'>[src] already has this upgrade. </span>")
 			return TRUE
-		to_chat(user, "<span class='notice'>You install [O] into [src]. </span>")
+		to_chat(user, "<span class='notice'>You install [used_item] into [src]. </span>")
 		upgraded = TRUE
 		if(user)
 			attack_self(user)
 		return TRUE
 
-	if(istype(O, /obj/item/disk/integrated_circuit/upgrade/clone))
+	if(istype(used_item, /obj/item/disk/integrated_circuit/upgrade/clone))
 		if(fast_clone)
 			to_chat(user, "<span class='warning'>[src] already has this upgrade. </span>")
 			return TRUE
-		to_chat(user, "<span class='notice'>You install [O] into [src]. Circuit cloning will now be instant. </span>")
+		to_chat(user, "<span class='notice'>You install [used_item] into [src]. Circuit cloning will now be instant. </span>")
 		fast_clone = TRUE
 		if(user)
 			attack_self(user)
 		return TRUE
 
-	if(istype(O, /obj/item/electronic_assembly))
-		var/obj/item/electronic_assembly/EA = O //microtransactions not included
+	if(istype(used_item, /obj/item/electronic_assembly))
+		var/obj/item/electronic_assembly/EA = used_item //microtransactions not included
 		if(EA.battery)
 			to_chat(user, "<span class='warning'>Remove [EA]'s power cell first!</span>")
-			return
+			return TRUE
 		if(EA.assembly_components.len)
 			if(recycling)
-				return
+				return TRUE
 			if(!EA.opened)
 				to_chat(user, "<span class='warning'>You can't reach [EA]'s components to remove them!</span>")
-				return
+				return TRUE
 			for(var/V in EA.assembly_components)
 				var/obj/item/integrated_circuit/IC = V
 				if(!IC.removable)
 					to_chat(user, "<span class='warning'>[EA] has irremovable components in the casing, preventing you from emptying it.</span>")
-					return
+					return TRUE
 			to_chat(user, "<span class='notice'>You begin recycling [EA]'s components...</span>")
 			playsound(src, 'sound/items/electronic_assembly_emptying.ogg', 50, TRUE)
 			if(!do_after(user, 30, target = src) || recycling) //short channel so you don't accidentally start emptying out a complex assembly
-				return
+				return TRUE
 			recycling = TRUE
 			for(var/V in EA.assembly_components)
 				recycle(V, null, EA)
@@ -125,8 +127,8 @@
 		else
 			return recycle(EA, user)
 
-	if(istype(O, /obj/item/integrated_circuit))
-		return recycle(O, user)
+	if(istype(used_item, /obj/item/integrated_circuit))
+		return recycle(used_item, user)
 
 	return ..()
 
@@ -156,7 +158,7 @@
 		HTML += jointext(dat, "; ")
 		HTML += ".<br><br>"
 
-	if(config.allow_ic_printing || debug)
+	if(get_config_value(/decl/config/toggle/on/allow_ic_printing) || debug)
 		HTML += "Assembly cloning: [can_clone ? (fast_clone ? "Instant" : "Available") : "Unavailable"].<br>"
 
 	HTML += "Circuits available: [upgraded || debug ? "Advanced":"Regular"]."
@@ -164,24 +166,24 @@
 		HTML += "<br>Crossed out circuits mean that the printer is not sufficiently upgraded to create that circuit."
 
 	HTML += "<hr>"
-	if((can_clone && config.allow_ic_printing) || debug)
+	if((can_clone && get_config_value(/decl/config/toggle/on/allow_ic_printing)) || debug)
 		HTML += "Here you can load script for your assembly.<br>"
 		if(!cloning)
-			HTML += " <A href='?src=\ref[src];print=load'>{Load Program}</a> "
+			HTML += " <A href='byond://?src=\ref[src];print=load'>{Load Program}</a> "
 		else
 			HTML += " {Load Program}"
 		if(!program)
 			HTML += " {[fast_clone ? "Print" : "Begin Printing"] Assembly}"
 		else if(cloning)
-			HTML += " <A href='?src=\ref[src];print=cancel'>{Cancel Print}</a>"
+			HTML += " <A href='byond://?src=\ref[src];print=cancel'>{Cancel Print}</a>"
 		else
-			HTML += " <A href='?src=\ref[src];print=print'>{[fast_clone ? "Print" : "Begin Printing"] Assembly}</a>"
+			HTML += " <A href='byond://?src=\ref[src];print=print'>{[fast_clone ? "Print" : "Begin Printing"] Assembly}</a>"
 
 		HTML += "<br><hr>"
 	HTML += "Categories:"
 	for(var/category in SScircuit.circuit_fabricator_recipe_list)
 		if(category != current_category)
-			HTML += " <a href='?src=\ref[src];category=[category]'>\[[category]\]</a> "
+			HTML += " <a href='byond://?src=\ref[src];category=[category]'>\[[category]\]</a> "
 		else // Bold the button if it's already selected.
 			HTML += " <b>\[[category]\]</b> "
 	HTML += "<hr>"
@@ -189,16 +191,16 @@
 
 	var/list/current_list = SScircuit.circuit_fabricator_recipe_list[current_category]
 	for(var/path in current_list)
-		var/obj/O = path
+		var/obj/building = path
 		var/can_build = TRUE
 		if(ispath(path, /obj/item/integrated_circuit))
 			var/obj/item/integrated_circuit/IC = path
 			if((initial(IC.spawn_flags) & IC_SPAWN_RESEARCH) && (!(initial(IC.spawn_flags) & IC_SPAWN_DEFAULT)) && !upgraded)
 				can_build = FALSE
 		if(can_build)
-			HTML += "<A href='?src=\ref[src];build=\ref[path]'>\[[initial(O.name)]\]</A>: [initial(O.desc)]<br>"
+			HTML += "<A href='byond://?src=\ref[src];build=\ref[path]'>\[[initial(building.name)]\]</A>: [initial(building.desc)]<br>"
 		else
-			HTML += "<s>\[[initial(O.name)]\]</s>: [initial(O.desc)]<br>"
+			HTML += "<s>\[[initial(building.name)]\]</s>: [initial(building.desc)]<br>"
 
 	popup.set_content(JOINTEXT(HTML))
 	popup.open()
@@ -218,14 +220,8 @@
 		if(!build_type || !ispath(build_type))
 			return TRUE
 
-		var/list/cost
-		if(ispath(build_type, /obj/item/electronic_assembly))
-			var/obj/item/electronic_assembly/E = SScircuit.cached_assemblies[build_type]
-			cost = E.matter
-		else if(ispath(build_type, /obj/item/integrated_circuit))
-			var/obj/item/integrated_circuit/IC = SScircuit.cached_components[build_type]
-			cost = IC.matter
-		else if(!(build_type in SScircuit.circuit_fabricator_recipe_list["Tools"]))
+		var/list/cost = atom_info_repository.get_matter_for(build_type)
+		if(!ispath(build_type, /obj/item/electronic_assembly) && !ispath(build_type, /obj/item/integrated_circuit) && !(build_type in SScircuit.circuit_fabricator_recipe_list["Tools"]))
 			return
 
 		if(!debug && !subtract_material_costs(cost, usr))
@@ -243,7 +239,7 @@
 		playsound(src, 'sound/items/jaws_pry.ogg', 50, TRUE)
 
 	if(href_list["print"])
-		if(!config.allow_ic_printing && !debug)
+		if(!get_config_value(/decl/config/toggle/on/allow_ic_printing) && !debug)
 			to_chat(usr, "<span class='warning'>Your facility has disabled printing of custom circuitry due to recent allegations of copyright infringement.</span>")
 			return
 		if(!can_clone) // Copying and printing ICs is cloning
@@ -308,7 +304,7 @@
 					to_chat(usr, "<span class='notice'>You begin printing a custom assembly. This will take approximately [round(cloning_time/10)] seconds. You can still print \
 					off normal parts during this time.</span>")
 					playsound(src, 'sound/items/poster_being_created.ogg', 50, TRUE)
-					addtimer(CALLBACK(src, .proc/print_program, usr), cloning_time)
+					addtimer(CALLBACK(src, PROC_REF(print_program), usr), cloning_time)
 
 			if("cancel")
 				if(!cloning || !program)
@@ -338,16 +334,16 @@
 	desc = "Install this into your integrated circuit printer to enhance it."
 	color = COLOR_GRAY20
 	label = "label_up"
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/disk/integrated_circuit/upgrade/advanced
 	name = "integrated circuit printer upgrade disk - advanced designs"
 	desc = "Install this into your integrated circuit printer to enhance it.  This one adds new, advanced designs to the printer."
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'materials':3,'engineering':3}"
+	origin_tech = @'{"materials":3,"engineering":3}'
 
 /obj/item/disk/integrated_circuit/upgrade/clone
 	name = "integrated circuit printer upgrade disk - instant cloner"
 	desc = "Install this into your integrated circuit printer to enhance it.  This one allows the printer to duplicate assemblies instantaneously."
-	origin_tech = "{'materials':3,'programming':5}"
+	origin_tech = @'{"materials":3,"programming":5}'

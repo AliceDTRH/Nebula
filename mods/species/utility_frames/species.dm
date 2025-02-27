@@ -14,12 +14,9 @@
 	name_plural =           "Utility Frames"
 	description =           "Simple AI-driven robots are used for many menial or repetitive tasks in human space."
 	cyborg_noun = null
-	base_prosthetics_model = null
-
+	base_external_prosthetics_model = null
 	blood_types = list(/decl/blood_type/coolant)
-
 	available_bodytypes = list(/decl/bodytype/prosthetic/utility_frame)
-	age_descriptor =        /datum/appearance_descriptor/age/utility_frame
 	hidden_from_codex =     FALSE
 	species_flags =         SPECIES_FLAG_NO_POISON
 	spawn_flags =           SPECIES_CAN_JOIN
@@ -27,33 +24,18 @@
 	warning_low_pressure =  50
 	hazard_low_pressure =  -1
 	flesh_color =           COLOR_GUNMETAL
-	cold_level_1 =          SYNTH_COLD_LEVEL_1
-	cold_level_2 =          SYNTH_COLD_LEVEL_2
-	cold_level_3 =          SYNTH_COLD_LEVEL_3
-	heat_level_1 =          SYNTH_HEAT_LEVEL_1
-	heat_level_2 =          SYNTH_HEAT_LEVEL_2
-	heat_level_3 =          SYNTH_HEAT_LEVEL_3
 	body_temperature =      null
 	passive_temp_gain =     5  // stabilize at ~80 C in a 20 C environment.
-	heat_discomfort_level = 373.15
 	blood_volume = 0
 
 	preview_outfit = null
 
-	heat_discomfort_strings = list(
-		"You are dangerously close to overheating!"
-	)
-	unarmed_attacks = list(
-		/decl/natural_attack/stomp,
-		/decl/natural_attack/kick,
-		/decl/natural_attack/punch
-	)
 	available_pronouns = list(
 		/decl/pronouns,
 		/decl/pronouns/neuter
 	)
-	available_cultural_info = list(
-		TAG_CULTURE = list(/decl/cultural_info/culture/synthetic)
+	available_background_info = list(
+		/decl/background_category/heritage = list(/decl/background_detail/heritage/synthetic)
 	)
 
 	exertion_effect_chance = 10
@@ -66,5 +48,5 @@
 /obj/item/organ/external/head/utility_frame
 	glowing_eyes = TRUE
 
-/decl/species/utility_frame/disfigure_msg(var/mob/living/carbon/human/H)
+/decl/species/utility_frame/disfigure_msg(var/mob/living/human/H)
 	. = SPAN_DANGER("The faceplate is dented and cracked!\n")

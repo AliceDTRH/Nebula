@@ -1,22 +1,24 @@
-var/global/datum/matchmaker/matchmaker = new()
+/decl/modpack/matchmaking/on_roundstart()
+	do_matchmaking()
 
-/hook/roundstart/proc/matchmaking()
-	matchmaker.do_matchmaking()
-	return TRUE
+// It doesn't really matter when this registers during init as long as it's before roundstart.
+/decl/modpack/matchmaking/post_initialize()
+	. = ..()
+	events_repository.register_global(/decl/observ/player_latejoin, src, PROC_REF(matchmake_latejoiner))
 
-/hook/player_latejoin/proc/matchmaking(var/datum/job/job, var/mob/living/character)
+/decl/modpack/matchmaking/proc/matchmake_latejoiner(mob/living/character, datum/job/job)
 	if(character.mind && character.client?.prefs.relations.len)
 		for(var/T in character.client.prefs.relations)
-			var/TT = matchmaker.relation_types[T]
-			var/datum/relation/R = new TT
-			R.holder = character.mind
-			R.info = character.client.prefs.relations_info[T]
+			var/TT = relation_types[T]
+			var/datum/relation/relation = new TT
+			relation.holder = character.mind
+			relation.info = character.client.prefs.relations_info[T]
 			character.mind.gen_relations_info = character.client.prefs.relations_info["general"]
-	if(!istype(character, /mob/living/carbon))
+	if(!ishuman(character))
 		return TRUE
 	if(!job.create_record)
 		return TRUE
-	matchmaker.do_matchmaking()
+	do_matchmaking()
 	return TRUE
 
 /datum/mind
@@ -26,44 +28,45 @@ var/global/datum/matchmaker/matchmaker = new()
 	QDEL_NULL_LIST(known_connections)
 	. = ..()
 
-/datum/matchmaker
+/decl/modpack/matchmaking
 	var/list/relation_types = list()
 	var/list/relations = list()
 
-/datum/matchmaker/New()
-	..()
+/decl/modpack/matchmaking/Initialize()
+	. = ..()
 	for(var/T in subtypesof(/datum/relation/))
-		var/datum/relation/R = T
-		relation_types[initial(R.name)] = T
+		var/datum/relation/relation = T
+		relation_types[initial(relation.name)] = T
 
-/datum/matchmaker/proc/do_matchmaking()
+/decl/modpack/matchmaking/proc/do_matchmaking()
 	var/list/to_warn = list()
-	for(var/datum/relation/R in relations)
-		if(R.other)
+	for(var/datum/relation/relation in relations)
+		if(relation.other)
 			continue // don't warn about already-matched relations, even if they aren't finalised
-		R.find_match()
-		if(R.other && !R.finalized)
-			to_warn |= R.holder.current
+		relation.find_match()
+		if(relation.other && !relation.finalized)
+			to_warn |= relation.holder.current
 	for(var/mob/M in to_warn)
 		to_chat(M,"<span class='warning'>You have new connections. Use \"<a href='byond://?src=\ref[M];show_relationship_info=1'>See Relationship Info</a>\" to view and finalize them.</span>")
 
-/datum/matchmaker/proc/get_relationships(datum/mind/M, finalized_only)
+/decl/modpack/matchmaking/proc/get_relationships(datum/mind/M, finalized_only)
 	. = list()
-	for(var/datum/relation/R in relations)
-		if(R.holder == M && R.other && (R.finalized || !finalized_only))
-			. += R
+	for(var/datum/relation/relation in relations)
+		if(relation.holder == M && relation.other && (relation.finalized || !finalized_only))
+			. += relation
 
-/datum/matchmaker/proc/get_relationships_between(datum/mind/holder, datum/mind/target, finalized_only)
+/decl/modpack/matchmaking/proc/get_relationships_between(datum/mind/holder, datum/mind/target, finalized_only)
 	. = list()
-	for(var/datum/relation/R in relations)
-		if(R.holder == holder && R.other && R.other.holder == target && (R.finalized || !finalized_only))
-			. += R
+	for(var/datum/relation/relation in relations)
+		if(relation.holder == holder && relation.other && relation.other.holder == target && (relation.finalized || !finalized_only))
+			. += relation
 
 /decl/human_examination/matchmaking/do_examine(var/mob/living/user, var/distance, var/mob/living/source) //These can either return text, or should return nothing at all if you're doing to_chat()
 	if(!istype(source) || !istype(user))
 		return
 	if(!source.mind || !user.mind || source.name != source.real_name)
 		return
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	if(!length(matchmaker.get_relationships_between(user.mind, source.mind, TRUE)))
 		return
 	return "<br><span class='notice'>You know them. <a href='byond://?src=\ref[src];show_relations=1'>More...</a></span><br>"
@@ -85,14 +88,16 @@ var/global/datum/matchmaker/matchmaker = new()
 	..()
 	if(!can_connect_to)
 		can_connect_to = list(type)
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	matchmaker.relations += src
 
 /datum/relation/proc/get_candidates()
 	.= list()
-	for(var/datum/relation/R in matchmaker.relations)
-		if(!valid_candidate(R.holder) || !can_connect(R))
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
+	for(var/datum/relation/relation in matchmaker.relations)
+		if(!valid_candidate(relation.holder) || !can_connect(relation))
 			continue
-		. += R
+		. += relation
 
 /datum/relation/proc/valid_candidate(datum/mind/M)
 	if(M == holder)	//no, you NEED other people
@@ -101,42 +106,44 @@ var/global/datum/matchmaker/matchmaker = new()
 	if(!M.current)	//no extremely platonic relationships
 		return FALSE
 
-	var/decl/special_role/special_role_data = ispath(M.assigned_special_role, /decl/special_role) && GET_DECL(M.assigned_special_role)
-	if(special_role_data && (special_role_data.flags & ANTAG_OVERRIDE_JOB))
+	var/decl/special_role/special_role_data = GET_DECL(M.assigned_special_role)
+	if(istype(special_role_data) && (special_role_data.flags & ANTAG_OVERRIDE_JOB))
 		return FALSE
 
 	return TRUE
 
-/datum/relation/proc/can_connect(var/datum/relation/R)
+/datum/relation/proc/can_connect(var/datum/relation/relation)
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	for(var/datum/relation/D in matchmaker.relations) //have to check all connections between us and them
-		if(D.holder == R.holder && D.other && D.other.holder == holder)
+		if(D.holder == relation.holder && D.other && D.other.holder == holder)
 			if(D.type in incompatible)
 				return 0
-	return (R.type in can_connect_to) && !(R.type in incompatible) && R.open
+	return (relation.type in can_connect_to) && !(relation.type in incompatible) && relation.open
 
 /datum/relation/proc/get_copy()
-	var/datum/relation/R = new type
-	R.holder = holder
-	R.info = holder.current && holder.current.client ? holder.current.client.prefs.relations_info[R.name] : info
-	R.open = 0
-	return R
+	var/datum/relation/relation = new type
+	relation.holder = holder
+	relation.info = holder.current && holder.current.client ? holder.current.client.prefs.relations_info[relation.name] : info
+	relation.open = 0
+	return relation
 
 /datum/relation/proc/find_match()
 	var/list/candidates = get_candidates()
 	if(!candidates.len) //bwoop bwoop
 		return 0
-	var/datum/relation/R = pick(candidates)
-	R.open--
-	if(R.other)
-		R = R.get_copy()
-	other = R
-	R.other = src
+	var/datum/relation/relation = pick(candidates)
+	relation.open--
+	if(relation.other)
+		relation = relation.get_copy()
+	other = relation
+	relation.other = src
 	return 1
 
 /datum/relation/proc/sever()
 	to_chat(holder.current,"<span class='warning'>Your connection with [other.holder] is no more.</span>")
 	to_chat(other.holder.current,"<span class='warning'>Your connection with [holder] is no more.</span>")
 	other.other = null
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	matchmaker.relations -= other
 	matchmaker.relations -= src
 	qdel(other)
@@ -151,10 +158,10 @@ var/global/datum/matchmaker/matchmaker = new()
 	if(other && other.finalized)
 		to_chat(holder.current,"<span class='warning'>Your connection with [other.holder] is now confirmed!</span>")
 		to_chat(other.holder.current,"<span class='warning'>Your connection with [holder] is now confirmed!</span>")
-		var/list/candidates = filter_list(global.player_list, /mob/living/carbon/human)
+		var/list/candidates = filter_list(global.player_list, /mob/living/human)
 		candidates -= holder.current
 		candidates -= other.holder.current
-		for(var/mob/living/carbon/human/M in candidates)
+		for(var/mob/living/human/M in candidates)
 			if(!M.mind || M.stat == DEAD || !valid_candidate(M.mind))
 				candidates -= M
 				continue
@@ -183,6 +190,7 @@ var/global/datum/matchmaker/matchmaker = new()
 	set desc = "See what connections between people you know of."
 	set category = "IC"
 
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	var/list/relations = matchmaker.get_relationships(mind)
 	var/list/dat = list()
 	var/editable = 0
@@ -190,16 +198,16 @@ var/global/datum/matchmaker/matchmaker = new()
 		dat += "<b>Things they all know about you:</b><br>[mind.gen_relations_info]<hr>"
 		dat += "An <b>\[F\]</b> indicates that the other player has finalized the connection.<br>"
 		dat += "<br>"
-	for(var/datum/relation/R in relations)
-		dat += "<b>[R.other.finalized ? "\[F\] " : ""][R.other.holder]</b>, [R.other.holder.role_alt_title ? R.other.holder.role_alt_title : R.other.holder.assigned_role]."
-		if (!R.finalized)
-			dat += " <a href='?src=\ref[src];del_relation=\ref[R]'>Remove</a>"
+	for(var/datum/relation/relation in relations)
+		dat += "<b>[relation.other.finalized ? "\[F\] " : ""][relation.other.holder]</b>, [relation.other.holder.role_alt_title ? relation.other.holder.role_alt_title : relation.other.holder.assigned_role]."
+		if (!relation.finalized)
+			dat += " <a href='byond://?src=\ref[src];del_relation=\ref[relation]'>Remove</a>"
 			editable = 1
-		dat += "<br>[R.desc]"
+		dat += "<br>[relation.desc]"
 		dat += "<br>"
-		dat += "<b>Things they know about you:</b>[!R.finalized ?"<a href='?src=\ref[src];info_relation=\ref[R]'>Edit</a>" : ""]<br>[R.info ? "[R.info]" : " Nothing specific."]"
-		if(R.other.info)
-			dat += "<br><b>Things you know about them:</b><br>[R.other.info]<br>[R.other.holder.gen_relations_info]"
+		dat += "<b>Things they know about you:</b>[!relation.finalized ?"<a href='byond://?src=\ref[src];info_relation=\ref[relation]'>Edit</a>" : ""]<br>[relation.info ? "[relation.info]" : " Nothing specific."]"
+		if(relation.other.info)
+			dat += "<br><b>Things you know about them:</b><br>[relation.other.info]<br>[relation.other.holder.gen_relations_info]"
 		dat += "<hr>"
 
 	if(mind.known_connections && mind.known_connections.len)
@@ -209,7 +217,7 @@ var/global/datum/matchmaker/matchmaker = new()
 
 	var/datum/browser/popup = new(usr, "relations", "Relationship Info")
 	if(editable)
-		dat.Insert(1,"<a href='?src=\ref[src];relations_close=1;'>Finalize edits and close</a><br>")
+		dat.Insert(1,"<a href='byond://?src=\ref[src];relations_close=1;'>Finalize edits and close</a><br>")
 		popup.set_window_options("focus=0;can_close=0;can_minimize=1;can_maximize=0;can_resize=1;titlebar=1;")
 	popup.set_content(jointext(dat,null))
 	popup.open()
@@ -217,17 +225,18 @@ var/global/datum/matchmaker/matchmaker = new()
 /mob/living/proc/see_relationship_info_with(var/mob/living/other)
 	if(!other.mind)
 		return
+	var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 	var/list/relations = matchmaker.get_relationships(mind,other.mind,TRUE)
 	var/list/dat = list("<h2>[other]</h2>")
 	if(mind.gen_relations_info)
 		dat += "<b>Things they know about you:</b><br>[mind.gen_relations_info]<hr>"
 		dat += "<br>"
-	for(var/datum/relation/R in relations)
-		dat += "<br>[R.desc]"
+	for(var/datum/relation/relation in relations)
+		dat += "<br>[relation.desc]"
 		dat += "<br>"
-		dat += "<b>Things they know about you:</b><br>[R.info ? "[R.info]" : " Nothing specific."]"
-		if(R.other.info)
-			dat += "<br><b>Things you know about them:</b><br>[R.other.info]<br>[R.other.holder.gen_relations_info]"
+		dat += "<b>Things they know about you:</b><br>[relation.info ? "[relation.info]" : " Nothing specific."]"
+		if(relation.other.info)
+			dat += "<br><b>Things you know about them:</b><br>[relation.other.info]<br>[relation.other.holder.gen_relations_info]"
 		dat += "<hr>"
 
 	var/datum/browser/popup = new(usr, "relations", "Relationship Info")
@@ -247,28 +256,29 @@ var/global/datum/matchmaker/matchmaker = new()
 
 /mob/living/OnSelfTopic(href_list)
 	if(href_list["del_relation"])
-		var/datum/relation/R = locate(href_list["del_relation"])
-		if(istype(R))
-			R.sever()
+		var/datum/relation/relation = locate(href_list["del_relation"])
+		if(istype(relation))
+			relation.sever()
 			see_relationship_info()
 			return TOPIC_HANDLED
 	if(href_list["info_relation"])
-		var/datum/relation/R = locate(href_list["info_relation"])
-		if(istype(R))
-			var/info = sanitize(input("What would you like the other party for this connection to know about your character?","Character info",R.info) as message|null)
+		var/datum/relation/relation = locate(href_list["info_relation"])
+		if(istype(relation))
+			var/info = sanitize(input("What would you like the other party for this connection to know about your character?","Character info",relation.info) as message|null)
 			if(info)
-				R.info = info
+				relation.info = info
 				see_relationship_info()
 				return TOPIC_HANDLED
 	if(href_list["relations_close"])
 		var/ok = "Close anyway"
 		ok = alert("HEY! You have some non-finalized relationships. You can terminate them if they do not fit your character, or edit the info tidbit that the other party is given. THIS IS YOUR ONLY CHANCE to do so - after you close the window, they won't be editable.","Finalize relationships","Return to edit", "Close anyway")
 		if(ok == "Close anyway")
+			var/decl/modpack/matchmaking/matchmaker = IMPLIED_DECL
 			var/list/relations = matchmaker.get_relationships(mind)
-			for(var/datum/relation/R in relations)
-				R.finalize()
-			show_browser(usr,null, "window=relations")
+			for(var/datum/relation/relation in relations)
+				relation.finalize()
+			show_browser(src,null, "window=relations")
 		else
-			show_browser(usr,null, "window=relations")
+			show_browser(src,null, "window=relations")
 		return TOPIC_HANDLED
 	return ..()

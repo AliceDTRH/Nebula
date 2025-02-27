@@ -1,14 +1,14 @@
 /datum/event/ailments/start()
 	var/list/candidates = list()
-	for(var/mob/living/carbon/human/H in global.living_mob_list_)
-		if(H.client && !length(H.stasis_sources))
+	for(var/mob/living/human/H in global.living_mob_list_)
+		if(H.client && !H.has_mob_modifier(/decl/mob_modifier/stasis))
 			candidates += H
 	if(!length(candidates))
 		return
 	candidates = shuffle(candidates)
 	var/create_ailments = min(length(candidates), rand(1,3))
 	for(var/i = 1 to length(candidates))
-		var/mob/living/carbon/human/H = candidates[i]
+		var/mob/living/human/H = candidates[i]
 		var/list/organs = shuffle(H.get_organs())
 		for(var/ii = 1 to length(organs))
 			var/obj/item/organ/O = organs[ii]

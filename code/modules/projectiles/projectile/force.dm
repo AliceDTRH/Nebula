@@ -3,14 +3,14 @@
 	icon = 'icons/obj/projectiles.dmi'
 	icon_state = "ice_1"
 	damage = 20
-	damage_type = BURN
+	atom_damage_type = BURN
 	damage_flags = 0
 
 /obj/item/projectile/forcebolt/strong
 	name = "force bolt"
 
 /obj/item/projectile/forcebolt/on_hit(var/atom/movable/target, var/blocked = 0)
-	if(istype(target))
+	if(istype(target) && isturf(target.loc))
 		var/throwdir = get_dir(firer,target)
 		target.throw_at(get_edge_target_turf(target, throwdir),10,10)
 		return 1
@@ -20,7 +20,7 @@
 	icon_state = "fireball"
 	fire_sound = 'sound/magic/fireball.ogg'
 	damage = 20
-	damage_type = BURN
+	atom_damage_type = BURN
 	damage_flags = 0
 
 	var/ex_severe = -1

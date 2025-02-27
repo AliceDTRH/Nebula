@@ -4,14 +4,14 @@
 /area/space)
 "ab" = (
 /obj/effect/paint/sun,
-/turf/simulated/wall/r_titanium,
+/turf/wall/r_titanium,
 /area/ministation/supply)
 "ac" = (
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/ministation/supply)
 "ad" = (
 /obj/effect/shuttle_landmark/supply/start,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/ministation/supply)
 "ae" = (
 /obj/machinery/door/airlock/external/bolted{
@@ -19,7 +19,7 @@
 	name = "Shuttle Hatch";
 	use_power = 1
 	},
-/turf/simulated/floor/plating,
+/turf/floor/plating,
 /area/ministation/supply)
 "af" = (
 /obj/structure/shuttle/engine/heater,
@@ -27,47 +27,47 @@
 	icon_state = "rwindow";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/ministation/supply)
 "ag" = (
 /obj/structure/shuttle/engine/propulsion,
 /obj/effect/paint/sun,
-/turf/simulated/wall/r_titanium,
+/turf/wall/r_titanium,
 /area/ministation/supply)
 "aj" = (
 /obj/effect/paint/silver,
-/turf/simulated/wall/r_titanium,
+/turf/wall/r_titanium,
 /area/shuttle/escape_shuttle)
 "ak" = (
 /obj/effect/wallframe_spawn/reinforced/titanium,
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "al" = (
 /obj/machinery/computer/modular/preset/cardslot/command,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "am" = (
 /obj/item/boombox,
 /obj/structure/table/steel_reinforced,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "an" = (
 /obj/machinery/computer/shuttle_control/emergency,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "ao" = (
-/obj/structure/bed/chair/shuttle/black{
+/obj/structure/chair/shuttle/black{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
 /obj/machinery/light,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "ap" = (
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aq" = (
-/obj/structure/bed/chair/shuttle/black{
+/obj/structure/chair/shuttle/black{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
@@ -81,18 +81,18 @@
 	pixel_y = -25;
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "ar" = (
 /obj/machinery/door/airlock/command{
 	autoset_access = 0;
 	req_access = list("ACCESS_HEADS")
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "as" = (
 /obj/structure/closet/emcloset,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "at" = (
 /obj/machinery/door/airlock/external/glass{
@@ -101,25 +101,26 @@
 	locked = 1;
 	id_tag = "shuttle1_airlock_exterior"
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "au" = (
 /obj/machinery/airlock_sensor{
 	id_tag = "shuttle3_sensor";
-	pixel_y = -20
+	pixel_y = -20;
+	dir = 1
 	},
 /obj/machinery/atmospherics/unary/vent_pump/high_volume/external_air{
 	dir = 8;
 	id_tag = "shuttle1_vent"
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "av" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 1
 	},
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
@@ -127,86 +128,86 @@
 	icon_state = "tube_map";
 	dir = 8
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aw" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 1
 	},
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "ax" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 5
 	},
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "ay" = (
 /obj/machinery/light{
 	dir = 4
 	},
 /obj/machinery/atmospherics/pipe/simple/hidden,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "az" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 4
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aA" = (
 /obj/machinery/sleeper/standard,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aB" = (
 /obj/structure/table/reinforced,
 /obj/machinery/sleeper/standard,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aC" = (
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aD" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 4
 	},
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aE" = (
 /obj/structure/table/reinforced,
-/obj/item/storage/firstaid/adv,
-/turf/simulated/floor/shuttle/blue,
+/obj/item/firstaid/adv,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aF" = (
 /obj/structure/table/reinforced,
-/obj/item/robot_rack/roller{
+/obj/structure/bed/roller{
 	pixel_y = 10
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aG" = (
 /obj/effect/floor_decal/industrial/traffic,
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
@@ -214,71 +215,73 @@
 	icon_state = "tube_map";
 	dir = 8
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aH" = (
 /obj/effect/floor_decal/industrial/traffic,
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aI" = (
 /obj/effect/floor_decal/industrial/traffic{
 	icon_state = "stripe";
 	dir = 6
 	},
-/obj/structure/bed/chair/shuttle{
+/obj/structure/chair/shuttle{
 	icon_state = "shuttle_chair";
 	dir = 1
 	},
 /obj/effect/shuttle_landmark/escape_shuttle/start,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aJ" = (
 /obj/structure/extinguisher_cabinet{
-	pixel_y = -30
+	pixel_y = -29;
+	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aK" = (
 /obj/machinery/status_display{
-	pixel_y = -30
+	pixel_y = -30;
+	dir = 1
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aL" = (
 /obj/machinery/door/airlock,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "aM" = (
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aN" = (
 /obj/structure/extinguisher_cabinet{
-	pixel_y = 30
+	pixel_y = 29
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aO" = (
 /obj/machinery/light{
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aP" = (
 /obj/machinery/computer/modular/preset/security{
 	icon_state = "computer";
 	dir = 4
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aQ" = (
 /obj/structure/window/reinforced{
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/red,
+/turf/floor/shuttle/red,
 /area/shuttle/escape_shuttle)
 "aR" = (
 /obj/structure/window/reinforced{
@@ -288,42 +291,42 @@
 	autoset_access = 0;
 	req_access = list("ACCESS_BRIG")
 	},
-/turf/simulated/floor/shuttle/red,
+/turf/floor/shuttle/red,
 /area/shuttle/escape_shuttle)
 "aS" = (
 /obj/machinery/oxygen_pump{
 	pixel_x = -30
 	},
-/turf/simulated/floor/shuttle/red,
+/turf/floor/shuttle/red,
 /area/shuttle/escape_shuttle)
 "aT" = (
 /obj/structure/window/reinforced{
 	dir = 4
 	},
-/turf/simulated/floor/shuttle/red,
+/turf/floor/shuttle/red,
 /area/shuttle/escape_shuttle)
 "aU" = (
 /obj/machinery/portable_atmospherics/canister/oxygen,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aV" = (
 /obj/machinery/light,
 /obj/structure/table/reinforced,
 /obj/machinery/recharger,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aW" = (
 /obj/structure/closet/toolcloset,
 /obj/item/screwdriver,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aX" = (
-/obj/structure/closet/crate/freezer/rations,
-/turf/simulated/floor/shuttle/yellow,
+/obj/structure/closet/crate/plastic/rations,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aY" = (
 /obj/machinery/recharge_station,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "aZ" = (
 /obj/structure/shuttle/engine/heater,
@@ -331,7 +334,7 @@
 	icon_state = "rwindow";
 	dir = 1
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "ba" = (
 /obj/structure/shuttle/engine/propulsion,
@@ -342,7 +345,7 @@
 	dir = 1
 	},
 /obj/machinery/portable_atmospherics/canister/air/airlock,
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "fy" = (
 /obj/machinery/door/airlock/external/glass{
@@ -354,18 +357,19 @@
 /obj/machinery/atmospherics/pipe/simple/hidden{
 	dir = 4
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "hM" = (
 /obj/machinery/airlock_sensor{
 	id_tag = "shuttle2_sensor";
-	pixel_y = -20
+	pixel_y = -20;
+	dir = 1
 	},
 /obj/machinery/atmospherics/unary/vent_pump/high_volume/external_air{
 	dir = 8;
 	id_tag = "shuttle1_vent"
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "lo" = (
 /turf/space/transit/north,
@@ -373,25 +377,28 @@
 "qu" = (
 /obj/machinery/airlock_sensor{
 	id_tag = "shuttle1_sensor";
-	pixel_y = -20
+	pixel_y = -20;
+	dir = 1
 	},
 /obj/machinery/atmospherics/unary/vent_pump/high_volume/external_air{
 	dir = 8;
 	id_tag = "shuttle1_vent"
 	},
-/turf/simulated/floor/shuttle/black,
+/turf/floor/shuttle/black,
 /area/shuttle/escape_shuttle)
 "tC" = (
-/turf/simulated/shuttle/wall,
+/turf/wall/shuttle{
+	unique_merge_identifier = "ministation_escape"
+	},
 /area/space)
 "AD" = (
 /obj/structure/window/borosilicate_reinforced,
-/turf/simulated/floor/bluegrid,
+/turf/floor/bluegrid,
 /area/ministation/supply)
 "AH" = (
 /obj/effect/paint/silver,
 /obj/machinery/atmospherics/pipe/simple/hidden,
-/turf/simulated/wall/r_titanium,
+/turf/wall/r_titanium,
 /area/shuttle/escape_shuttle)
 "EW" = (
 /obj/effect/step_trigger/teleporter/random,
@@ -399,23 +406,23 @@
 /area/space)
 "FN" = (
 /obj/machinery/atmospherics/pipe/simple/hidden,
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "Kt" = (
 /obj/structure/window/borosilicate_reinforced,
 /obj/structure/showcase{
-	desc = "It's actually a yinglet inside the box piloting the shuttle but don't tell anyone.";
+	desc = "It's actually a possum inside the box piloting the shuttle but don't tell anyone.";
 	icon_state = "message_server_o_off";
 	name = "auto-pilot system"
 	},
-/turf/simulated/floor/bluegrid,
+/turf/floor/bluegrid,
 /area/ministation/supply)
 "KH" = (
 /obj/machinery/light/small/emergency{
 	icon_state = "bulb_map";
 	dir = 4
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/ministation/supply)
 "Mu" = (
 /obj/machinery/embedded_controller/radio/simple_docking_controller{
@@ -425,25 +432,29 @@
 	tag_door = "supply_shuttle_hatch";
 	use_power = 1
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/ministation/supply)
 "MW" = (
 /obj/machinery/atmospherics/pipe/manifold{
 	dir = 8
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
+"Pe" = (
+/obj/abstract/level_data_spawner/admin_level,
+/turf/space,
+/area/space)
 "Qd" = (
 /obj/machinery/atmospherics/pipe/manifold{
 	dir = 8
 	},
-/turf/simulated/floor/shuttle/yellow,
+/turf/floor/shuttle/yellow,
 /area/shuttle/escape_shuttle)
 "QS" = (
 /obj/machinery/atmospherics/pipe/simple/hidden{
 	dir = 6
 	},
-/turf/simulated/floor/shuttle/blue,
+/turf/floor/shuttle/blue,
 /area/shuttle/escape_shuttle)
 "Ub" = (
 /obj/effect/shuttle_landmark/escape_shuttle/transit,
@@ -452,10 +463,6 @@
 "UO" = (
 /obj/effect/step_trigger/teleporter/random,
 /turf/space/transit/north,
-/area/space)
-"YY" = (
-/obj/abstract/level_data_spawner/admin_level,
-/turf/space,
 /area/space)
 
 (1,1,1) = {"
@@ -715,7 +722,7 @@ aa
 aa
 aa
 aa
-aa
+Pe
 aa
 "}
 (3,1,1) = {"
@@ -844,7 +851,7 @@ aa
 aa
 aa
 aa
-YY
+aa
 aa
 aa
 "}
@@ -2006,10 +2013,10 @@ ab
 ab
 ac
 ac
-ac
 Mu
-KH
 ac
+ac
+KH
 ab
 ab
 tC
@@ -2136,10 +2143,10 @@ tC
 ab
 ab
 ab
-ae
-ab
 ab
 ae
+ae
+ab
 ab
 ab
 tC

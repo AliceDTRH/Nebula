@@ -1,8 +1,3 @@
-#define CREDIT_ROLL_SPEED 185
-#define CREDIT_SPAWN_SPEED 20
-#define CREDIT_ANIMATE_HEIGHT (14 * world.icon_size)
-#define CREDIT_EASE_DURATION 22
-
 var/global/list/end_titles
 
 /client
@@ -17,8 +12,6 @@ var/global/list/end_titles
 	if(!global.end_titles)
 		global.end_titles = generate_titles()
 
-	LAZYINITLIST(credits)
-
 	if(mob)
 		mob.overlay_fullscreen("fishbed",/obj/screen/fullscreen/fishbed)
 		mob.overlay_fullscreen("fadeout",/obj/screen/fullscreen/fadeout)
@@ -30,15 +23,14 @@ var/global/list/end_titles
 					sound_to(mob, sound(pick(global.using_map.credit_sound), wait = 0, volume = 40, channel = sound_channels.lobby_channel))
 			else if(get_preference_value(/datum/client_preference/play_admin_midis) == PREF_YES)
 				sound_to(mob, sound(global.end_credits_song, wait = 0, volume = 40, channel = sound_channels.lobby_channel))
-	sleep(50)
-	var/list/_credits = credits
+
+	sleep(5 SECONDS)
 	verbs += /client/proc/ClearCredits
-	for(var/I in global.end_titles)
-		if(!credits)
-			return
-		var/obj/screen/credit/T = new(null, I, src)
-		_credits += T
-		T.rollem()
+	for(var/credit in global.end_titles)
+		var/obj/screen/credit/credit_obj = new(null, mob)
+		LAZYADD(credits, credit_obj)
+		credit_obj.maptext = {"<div style="font:'Small Fonts'">[credit]</div>"}
+		credit_obj.rollem()
 		sleep(CREDIT_SPAWN_SPEED)
 	sleep(CREDIT_ROLL_SPEED - CREDIT_SPAWN_SPEED)
 
@@ -54,44 +46,6 @@ var/global/list/end_titles
 	mob.clear_fullscreen("fadeout")
 	sound_to(mob, sound(null, channel = sound_channels.lobby_channel))
 
-/obj/screen/credit
-	icon_state = "blank"
-	mouse_opacity = MOUSE_OPACITY_UNCLICKABLE
-	alpha = 0
-	screen_loc = "CENTER-7,BOTTOM+1"
-	plane = HUD_PLANE
-	layer = HUD_ABOVE_ITEM_LAYER
-	var/client/parent
-	var/matrix/target
-
-/obj/screen/credit/Initialize(mapload, credited, client/P)
-	. = ..()
-	parent = P
-	maptext = {"<div style="font:'Small Fonts'">[credited]</div>"}
-	maptext_height = world.icon_size * 2
-	maptext_width = world.icon_size * 14
-
-/obj/screen/credit/proc/rollem()
-	var/matrix/M = matrix(transform)
-	M.Translate(0, CREDIT_ANIMATE_HEIGHT)
-	animate(src, transform = M, time = CREDIT_ROLL_SPEED)
-	target = M
-	animate(src, alpha = 255, time = CREDIT_EASE_DURATION, flags = ANIMATION_PARALLEL)
-	spawn(CREDIT_ROLL_SPEED - CREDIT_EASE_DURATION)
-		if(!QDELETED(src))
-			animate(src, alpha = 0, transform = target, time = CREDIT_EASE_DURATION)
-			sleep(CREDIT_EASE_DURATION)
-			qdel(src)
-	parent.screen += src
-
-/obj/screen/credit/Destroy()
-	var/client/P = parent
-	if(istype(P))
-		P.screen -= src
-		LAZYREMOVE(P.credits, src)
-	parent = null
-	return ..()
-
 /proc/generate_titles()
 	var/list/titles = list()
 	var/list/cast = list()
@@ -99,7 +53,7 @@ var/global/list/end_titles
 	var/chunksize = 0
 	titles += "<center><h1>EPISODE [rand(1,1000)]<br>[SSlore.get_end_credits_title()]<h1></h1></h1></center>"
 
-	for(var/mob/living/carbon/human/H in global.living_mob_list_|global.dead_mob_list_)
+	for(var/mob/living/human/H in global.living_mob_list_|global.dead_mob_list_)
 		if(findtext(H.real_name,"(mannequin)"))
 			continue
 		if(H.isMonkey() && findtext(H.real_name,"[lowertext(H.species.name)]")) //no monki
@@ -112,26 +66,26 @@ var/global/list/end_titles
 		if(GetAssignment(H) != "Unassigned")
 			job = ", [uppertext(GetAssignment(H))]"
 		var/used_name = H.real_name
-		var/datum/computer_file/report/crew_record/R = get_crewmember_record(H.real_name)
-		if(R && R.get_rank())
-			var/datum/mil_rank/rank = mil_branches.get_rank(R.get_branch(), R.get_rank())
+		var/datum/computer_file/report/crew_record/record = get_crewmember_record(H.real_name)
+		if(record && record.get_rank())
+			var/datum/mil_rank/rank = mil_branches.get_rank(record.get_branch(), record.get_rank())
 			if(rank.name_short)
 				used_name = "[rank.name_short] [used_name]"
 		var/showckey = 0
 		if(H.ckey && H.client)
 			if(H.client.get_preference_value(/datum/client_preference/show_ckey_credits) == PREF_SHOW)
 				showckey = 1
-		var/decl/cultural_info/actor_culture = GET_DECL(H.get_cultural_value(TAG_CULTURE))
-		if(!actor_culture || !(H.species.spawn_flags & SPECIES_CAN_JOIN) || prob(10))
-			actor_culture = GET_DECL(/decl/cultural_info/culture/human)
+		var/decl/background_detail/background = H.get_background_datum_by_flag(BACKGROUND_FLAG_NAMING)
+		if(!background || !(H.species.spawn_flags & SPECIES_CAN_JOIN) || prob(10))
+			background = GET_DECL(/decl/background_detail/heritage/human)
 		if(!showckey)
 			if(prob(90))
-				chunk += "[actor_culture.get_random_name(H, H.gender)]\t \t \t \t[uppertext(used_name)][job]"
+				chunk += "[background.get_random_name(H, H.gender)]\t \t \t \t[uppertext(used_name)][job]"
 			else
-				var/decl/pronouns/G = H.get_pronouns()
-				chunk += "[used_name]\t \t \t \t[uppertext(G.him)]SELF"
+				var/decl/pronouns/pronouns = H.get_pronouns()
+				chunk += "[used_name]\t \t \t \t[uppertext(pronouns.him)]SELF"
 		else
-			chunk += "[uppertext(actor_culture.get_random_name(H, H.gender))] a.k.a. '[uppertext(H.ckey)]'\t \t \t \t[uppertext(used_name)][job]"
+			chunk += "[uppertext(background.get_random_name(H, H.gender))] a.k.a. '[uppertext(H.ckey)]'\t \t \t \t[uppertext(used_name)][job]"
 		chunksize++
 		if(chunksize > 2)
 			cast += "<center>[jointext(chunk,"<br>")]</center>"
@@ -144,7 +98,7 @@ var/global/list/end_titles
 
 	var/list/corpses = list()
 	var/list/monkies = list()
-	for(var/mob/living/carbon/human/H in global.dead_mob_list_)
+	for(var/mob/living/human/H in global.dead_mob_list_)
 		if(H.timeofdeath < 5 MINUTES) //no prespawned corpses
 			continue
 		if(H.isMonkey() && findtext(H.real_name,"[lowertext(H.species.name)]"))
@@ -164,8 +118,8 @@ var/global/list/end_titles
 		if(!C.holder)
 			continue
 		if(C.holder.rights & (R_DEBUG|R_ADMIN))
-			var/list/all_cultures = decls_repository.get_decls_of_subtype(/decl/cultural_info/culture)
-			var/decl/cultural_info/cult = all_cultures[pick(all_cultures)]
+			var/list/all_backgrounds = decls_repository.get_decls_of_subtype(/decl/background_detail/heritage)
+			var/decl/background_detail/cult = all_backgrounds[pick(all_backgrounds)]
 			staff += "[uppertext(pick(staffjobs))] - [cult.get_random_name(pick(MALE, FEMALE))] a.k.a. '[C.key]'"
 		else if(C.holder.rights & R_MOD)
 			goodboys += "[C.key]"

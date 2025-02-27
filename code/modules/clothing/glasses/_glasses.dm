@@ -7,6 +7,8 @@
 	w_class = ITEM_SIZE_SMALL
 	body_parts_covered = SLOT_EYES
 	slot_flags = SLOT_EYES
+	fallback_slot = slot_glasses_str
+	gender = PLURAL
 
 	var/vision_flags =     0
 	var/darkness_view =    0
@@ -17,8 +19,8 @@
 	var/active =           TRUE
 	var/electric =         FALSE //if the glasses should be disrupted by EMP
 
-	var/hud_type
-	var/obj/screen/overlay
+	var/glasses_hud_type
+	var/obj/screen/screen_overlay
 	var/obj/item/clothing/glasses/hud/hud // Hud glasses, if any
 	var/activation_sound =   'sound/items/goggles_charge.ogg'
 	var/deactivation_sound // set this if you want a sound on deactivation
@@ -32,7 +34,7 @@
 	if(ispath(hud))
 		hud = new hud(src)
 
-/obj/item/clothing/glasses/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/glasses/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && active && check_state_in_icon("[overlay.icon_state]-active", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]-active"
 	. = ..()
@@ -43,12 +45,12 @@
 	. = ..()
 
 /obj/item/clothing/glasses/needs_vision_update()
-	return ..() || overlay || vision_flags || see_invisible || darkness_view
+	return ..() || screen_overlay || vision_flags || see_invisible || darkness_view
 
 /obj/item/clothing/glasses/emp_act(severity)
 	if(electric)
-		if(istype(src.loc, /mob/living/carbon/human))
-			var/mob/living/carbon/human/M = src.loc
+		if(ishuman(src.loc))
+			var/mob/living/human/M = src.loc
 			if(M.get_equipped_item(slot_glasses_str) != src)
 				to_chat(M, SPAN_DANGER("\The [src] malfunction[gender != PLURAL ? "s":""], releasing a small spark."))
 			else
@@ -57,10 +59,9 @@
 				to_chat(M, SPAN_DANGER("Your [name] malfunction[gender != PLURAL ? "s":""], blinding you!"))
 
 				// Don't cure being nearsighted
-				if(!(M.disabilities & NEARSIGHTED))
-					M.disabilities |= NEARSIGHTED
-					spawn(100)
-						M.disabilities &= ~NEARSIGHTED
+				if(!M.has_genetic_condition(GENE_COND_NEARSIGHTED))
+					M.add_genetic_condition(GENE_COND_NEARSIGHTED, 10 SECONDS)
+
 		if(toggleable && active)
 			set_active(FALSE)
 
@@ -69,7 +70,7 @@
 		active = _active
 		update_icon()
 		update_clothing_icon()
-		update_vision()
+		update_wearer_vision()
 
 /obj/item/clothing/glasses/on_update_icon()
 	. = ..()
@@ -102,10 +103,10 @@
 	tint = TINT_NONE
 
 /obj/item/clothing/glasses/update_clothing_icon()
-	if(ismob(src.loc))
-		var/mob/M = src.loc
-		M.update_inv_glasses()
-		M.update_action_buttons()
+	. = ..()
+	if(. && ismob(loc))
+		var/mob/wearer = loc
+		wearer.update_action_buttons()
 
 /obj/item/clothing/glasses/proc/toggle()
 	set category = "Object"

@@ -10,7 +10,7 @@
 	name = "infrared emitter"
 	desc = "Emits a visible or invisible beam and is triggered when the beam is interrupted."
 	icon_state = "infrared"
-	origin_tech = "{'magnets':2}"
+	origin_tech = @'{"magnets":2}'
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
@@ -30,7 +30,7 @@
 	. = ..()
 	beams = list()
 	seen_turfs = list()
-	proximity_trigger = new(src, /obj/item/assembly/infra/proc/on_beam_entered, /obj/item/assembly/infra/proc/on_visibility_change, world.view, proximity_flags = PROXIMITY_EXCLUDE_HOLDER_TURF)
+	proximity_trigger = new(src, TYPE_PROC_REF(/obj/item/assembly/infra, on_beam_entered), TYPE_PROC_REF(/obj/item/assembly/infra, on_visibility_change), world.view, proximity_flags = PROXIMITY_EXCLUDE_HOLDER_TURF)
 
 /obj/item/assembly/infra/Destroy()
 	qdel(proximity_trigger)
@@ -67,7 +67,7 @@
 		holder.update_icon()
 	update_beams()
 
-/obj/item/assembly/infra/interact(mob/user)//TODO: change this this to the wire control panel
+/obj/item/assembly/infra/interact(mob/user)//TODO: change this to the wire control panel
 	if(!secured)
 		return
 	if(!CanInteract(user, global.physical_topic_state))
@@ -75,9 +75,9 @@
 
 	user.set_machine(src)
 	var/dat = list()
-	dat += text("<TT><B>Infrared Laser</B>\n<B>Status</B>: []<BR>\n<B>Visibility</B>: []<BR>\n</TT>", (on ? text("<A href='?src=\ref[];state=0'>On</A>", src) : text("<A href='?src=\ref[];state=1'>Off</A>", src)), (src.visible ? text("<A href='?src=\ref[];visible=0'>Visible</A>", src) : text("<A href='?src=\ref[];visible=1'>Invisible</A>", src)))
-	dat += "<BR><BR><A href='?src=\ref[src];refresh=1'>Refresh</A>"
-	dat += "<BR><BR><A href='?src=\ref[src];close=1'>Close</A>"
+	dat += text("<TT><B>Infrared Laser</B>\n<B>Status</B>: []<BR>\n<B>Visibility</B>: []<BR>\n</TT>", (on ? text("<A href='byond://?src=\ref[];state=0'>On</A>", src) : text("<A href='byond://?src=\ref[];state=1'>Off</A>", src)), (src.visible ? text("<A href='byond://?src=\ref[];visible=0'>Visible</A>", src) : text("<A href='byond://?src=\ref[];visible=1'>Invisible</A>", src)))
+	dat += "<BR><BR><A href='byond://?src=\ref[src];refresh=1'>Refresh</A>"
+	dat += "<BR><BR><A href='byond://?src=\ref[src];close=1'>Close</A>"
 	show_browser(user, jointext(dat,null), "window=infra")
 	onclose(user, "infra")
 

@@ -5,16 +5,16 @@
 	icon_state = ICON_STATE_WORLD
 	var/color_selection
 	w_class = ITEM_SIZE_SMALL
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 
 /obj/item/cable_painter/Initialize()
 	. = ..()
 	color_selection = pick(get_global_cable_colors())
 
-/obj/item/cable_painter/examine(mob/user, distance)
+/obj/item/cable_painter/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
-		to_chat(user, "The color is currently set to [lowertext(color_selection)].")
+		. += "The color is currently set to [lowertext(color_selection)]."
 
 /obj/item/cable_painter/attack_self(mob/user)
 	var/new_color_selection = input("What color would you like to use?", "Choose a Color", color_selection) as null|anything in get_global_cable_colors()

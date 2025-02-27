@@ -84,7 +84,7 @@
 	path = /obj/item/stock_parts/circuitboard/account_database
 
 /datum/fabricator_recipe/imprinter/circuit/holo
-	path = /obj/item/stock_parts/circuitboard/holodeckcontrol
+	path = /obj/item/stock_parts/circuitboard/holodeck_control
 
 /datum/fabricator_recipe/imprinter/circuit/aiupload
 	path = /obj/item/stock_parts/circuitboard/aiupload
@@ -109,6 +109,9 @@
 
 /datum/fabricator_recipe/imprinter/circuit/autolathe
 	path = /obj/item/stock_parts/circuitboard/autolathe
+
+/datum/fabricator_recipe/imprinter/circuit/recycler
+	path = /obj/item/stock_parts/circuitboard/recycler
 
 /datum/fabricator_recipe/imprinter/circuit/replicator
 	path = /obj/item/stock_parts/circuitboard/replicator
@@ -170,9 +173,6 @@
 /datum/fabricator_recipe/imprinter/circuit/solarcontrol
 	path = /obj/item/stock_parts/circuitboard/solar_control
 
-/datum/fabricator_recipe/imprinter/circuit/supermatter_control
-	path = /obj/item/stock_parts/circuitboard/air_management/supermatter_core
-
 /datum/fabricator_recipe/imprinter/circuit/injector
 	path = /obj/item/stock_parts/circuitboard/air_management/injector_control
 
@@ -217,9 +217,6 @@
 
 /datum/fabricator_recipe/imprinter/circuit/chemical_dispenser
 	path = /obj/item/stock_parts/circuitboard/chemical_dispenser
-
-/datum/fabricator_recipe/imprinter/circuit/atmos_control
-	path = /obj/item/stock_parts/circuitboard/atmoscontrol
 
 /datum/fabricator_recipe/imprinter/circuit/pipe_dispenser
 	path = /obj/item/stock_parts/circuitboard/pipedispensor
@@ -302,9 +299,6 @@
 /datum/fabricator_recipe/imprinter/circuit/miningdrill
 	path = /obj/item/stock_parts/circuitboard/miningdrill
 
-/datum/fabricator_recipe/imprinter/circuit/miningdrillbrace
-	path = /obj/item/stock_parts/circuitboard/miningdrillbrace
-
 /datum/fabricator_recipe/imprinter/circuit/floodlight
 	path = /obj/item/stock_parts/circuitboard/floodlight
 
@@ -338,6 +332,9 @@
 /datum/fabricator_recipe/imprinter/circuit/washer
 	path = /obj/item/stock_parts/circuitboard/washer
 
+/datum/fabricator_recipe/imprinter/circuit/autoclave
+	path = /obj/item/stock_parts/circuitboard/autoclave
+
 /datum/fabricator_recipe/imprinter/circuit/microwave
 	path = /obj/item/stock_parts/circuitboard/microwave
 
@@ -347,11 +344,11 @@
 /datum/fabricator_recipe/imprinter/circuit/cooker
 	path = /obj/item/stock_parts/circuitboard/cooker
 
-/datum/fabricator_recipe/imprinter/circuit/honey_extractor
-	path = /obj/item/stock_parts/circuitboard/honey
+/datum/fabricator_recipe/imprinter/circuit/centrifuge
+	path = /obj/item/stock_parts/circuitboard/centrifuge
 
 /datum/fabricator_recipe/imprinter/circuit/seed_extractor
-	path = /obj/item/stock_parts/circuitboard/honey/seed
+	path = /obj/item/stock_parts/circuitboard/seed_extractor
 
 /datum/fabricator_recipe/imprinter/circuit/vending
 	path = /obj/item/stock_parts/circuitboard/vending
@@ -467,9 +464,6 @@
 /datum/fabricator_recipe/imprinter/circuit/long_range_relay
 	path = /obj/item/stock_parts/circuitboard/relay/long_range
 
-/datum/fabricator_recipe/imprinter/circuit/inertial_damper
-	path = /obj/item/stock_parts/circuitboard/inertial_damper
-
 /datum/fabricator_recipe/imprinter/circuit/docking_beacon
 	path = /obj/item/stock_parts/circuitboard/docking_beacon
 
@@ -484,3 +478,15 @@
 
 /datum/fabricator_recipe/imprinter/circuit/geothermal_generator
 	path = /obj/item/stock_parts/circuitboard/geothermal
+
+/datum/fabricator_recipe/imprinter/circuit/area_atmos
+	path = /obj/item/stock_parts/circuitboard/area_atmos
+
+/datum/fabricator_recipe/imprinter/circuit/area_atmos_control
+	path = /obj/item/stock_parts/circuitboard/area_atmos/area
+
+/datum/fabricator_recipe/imprinter/circuit/tag_scrubber_control
+	path = /obj/item/stock_parts/circuitboard/area_atmos/tag
+
+/datum/fabricator_recipe/imprinter/circuit/central_atmos
+	path = /obj/item/stock_parts/circuitboard/central_atmos

@@ -7,7 +7,7 @@
 /obj/item/sign
 	name     = "sign"
 	w_class  = ITEM_SIZE_NORMAL
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	///The type of the sign this item will turn into upon installation
 	var/sign_type
 
@@ -23,9 +23,9 @@
 		try_install(target, user)
 		return TRUE
 
-/obj/item/sign/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W) && W.CanUseTopic(user, global.inventory_topic_state) && isturf(user.loc))
-		return try_install(W, user)
+/obj/item/sign/attackby(obj/item/used_item, mob/user)
+	if(IS_SCREWDRIVER(used_item) && used_item.CanUseTopic(user, global.inventory_topic_state) && isturf(user.loc))
+		return try_install(used_item, user)
 	return ..()
 
 /obj/item/sign/on_update_icon()
@@ -45,7 +45,7 @@
 
 	//Make sure we have the same matter contents as the sign
 	matter = atom_info_repository.get_matter_for(sign_type)
-	matter = matter.Copy()
+	matter = matter?.Copy()
 
 	//Do this last, so icon update is last
 	set_icon_state(ispath(S)? initial(S.icon_state) : S.icon_state)
@@ -62,12 +62,12 @@
 	sign_type = null
 	return S
 
-///Attempts installing the sign and ask the user for direction and etc..
+///Attempts installing the sign and ask the user for direction and etc.
 /obj/item/sign/proc/try_install(var/turf/targeted_turf, var/mob/user)
 	var/facing      = get_cardinal_dir(user, targeted_turf) || user.dir
 	var/install_dir = global.reverse_dir[facing]
 	//If we used the screwdriver on the panel, it'll be in the active hand
-	var/obj/item/screwdriver/S = user.get_active_hand()
+	var/obj/item/screwdriver/S = user.get_active_held_item()
 	if(!istype(S))
 		//Otherwise it should be in one of the offhand slots
 		for(S in user.get_inactive_held_items())
@@ -87,17 +87,18 @@
 ///A wall mountable sign structure
 /obj/structure/sign
 	name               = "sign"
-	icon               = 'icons/obj/decals.dmi'
+	icon               = 'icons/obj/signs/warnings.dmi'
 	anchored           = TRUE
 	opacity            = FALSE
 	density            = FALSE
 	layer              = ABOVE_WINDOW_LAYER
 	w_class            = ITEM_SIZE_NORMAL
 	obj_flags          = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'WEST':{'x':32}, 'EAST':{'x':-32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "WEST":{"x":32}, "EAST":{"x":-32}}'
 	abstract_type      = /obj/structure/sign
 	parts_type         = /obj/item/sign
 	parts_amount       = 1
+	material           = /decl/material/solid/organic/plastic
 
 /obj/structure/sign/Initialize(ml, _mat, _reinf_mat)
 	. = ..()
@@ -111,7 +112,7 @@
 	if(QDELETED(src))
 		return TRUE
 	if(screwdriver.do_tool_interaction(TOOL_SCREWDRIVER, user, src, 3 SECONDS, "taking down", "taking down"))
-		dismantle()
+		dismantle_structure(user)
 	return TRUE
 
 /obj/structure/sign/hide()
@@ -127,9 +128,9 @@
 		copy_extension(src, S, /datum/extension/forensic_evidence)
 		copy_extension(src, S, /datum/extension/scent)
 		transfer_fingerprints_to(S)
-	matter = null
-	material = null
-	reinf_material = null
+		if(paint_color)
+			S.set_color(paint_color)
+	clear_materials()
 
 /obj/structure/sign/double/handle_default_screwdriver_attackby(mob/user, obj/item/screwdriver)
 	return FALSE

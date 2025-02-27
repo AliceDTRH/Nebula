@@ -1,40 +1,83 @@
 /decl/material/solid/ice
-	color = "#a5f2f3"
-	heating_products = list(
+	name                   = "water"
+	use_name               = "ice"
+	solid_name             = "ice"
+	liquid_name            = "water"
+	gas_name               = "steam"
+	color                  = "#a5f2f3"
+	codex_name             = "water ice"
+	taste_description      = "ice"
+	ore_spread_chance      = 25
+	ore_scan_icon          = "mineral_common"
+	ore_icon_overlay       = "lump"
+	removed_by_welder      = TRUE
+	value                  = 0.2
+	sparse_material_weight = 2
+	ore_result_amount      = 4
+	rich_material_weight   = 37
+	heating_point          = T20C + 10 // Above room temperature, to avoid drinks melting.
+	uid                    = "solid_ice"
+	heating_products       = list(
 		/decl/material/liquid/water = 1
 	)
-	name = "water"
-	use_name = "ice"
-	codex_name = "water ice"
-	taste_description = "ice"
-	ore_spread_chance = 25
-	ore_scan_icon = "mineral_common"
-	ore_icon_overlay = "lump"
-	removed_by_welder = TRUE
-	value = 0.2
-	sparse_material_weight = 2
-	ore_result_amount = 7
-	rich_material_weight = 37
-	heating_point = T20C + 10 // Above room temperature, to avoid drinks melting.
-	uid = "solid_ice"
 
 /decl/material/solid/ice/Initialize()
-	if(!liquid_name)
-		liquid_name = "liquid [name]" // avoiding the 'molten ice' issue
-	if(!gas_name)
-		gas_name = name
-	if(!solid_name)
-		solid_name = "[name] ice"
-	if(!use_name)
-		use_name = solid_name
-	if(!ore_name)
-		ore_name = solid_name
+	liquid_name ||= "liquid [name]" // avoiding the 'molten ice' issue
+	gas_name    ||= name
+	solid_name  ||= "[name] ice"
+	use_name    ||= solid_name
+	ore_name    ||= solid_name
 	. = ..()
+
+/decl/material/solid/ice/snow
+	name = "snow"
+	liquid_name = "water"
+	solid_name = "snow"
+	gas_name = "steam"
+	adjective_name = "snow"
+	coated_adjective = "snowy"
+	color = COLOR_WHITE
+	codex_name = null
+	uid = "solid_snow"
+	hardness = MAT_VALUE_MALLEABLE
+	dug_drop_type = /obj/item/stack/material/ore/handful
+	default_solid_form = /obj/item/stack/material/lump/large
+	can_backfill_floor_type = /decl/flooring/snow
+
+/decl/material/solid/ice/snow/handle_stain_dry(obj/effect/decal/cleanable/blood/stain)
+	var/ambient_temperature = stain.get_ambient_temperature()
+	if(ambient_temperature < melting_point)
+		// reset the drying timer, it's not warm enough to melt
+		stain.start_drying() // you'd better not ever melt instantly below your melting point, or else this will cause infinite recursion
+	else if(ambient_temperature > boiling_point)
+		qdel(src) // melt instantly, no questions asked
+	else
+		if(--stain.amount < 0) // reduce the amount of snow (amount is always 0 for footprints currently, but maybe someday?)
+			qdel(src)
+	return TRUE // skip base blood handling
+
+// For snowy footprints melting.
+/decl/material/solid/ice/snow/get_time_to_dry_stain(obj/effect/decal/cleanable/blood/stain)
+	// Attempt to melt once every two minutes at T20C,
+	// and every 5 minutes at T0C, trying to 'fake' latent heat.
+	// Above T20C it scales based on (temperature / T20C).
+	// At or above the boiling point it melts instantly.
+	// This doesn't mean it WILL melt at that point, just that it'll attempt to.
+	var/ambient_temperature = max(stain.get_ambient_temperature(), melting_point)
+	if(ambient_temperature >= boiling_point)
+		return 0 // dry instantly
+	if(ambient_temperature < melting_point)
+		return 5 MINUTES
+	// convert from kelvins to celsius by subtracting the 0C point in Kelvins
+	return Interpolate(5 MINUTES, 2 MINUTES, (ambient_temperature - T0C) / 20) / (stain.amount + 1) // Undo the scaling done by blood.
 
 /decl/material/solid/ice/aspium
 	name = "aspium"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	heating_products = list(
 		/decl/material/liquid/fuel/hydrazine = 0.3,
 		/decl/material/liquid/water = 0.7
@@ -48,6 +91,9 @@
 	name = "lukrite"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	heating_products = list(
 		/decl/material/solid/sulfur = 0.4,
 		/decl/material/liquid/water = 0.2,
@@ -62,6 +108,9 @@
 	name = "rubenium"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	heating_products = list(
 		/decl/material/solid/metal/radium  = 0.4,
 		/decl/material/liquid/water = 0.4,
@@ -76,6 +125,9 @@
 	name = "trigarite"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	heating_products = list(
 		/decl/material/liquid/acid/hydrochloric = 0.2,
 		/decl/material/liquid/water             = 0.2,
@@ -90,10 +142,13 @@
 	name = "ediroite"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	heating_products = list(
-		/decl/material/gas/ammonia  = 0.4,
-		/decl/material/liquid/water = 0.2,
-		/decl/material/liquid/ethanol = 0.4
+		/decl/material/gas/ammonia            = 0.05,
+		/decl/material/liquid/water           = 0.55,
+		/decl/material/liquid/alcohol/ethanol = 0.4
 	)
 	uid = "solid_ice_ediroite"
 	value = 0.2
@@ -104,12 +159,15 @@
 	name = "hydrogen ice"
 	use_name = null
 	codex_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	uid = "solid_ice_hydrogen"
 	heating_products = list(
-		/decl/material/gas/hydrogen = 0.2,
-		/decl/material/liquid/water = 0.65,
-		/decl/material/gas/hydrogen/deuterium = 0.1,
-		/decl/material/gas/hydrogen/tritium = 0.05
+		/decl/material/gas/hydrogen = 0.05,
+		/decl/material/liquid/water = 0.92,
+		/decl/material/gas/hydrogen/deuterium = 0.02,
+		/decl/material/gas/hydrogen/tritium = 0.01
 	)
 	value = 0.3
 	sparse_material_weight = 20
@@ -123,19 +181,22 @@
 /decl/material/solid/ice/hydrate
 	codex_name = null
 	use_name = null
+	solid_name = null
+	liquid_name = null
+	gas_name = null
 	uid = "solid_hydrate"
 	heating_point = T0C //the melting point is always water's
 	abstract_type = /decl/material/solid/ice/hydrate
 
 //Little helper macro, since hydrates are all basically the same
 // DISPLAY_NAME is needed because of compounds with white spaces in their names
-#define DECLARE_HYDRATE_DNAME_PATH(PATH, NAME, DISPLAY_NAME)                \
-/decl/material/solid/ice/hydrate/##NAME/uid = "solid_hydrate_##NAME";       \
-/decl/material/solid/ice/hydrate/##NAME/Initialize(){                       \
-	name = "[##DISPLAY_NAME] hydrate";                                      \
-	heating_products = list(PATH = 0.2, /decl/material/liquid/water = 0.8); \
-	. = ..();                                                               \
-}                                                                           \
+#define DECLARE_HYDRATE_DNAME_PATH(PATH, NAME, DISPLAY_NAME)               \
+/decl/material/solid/ice/hydrate/##NAME/uid = "solid_hydrate_" + #NAME;    \
+/decl/material/solid/ice/hydrate/##NAME/name = DISPLAY_NAME + " hydrate"; \
+/decl/material/solid/ice/hydrate/##NAME/heating_products = list(           \
+	PATH = 0.1,                                                            \
+	/decl/material/liquid/water = 0.9                                      \
+);                                                                         \
 /decl/material/solid/ice/hydrate/##NAME
 
 #define DECLARE_HYDRATE_DNAME(NAME, DISPLAY_NAME) DECLARE_HYDRATE_DNAME_PATH(/decl/material/gas/##NAME, NAME, DISPLAY_NAME)

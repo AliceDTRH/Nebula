@@ -41,10 +41,10 @@
 
 	After that, mostly just check your state, check whether you're holding an item,
 	check whether you're adjacent to the target, then pass off the click to whoever
-	is recieving it.
+	is receiving it.
 	The most common are:
 	* mob/UnarmedAttack(atom,adjacent) - used here only when adjacent, with no item in hand; in the case of humans, checks gloves
-	* atom/attackby(item,user) - used only when adjacent
+	* atom/attackby(used_item,user) - used only when adjacent
 	* item/afterattack(atom,user,adjacent,params) - used both ranged and adjacent
 	* mob/RangedAttack(atom,params) - used only ranged, only used for tk and laser eyes but could be changed
 */
@@ -98,31 +98,32 @@
 
 	if(in_throw_mode)
 		if(isturf(A) || isturf(A.loc))
-			throw_item(A)
+			mob_throw_item(A)
 			trigger_aiming(TARGET_CAN_CLICK)
 			return 1
-		throw_mode_off()
+		toggle_throw_mode(FALSE)
 
-	var/obj/item/W = get_active_hand()
+	var/obj/item/holding = get_active_held_item()
 
-	if(W == A) // Handle attack_self
-		W.attack_self(src)
+	if(holding == A) // Handle attack_self
+		holding.attack_self(src)
 		trigger_aiming(TARGET_CAN_CLICK)
-		update_inv_hands(0)
+		update_inhand_overlays(FALSE)
 		return 1
 
 	//Atoms on your person
 	// A is your location but is not a turf; or is on you (backpack); or is on something on you (box in backpack); sdepth is needed here because contents depth does not equate inventory storage depth.
 	var/sdepth = A.storage_depth(src)
 	if((!isturf(A) && A == loc) || (sdepth != -1 && sdepth <= 1))
-		if(W)
-			var/resolved = W.resolve_attackby(A, src, params)
-			if(!resolved && A && W)
-				W.afterattack(A, src, 1, params) // 1 indicates adjacency
+		if(holding)
+			var/resolved = holding.resolve_attackby(A, src, params)
+			if(!resolved && A && holding)
+				holding.afterattack(A, src, 1, params) // 1 indicates adjacency
+			setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 		else
 			if(ismob(A)) // No instant mob attacking
-				setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-			UnarmedAttack(A, 1)
+				setClickCooldown(DEFAULT_QUICK_COOLDOWN)
+			UnarmedAttack(A, TRUE)
 
 		trigger_aiming(TARGET_CAN_CLICK)
 		return 1
@@ -135,21 +136,23 @@
 	sdepth = A.storage_depth_turf()
 	if(isturf(A) || isturf(A.loc) || (sdepth != -1 && sdepth <= 1))
 		if(A.Adjacent(src)) // see adjacent.dm
-			if(W)
+			if(holding)
+
 				// Return 1 in attackby() to prevent afterattack() effects (when safely moving items for example)
-				var/resolved = W.resolve_attackby(A,src, params)
-				if(!resolved && A && W)
-					W.afterattack(A, src, 1, params) // 1: clicking something Adjacent
+				var/resolved = holding.resolve_attackby(A, src, params)
+				if(!resolved && A && holding)
+					holding.afterattack(A, src, 1, params) // 1: clicking something Adjacent
+				setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 			else
 				if(ismob(A)) // No instant mob attacking
-					setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-				UnarmedAttack(A, 1)
+					setClickCooldown(DEFAULT_QUICK_COOLDOWN)
+				UnarmedAttack(A, TRUE)
 
 			trigger_aiming(TARGET_CAN_CLICK)
 			return
 		else // non-adjacent click
-			if(W)
-				W.afterattack(A, src, 0, params) // 0: not Adjacent
+			if(holding)
+				holding.afterattack(A, src, 0, params) // 0: not Adjacent
 			else
 				RangedAttack(A, params)
 
@@ -160,7 +163,7 @@
 	next_move = max(world.time + timeout, next_move)
 
 /mob/proc/canClick()
-	if(config.no_click_cooldown || next_move <= world.time)
+	if(get_config_value(/decl/config/toggle/no_click_cooldown) || next_move <= world.time)
 		return 1
 	return 0
 
@@ -178,6 +181,8 @@
 
 	proximity_flag is not currently passed to attack_hand, and is instead used
 	in human click code to allow glove touches only at melee range.
+
+	Returns TRUE if no further processing is desired, FALSE otherwise.
 */
 /mob/proc/UnarmedAttack(var/atom/A, var/proximity_flag)
 	return
@@ -186,12 +191,24 @@
 
 	if(GAME_STATE < RUNLEVEL_GAME)
 		to_chat(src, "You cannot attack people before the game has started.")
-		return 0
+		return TRUE
 
-	if(stat)
-		return 0
+	if(stat || try_maneuver(A) || !proximity_flag)
+		return TRUE
 
-	return 1
+	// Handle any prepared ability/spell/power invocations.
+	var/datum/extension/abilities/abilities = get_extension(src, /datum/extension/abilities)
+	if(abilities?.do_melee_invocation(A))
+		return TRUE
+
+	// Special glove functions:
+	// If the gloves do anything, have them return 1 to stop
+	// normal attack_hand() here.
+	var/obj/item/clothing/gloves/G = get_equipped_item(slot_gloves_str) // not typecast specifically enough in defines
+	if(istype(G) && G.Touch(A,1))
+		return TRUE
+
+	return A.attack_hand(src)
 
 /*
 	Ranged unarmed attack:
@@ -202,6 +219,20 @@
 	animals lunging, etc.
 */
 /mob/proc/RangedAttack(var/atom/A, var/params)
+	return FALSE
+
+/mob/living/RangedAttack(var/atom/A, var/params)
+	if(try_maneuver(A))
+		return TRUE
+
+	// Handle any prepared ability/spell/power invocations.
+	var/datum/extension/abilities/abilities = get_extension(src, /datum/extension/abilities)
+	if(abilities?.do_ranged_invocation(A))
+		return TRUE
+
+	if(A.attack_hand_ranged(src))
+		return TRUE
+
 	return FALSE
 
 /*
@@ -240,7 +271,7 @@
 
 /atom/proc/ShiftClick(var/mob/user)
 	if(user.client && user.client.eye == user)
-		user.examinate(src)
+		user.examine_verb(src)
 	return
 
 /*
@@ -251,10 +282,17 @@
 	return A.CtrlClick(src)
 
 /atom/proc/CtrlClick(var/mob/user)
+	if(get_recursive_loc_of_type(/mob) == user)
+		var/decl/interaction_handler/handler = get_quick_interaction_handler(user)
+		if(handler)
+			var/using_item = user.get_active_held_item()
+			if(handler.is_possible(src, user, using_item))
+				return handler.invoked(src, user, using_item)
 	return FALSE
 
 /atom/movable/CtrlClick(var/mob/living/user)
-	return try_make_grab(user, defer_hand = TRUE) || ..()
+	if(!(. = ..()) && loc != user)
+		return try_make_grab(user, defer_hand = TRUE) || ..()
 
 /*
 	Alt click
@@ -264,7 +302,7 @@
 	A.AltClick(src)
 
 /atom/proc/AltClick(var/mob/user)
-	if(try_handle_interactions(user, get_alt_interactions(user)))
+	if(try_handle_interactions(user, get_alt_interactions(user), user?.get_active_held_item(), check_alt_interactions = TRUE))
 		return TRUE
 	if(user?.get_preference_value(/datum/client_preference/show_turf_contents) == PREF_ALT_CLICK)
 		. = show_atom_list_for_turf(user, get_turf(src))
@@ -332,46 +370,3 @@
 		if(facing_dir)
 			facing_dir = direction
 		facedir(direction)
-
-var/global/list/click_catchers
-/proc/get_click_catchers()
-	if(!global.click_catchers)
-		global.click_catchers = list()
-		var/ox = -(round(config.max_client_view_x*0.5))
-		for(var/i = 0 to config.max_client_view_x)
-			var/oy = -(round(config.max_client_view_y*0.5))
-			var/tx = ox + i
-			for(var/j = 0 to config.max_client_view_y)
-				var/ty = oy + j
-				var/obj/screen/click_catcher/CC = new
-				CC.screen_loc = "CENTER[tx < 0 ? tx : "+[tx]"],CENTER[ty < 0 ? ty : "+[ty]"]"
-				CC.x_offset = tx
-				CC.y_offset = ty
-				global.click_catchers += CC
-	return global.click_catchers
-
-/obj/screen/click_catcher
-	icon = 'icons/mob/screen_gen.dmi'
-	icon_state = "click_catcher"
-	plane = CLICKCATCHER_PLANE
-	mouse_opacity = MOUSE_OPACITY_PRIORITY
-	screen_loc = "CENTER-7,CENTER-7"
-	var/x_offset = 0
-	var/y_offset = 0
-
-/obj/screen/click_catcher/Destroy()
-	SHOULD_CALL_PARENT(FALSE)
-	return QDEL_HINT_LETMELIVE
-
-/obj/screen/click_catcher/Click(location, control, params)
-	var/list/modifiers = params2list(params)
-	if(modifiers["middle"] && istype(usr, /mob/living/carbon))
-		var/mob/living/carbon/C = usr
-		C.swap_hand()
-	else
-		var/turf/origin = get_turf(usr)
-		if(isturf(origin))
-			var/turf/clicked = locate(origin.x + x_offset, origin.y + y_offset, origin.z)
-			if(clicked)
-				clicked.Click(location, control, params)
-	. = 1

@@ -31,6 +31,8 @@
 	w_class = ITEM_SIZE_NORMAL
 	flash_protection = FLASH_PROTECTION_MAJOR
 	tint = TINT_HEAVY
+	replaced_in_loadout = FALSE
+	accessory_slot = null // cannot be equipped on top of helmets
 	var/up = 0
 	var/base_state
 
@@ -51,16 +53,16 @@
 			flags_inv |= (HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE)
 			flash_protection = initial(flash_protection)
 			tint = initial(tint)
-			to_chat(usr, "You flip the [src] down to protect your eyes.")
+			to_chat(usr, "You flip \the [src] down to protect your eyes.")
 		else
 			src.up = !src.up
 			body_parts_covered &= ~(SLOT_EYES|SLOT_FACE)
 			flash_protection = FLASH_PROTECTION_NONE
 			tint = TINT_NONE
 			flags_inv &= ~(HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE)
-			to_chat(usr, "You push the [src] up out of your face.")
+			to_chat(usr, "You push \the [src] up out of your face.")
 		update_icon()
-		update_vision()
+		update_wearer_vision()
 		usr.update_action_buttons()
 
 /obj/item/clothing/head/welding/on_update_icon()
@@ -70,7 +72,7 @@
 		icon_state = "[icon_state]_up"
 	update_clothing_icon()	//so our mob-overlays
 
-/obj/item/clothing/head/welding/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/head/welding/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && up && check_state_in_icon("[overlay.icon_state]_up", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]_up"
 	. = ..()
@@ -82,7 +84,7 @@
 
 /obj/item/clothing/head/welding/knight
 	name = "knightly welding helmet"
-	desc = "A painted welding helmet, this one looks like a knights helmet."
+	desc = "A painted welding helmet, this one looks like a knight's helmet."
 	icon = 'icons/clothing/head/welding/knight.dmi'
 
 /obj/item/clothing/head/welding/fancy
@@ -126,7 +128,7 @@
 		icon_state = "[icon_state]_up"
 	update_clothing_icon()
 
-/obj/item/clothing/head/ushanka/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/head/ushanka/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && up && check_state_in_icon("[overlay.icon_state]_up", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]_up"
 	. = ..()
@@ -142,8 +144,36 @@
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE|BLOCK_ALL_HAIR
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
 	brightness_on = 2
-	light_overlay = "helmet_light"
 	w_class = ITEM_SIZE_NORMAL
+	material = /decl/material/solid/organic/plantmatter
+	valid_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	restricted_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	accessory_slot = null // cannot be equipped on top of helmets
+	var/plant_type = "pumpkin"
+
+// Duplicated from growns for now. TODO: move sliceability down to other objects like clay.
+/obj/item/clothing/head/pumpkinhead/attackby(obj/item/used_item, mob/user)
+	if(IS_KNIFE(used_item) && !user.check_intent(I_FLAG_HARM))
+		var/datum/seed/plant = SSplants.seeds[plant_type]
+		if(!plant)
+			return ..()
+		var/slice_amount = plant.slice_amount
+		if(used_item.w_class > ITEM_SIZE_NORMAL || !user.skill_check(SKILL_COOKING, SKILL_BASIC))
+			user.visible_message(
+				SPAN_NOTICE("\The [user] crudely slices \the [src] with \the [used_item]!"),
+				SPAN_NOTICE("You crudely slice \the [src] with your [used_item.name]!")
+			)
+			slice_amount = rand(1, max(1, round(slice_amount*0.5)))
+		else
+			user.visible_message(
+				SPAN_NOTICE("\The [user] slices \the [src]!"),
+				SPAN_NOTICE("You slice \the [src]!")
+			)
+		for(var/i = 1 to slice_amount)
+			new /obj/item/food/processed_grown/chopped(loc, null, TRUE, plant)
+		qdel(src)
+		return TRUE
+	return ..()
 
 /*
  * Kitty ears
@@ -174,7 +204,7 @@
 	icon = 'icons/clothing/head/cakehat.dmi'
 	body_parts_covered = SLOT_HEAD
 	item_flags = null
-	var/is_on_fire = FALSE
+	VAR_PRIVATE/_on_fire = FALSE
 
 /obj/item/clothing/head/cakehat/equipped(mob/user, slot)
 	. = ..()
@@ -184,23 +214,23 @@
 	. = ..()
 	update_icon()
 
-/obj/item/clothing/head/cakehat/on_update_icon(mob/user)
+/obj/item/clothing/head/cakehat/on_update_icon()
 	. = ..()
 	z_flags &= ~ZMM_MANGLE_PLANES
-	if(is_on_fire && check_state_in_icon("[icon_state]-flame", icon))
+	if(is_on_fire() && check_state_in_icon("[icon_state]-flame", icon))
 		if(plane == HUD_PLANE)
 			add_overlay("[icon_state]-flame")
 		else
 			add_overlay(emissive_overlay(icon, "[icon_state]-flame"))
 			z_flags |= ZMM_MANGLE_PLANES
 
-// Overidable so species with limited headspace in the sprite bounding area can offset it (scavs)
+// Overrideable so species with limited headspace in the sprite bounding area can offset it (scavs)
 /obj/item/clothing/head/cakehat/proc/get_mob_flame_overlay(var/image/overlay, var/bodytype)
 	if(overlay && check_state_in_icon("[overlay.icon_state]-flame", overlay.icon))
 		return emissive_overlay(overlay.icon, "[overlay.icon_state]-flame")
 
-/obj/item/clothing/head/cakehat/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart)
-	if(overlay && is_on_fire)
+/obj/item/clothing/head/cakehat/apply_additional_mob_overlays(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
+	if(overlay && is_on_fire())
 		var/image/I = get_mob_flame_overlay(overlay, bodytype)
 		if(I)
 			overlay.overlays += I
@@ -211,7 +241,7 @@
 	return ..()
 
 /obj/item/clothing/head/cakehat/Process()
-	if(!is_on_fire)
+	if(!is_on_fire())
 		STOP_PROCESSING(SSobj, src)
 		return
 	var/turf/location = loc
@@ -225,13 +255,13 @@
 /obj/item/clothing/head/cakehat/attack_self(mob/user)
 	. = ..()
 	if(!.)
-		is_on_fire = !is_on_fire
+		_on_fire = !_on_fire
 		update_icon()
-		if(is_on_fire)
-			damtype = BURN
+		if(is_on_fire())
+			atom_damage_type = BURN
 			START_PROCESSING(SSobj, src)
 		else
-			force = null
-			damtype = BRUTE
+			set_base_attack_force(0)
+			atom_damage_type = BRUTE
 			STOP_PROCESSING(SSobj, src)
 		return TRUE

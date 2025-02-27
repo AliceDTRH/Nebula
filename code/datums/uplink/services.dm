@@ -41,11 +41,11 @@
 /datum/uplink_item/item/services/fake_update_annoncement/New()
 	..()
 	item_cost = round(DEFAULT_TELECRYSTAL_AMOUNT / 2)
-	addtimer(CALLBACK(src, .proc/finalize_announce), 2)
+	addtimer(CALLBACK(src, PROC_REF(finalize_announce)), 2)
 
 /datum/uplink_item/item/services/fake_update_annoncement/proc/finalize_announce()
-	name = "[command_name()] Update Announcement"
-	desc = "Causes a falsified [command_name()] Update."
+	name = "[global.using_map.boss_name] Update Announcement"
+	desc = "Causes a falsified [global.using_map.boss_name] Update."
 
 /***************
 * Service Item *
@@ -71,16 +71,16 @@
 		deactivate()
 	. = ..()
 
-/obj/item/uplink_service/examine(mob/user, distance)
+/obj/item/uplink_service/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
 		switch(state)
 			if(AWAITING_ACTIVATION)
-				to_chat(user, "It is labeled '[service_label]' and appears to be awaiting activation.")
+				LAZYADD(., "It is labeled '[service_label]' and appears to be awaiting activation.")
 			if(CURRENTLY_ACTIVE)
-				to_chat(user, "It is labeled '[service_label]' and appears to be active.")
+				LAZYADD(., "It is labeled '[service_label]' and appears to be active.")
 			if(HAS_BEEN_ACTIVATED)
-				to_chat(user, "It is labeled '[service_label]' and appears to be permanently disabled.")
+				LAZYADD(., "It is labeled '[service_label]' and appears to be permanently disabled.")
 
 /obj/item/uplink_service/attack_self(var/mob/user)
 	if(state != AWAITING_ACTIVATION)
@@ -98,7 +98,7 @@
 	log_and_message_admins("has activated the service '[service_label]'", user)
 
 	if(service_duration)
-		addtimer(CALLBACK(src,/obj/item/uplink_service/proc/deactivate), service_duration)
+		addtimer(CALLBACK(src, TYPE_PROC_REF(/obj/item/uplink_service, deactivate)), service_duration)
 	else
 		deactivate()
 
@@ -227,14 +227,14 @@
 	if(random_record)
 		COPY_VALUE(faction)
 		COPY_VALUE(religion)
-		COPY_VALUE(homeSystem)
+		COPY_VALUE(residence)
 		COPY_VALUE(fingerprint)
 		COPY_VALUE(dna)
 		COPY_VALUE(bloodtype)
 	var/datum/job/job = SSjobs.get_by_title(new_record.get_job())
 	if(job)
 		var/skills = list()
-		for(var/decl/hierarchy/skill/S in global.skills)
+		for(var/decl/skill/S in global.using_map.get_available_skills())
 			var/level = job.min_skill[S.type]
 			if(prob(10))
 				level = min(rand(1,3), job.max_skill[S.type])

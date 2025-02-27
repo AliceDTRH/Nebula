@@ -4,58 +4,75 @@
 	organ_tag = BP_BRAIN
 	parent_organ = BP_HEAD
 	icon_state = "brain2"
-	force = 1.0
 	w_class = ITEM_SIZE_SMALL
-	throwforce = 1
 	throw_speed = 3
 	throw_range = 5
-	origin_tech = "{'biotech':3}"
+	origin_tech = @'{"biotech":3}'
 	attack_verb = list("attacked", "slapped", "whacked")
 	relative_size = 85
 	damage_reduction = 0
 	scale_max_damage_to_species_health = FALSE
-	var/can_use_mmi = TRUE
-	var/mob/living/carbon/brain/brainmob = null
+	transfer_brainmob_with_organ = TRUE
+	_base_attack_force = 1
+	var/can_use_brain_interface = TRUE
 	var/should_announce_brain_damage = TRUE
 	var/oxygen_reserve = 6
+	VAR_PRIVATE/mob/living/_brainmob = /mob/living/brain
 
-/obj/item/organ/internal/brain/getToxLoss()
-	return 0
+/obj/item/organ/internal/brain/get_brainmob(var/create_if_missing = FALSE)
+	if(!istype(_brainmob) && create_if_missing)
+		initialize_brainmob()
+	if(istype(_brainmob))
+		return _brainmob
 
-/obj/item/organ/internal/brain/set_species(species_name)
+/obj/item/organ/internal/brain/Initialize()
 	. = ..()
 	if(species)
 		set_max_damage(species.total_health)
 	else
 		set_max_damage(200)
 
-/obj/item/organ/internal/brain/Destroy()
-	QDEL_NULL(brainmob)
-	. = ..()
-
-/obj/item/organ/internal/brain/proc/transfer_identity(var/mob/living/carbon/H)
-
-	if(!brainmob)
-		brainmob = new(src)
-		brainmob.SetName(H.real_name)
-		brainmob.real_name = H.real_name
-		brainmob.dna = H.dna.Clone()
-		brainmob.timeofhostdeath = H.timeofdeath
-
-	if(H.mind)
-		H.mind.transfer_to(brainmob)
-
-	to_chat(brainmob, "<span class='notice'>You feel slightly disoriented. That's normal when you're just \a [initial(src.name)].</span>")
-	callHook("debrain", list(brainmob))
-
-/obj/item/organ/internal/brain/examine(mob/user)
-	. = ..()
-	if(brainmob && brainmob.client)//if thar be a brain inside... the brain.
-		to_chat(user, "You can feel the small spark of life still left in this one.")
+/obj/item/organ/internal/brain/proc/initialize_brainmob()
+	if(istype(_brainmob))
+		return
+	if(!ispath(_brainmob))
+		_brainmob = initial(_brainmob)
+	if(ispath(_brainmob))
+		_brainmob = new _brainmob(src)
 	else
-		to_chat(user, "This one seems particularly lifeless. Perhaps it will regain some of its luster later..")
+		_brainmob = null
 
-/obj/item/organ/internal/brain/do_install(mob/living/carbon/target, affected, in_place, update_icon, detached)
+/obj/item/organ/internal/brain/getToxLoss()
+	return 0
+
+/obj/item/organ/internal/brain/set_species(species_name)
+	. = ..()
+	icon_state = "brain-prosthetic"
+	if(species)
+		set_max_damage(species.total_health)
+	else
+		set_max_damage(200)
+
+/obj/item/organ/internal/brain/Destroy()
+	if(istype(_brainmob))
+		QDEL_NULL(_brainmob)
+	. = ..()
+
+/obj/item/organ/internal/brain/get_examine_strings(mob/user, distance, infix, suffix)
+	. = ..()
+	if(distance <= 1)
+		var/brain_status = get_brain_status(user)
+		if(brain_status)
+			. += brain_status
+
+/obj/item/organ/internal/brain/proc/get_brain_status(mob/user)
+	. = list()
+	if(istype(_brainmob) && _brainmob?.client) //if thar be a brain inside... the brain.
+		. += "You can feel the small spark of life still left in this one."
+	else
+		. += "This one seems particularly lifeless. Perhaps it will regain some of its luster later."
+
+/obj/item/organ/internal/brain/do_install(mob/living/target, affected, in_place, update_icon, detached)
 	if(!(. = ..()))
 		return
 	if(istype(owner))
@@ -66,21 +83,6 @@
 		SetName("\the [owner.real_name]'s [initial(name)]")
 	if(!(. = ..()))
 		return
-
-/obj/item/organ/internal/brain/on_remove_effects()
-	if(istype(owner))
-		transfer_identity(owner)
-	return ..()
-
-/obj/item/organ/internal/brain/on_add_effects()
-	if(brainmob)
-		if(brainmob.mind)
-			if(owner.key)
-				owner.ghostize()
-			brainmob.mind.transfer_to(owner)
-		else
-			owner.key = brainmob.key
-	return ..()
 
 /obj/item/organ/internal/brain/can_recover()
 	return !(status & ORGAN_DEAD)
@@ -100,15 +102,20 @@
 	alert(owner, "You have taken massive brain damage! You will not be able to remember the events leading up to your injury.", "Brain Damaged")
 
 /obj/item/organ/internal/brain/organ_can_heal()
-	return (damage && GET_CHEMICAL_EFFECT(owner, CE_BRAIN_REGEN)) || ..()
+	return (_organ_damage && owner && GET_CHEMICAL_EFFECT(owner, CE_BRAIN_REGEN) > 0) || ..()
+
+/obj/item/organ/internal/brain/has_limited_healing()
+	return (!owner || GET_CHEMICAL_EFFECT(owner, CE_BRAIN_REGEN) <= 0) && ..()
 
 /obj/item/organ/internal/brain/get_organ_heal_amount()
-	return 1
+	if(!has_limited_healing())
+		. = 1 // We have full healing, so we always heal at least 1 unit of damage.
+	. += (owner ? GET_CHEMICAL_EFFECT(owner, CE_BRAIN_REGEN) : 0)
 
 /obj/item/organ/internal/brain/Process()
 	if(owner)
 
-		if(damage < (max_damage / 4))
+		if(_organ_damage < (max_damage / 4))
 			should_announce_brain_damage = TRUE
 
 		handle_disabilities()
@@ -136,12 +143,12 @@
 							to_chat(owner, "<span class='warning'>You feel [pick("dizzy","woozy","faint")]...</span>")
 						damprob = stability_effect ? 30 : 60
 						if(!past_damage_threshold(2) && prob(damprob))
-							take_internal_damage(1)
+							take_damage(1)
 					if(BLOOD_VOLUME_BAD to BLOOD_VOLUME_OKAY)
 						SET_STATUS_MAX(owner, STAT_BLURRY, 6)
 						damprob = stability_effect ? 40 : 80
 						if(!past_damage_threshold(4) && prob(damprob))
-							take_internal_damage(1)
+							take_damage(1)
 						if(!HAS_STATUS(owner, STAT_PARA) && prob(10))
 							SET_STATUS_MAX(owner, STAT_PARA, rand(1,3))
 							to_chat(owner, "<span class='warning'>You feel extremely [pick("dizzy","woozy","faint")]...</span>")
@@ -149,7 +156,7 @@
 						SET_STATUS_MAX(owner, STAT_BLURRY, 6)
 						damprob = stability_effect ? 60 : 100
 						if(!past_damage_threshold(6) && prob(damprob))
-							take_internal_damage(1)
+							take_damage(1)
 						if(!HAS_STATUS(owner, STAT_PARA) && prob(15))
 							SET_STATUS_MAX(owner, STAT_PARA, rand(3,5))
 							to_chat(owner, "<span class='warning'>You feel extremely [pick("dizzy","woozy","faint")]...</span>")
@@ -157,14 +164,14 @@
 						SET_STATUS_MAX(owner, STAT_BLURRY, 6)
 						damprob = stability_effect ? 80 : 100
 						if(prob(damprob))
-							take_internal_damage(1)
+							take_damage(1)
 						if(prob(damprob))
-							take_internal_damage(1)
+							take_damage(1)
 	..()
 
-/obj/item/organ/internal/brain/take_internal_damage(var/damage, var/silent)
-	..()
-	if(damage >= 10) //This probably won't be triggered by oxyloss or mercury. Probably.
+/obj/item/organ/internal/brain/take_damage(damage, damage_type = BRUTE, damage_flags, inflicter, armor_pen = 0, silent, do_update_health)
+	. = ..()
+	if(owner && damage >= 10) //This probably won't be triggered by oxyloss or mercury. Probably.
 		var/damage_secondary = damage * 0.20
 		owner.flash_eyes()
 		SET_STATUS_MAX(owner, STAT_BLURRY, damage_secondary)
@@ -172,7 +179,7 @@
 		SET_STATUS_MAX(owner, STAT_PARA, damage_secondary)
 		SET_STATUS_MAX(owner, STAT_WEAK, round(damage, 1))
 		if(prob(30))
-			addtimer(CALLBACK(src, .proc/brain_damage_callback, damage), rand(6, 20) SECONDS, TIMER_UNIQUE)
+			addtimer(CALLBACK(src, PROC_REF(brain_damage_callback), damage), rand(6, 20) SECONDS, TIMER_UNIQUE)
 
 /obj/item/organ/internal/brain/proc/brain_damage_callback(var/damage) //Confuse them as a somewhat uncommon aftershock. Side note: Only here so a spawn isn't used. Also, for the sake of a unique timer.
 	if(!QDELETED(owner))
@@ -182,51 +189,50 @@
 /obj/item/organ/internal/brain/proc/handle_disabilities()
 	if(owner.stat)
 		return
-	if((owner.disabilities & EPILEPSY) && prob(1))
+	if(owner.has_genetic_condition(GENE_COND_EPILEPSY) && prob(1))
 		owner.seizure()
-	else if((owner.disabilities & TOURETTES) && prob(10))
+	else if(owner.has_genetic_condition(GENE_COND_TOURETTES) && prob(10))
 		SET_STATUS_MAX(owner, STAT_STUN, 10)
 		switch(rand(1, 3))
 			if(1)
-				owner.emote("twitch")
+				owner.emote(/decl/emote/visible/twitch)
 			if(2 to 3)
 				owner.say("[prob(50) ? ";" : ""][pick("SHIT", "PISS", "FUCK", "CUNT", "COCKSUCKER", "MOTHERFUCKER", "TITS")]")
 		ADJ_STATUS(owner, STAT_JITTER, 100)
-	else if((owner.disabilities & NERVOUS) && prob(10))
+	else if(owner.has_genetic_condition(GENE_COND_NERVOUS) && prob(10))
 		SET_STATUS_MAX(owner, STAT_STUTTER, 10)
 
 
 /obj/item/organ/internal/brain/handle_damage_effects()
 	..()
 
-	if(damage >= round(max_damage / 2) && should_announce_brain_damage)
+	if(_organ_damage >= round(max_damage / 2) && should_announce_brain_damage)
 		handle_severe_damage()
 
 	if(!BP_IS_PROSTHETIC(src) && prob(1))
 		owner.custom_pain("Your head feels numb and painful.",10)
 	if(is_bruised() && prob(1) && !HAS_STATUS(owner, STAT_BLURRY))
 		to_chat(owner, "<span class='warning'>It becomes hard to see for some reason.</span>")
-		owner.set_status(STAT_BLURRY, 10)
-	var/held = owner.get_active_hand()
-	if(damage >= 0.5*max_damage && prob(1) && held)
+		owner.set_status_condition(STAT_BLURRY, 10)
+	var/held = owner.get_active_held_item()
+	if(_organ_damage >= 0.5*max_damage && prob(1) && held)
 		to_chat(owner, "<span class='danger'>Your hand won't respond properly, and you drop what you are holding!</span>")
 		owner.try_unequip(held)
-	if(damage >= 0.6*max_damage)
+	if(_organ_damage >= 0.6*max_damage)
 		SET_STATUS_MAX(owner, STAT_SLUR, 2)
 	if(is_broken())
-		if(!owner.lying)
+		if(!owner.current_posture.prone)
 			to_chat(owner, "<span class='danger'>You black out!</span>")
 		SET_STATUS_MAX(owner, STAT_PARA, 10)
 
 /obj/item/organ/internal/brain/surgical_fix(mob/user)
 	var/blood_volume = owner.get_blood_oxygenation()
 	if(blood_volume < BLOOD_VOLUME_SURVIVE)
-		to_chat(user, "<span class='danger'>Parts of [src] didn't survive the procedure due to lack of air supply!</span>")
-		set_max_damage(FLOOR(max_damage - 0.25*damage))
-	heal_damage(damage)
+		to_chat(user, SPAN_DANGER("Parts of \the [src] didn't survive the procedure due to lack of air supply!"))
+		set_max_damage(floor(max_damage - 0.25*_organ_damage))
+	heal_damage(_organ_damage)
 
-/obj/item/organ/internal/brain/get_scarring_level()
-	. = (species.total_health - max_damage)/species.total_health
-
-/obj/item/organ/internal/brain/get_mechanical_assisted_descriptor()
-	return "machine-interface [name]"
+/obj/item/organ/internal/brain/die()
+	if(istype(_brainmob) && _brainmob.stat != DEAD)
+		_brainmob.death()
+	..()

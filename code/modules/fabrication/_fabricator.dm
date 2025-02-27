@@ -1,6 +1,6 @@
 /obj/machinery/fabricator
 	name = "autolathe"
-	desc = "It produces common day to day items from a variety of materials."
+	desc = "It produces common day-to-day items from a variety of materials."
 	icon = 'icons/obj/machines/fabricators/autolathe.dmi'
 	icon_state = "autolathe"
 	density = TRUE
@@ -15,7 +15,6 @@
 	base_type =       /obj/machinery/fabricator
 	construct_state = /decl/machine_construction/default/panel_closed
 
-	var/has_recycler = TRUE
 	var/color_selectable = FALSE // Allows selecting a color by the user in the UI, to do with as you please.
 	var/selected_color = "white"
 
@@ -53,6 +52,9 @@
 
 	var/species_variation = /decl/species/human // If this fabricator is a variant for a specific species, this will be checked to unlock species-specific designs.
 
+	// If TRUE, will accept atoms with contents.
+	var/ignore_input_contents_length = FALSE
+
 	// If TRUE, fills fabricator with material on initalize
 	var/prefilled = FALSE
 
@@ -68,16 +70,14 @@
 	QDEL_NULL(sound_token)
 	. = ..()
 
-/obj/machinery/fabricator/examine(mob/user)
+/obj/machinery/fabricator/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(length(storage_capacity))
 		var/list/material_names = list()
 		for(var/thing in storage_capacity)
 			var/decl/material/mat = GET_DECL(thing)
 			material_names += "[storage_capacity[thing]] [mat.use_name]"
-		to_chat(user, SPAN_NOTICE("It can store [english_list(material_names)]."))
-	if(has_recycler)
-		to_chat(user, SPAN_NOTICE("It has a built-in shredder that can recycle most items, although any materials it cannot use will be wasted."))
+		. += SPAN_NOTICE("It can store [english_list(material_names)].")
 
 /obj/machinery/fabricator/Initialize()
 
@@ -88,7 +88,7 @@
 	// Get any local network we need to be part of.
 	set_extension(src, /datum/extension/network_device, initial_network_id, initial_network_key, RECEIVER_STRONG_WIRELESS)
 
-	if(SSfabrication.post_recipe_init)
+	if(SSfabrication.initialized)
 		refresh_design_cache()
 	else
 		SSfabrication.queue_design_cache_refresh(src)
@@ -190,7 +190,7 @@
 		update_current_build(wait)
 
 /obj/machinery/fabricator/on_update_icon()
-	overlays.Cut()
+	cut_overlays()
 	if(stat & NOPOWER)
 		icon_state = "[base_icon_state]_d"
 	else if(currently_building)
@@ -201,7 +201,7 @@
 	var/list/new_overlays = material_overlays.Copy()
 	if(panel_open)
 		new_overlays += panel_image
-	overlays = new_overlays
+	set_overlays(new_overlays)
 
 /obj/machinery/fabricator/proc/remove_mat_overlay(var/mat_overlay)
 	material_overlays -= mat_overlay

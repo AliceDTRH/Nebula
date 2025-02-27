@@ -3,39 +3,47 @@
 	desc = "Various natural and artificial substances."
 
 /decl/codex_category/substances/Populate()
-	for(var/decl/material/mat as anything in SSmaterials.materials)
+	var/list/decl/material/alphabetized_materials = sortTim(decls_repository.get_decls_of_subtype_unassociated(/decl/material), /proc/cmp_name_asc)
+	for(var/decl/material/mat as anything in alphabetized_materials)
+
 		if(mat.hidden_from_codex)
 			continue
-		var/new_lore_text = initial(mat.lore_text)
+
+		var/new_lore_text = mat.lore_text
 		if(mat.taste_description)
 			if(new_lore_text)
 				new_lore_text = "[new_lore_text]<br><br>"
 			new_lore_text = "[new_lore_text]It apparently tastes of [mat.taste_description]."
+
 		var/list/material_info = list(mat.mechanics_text)
 		var/list/production_strings = list()
 		for(var/react in SSmaterials.chemical_reactions_by_result[mat.type])
+
 			var/decl/chemical_reaction/reaction = react
 			if(reaction.hidden_from_codex)
 				continue
+
 			var/list/reactant_values = list()
 			for(var/reactant_id in reaction.required_reagents)
 				var/decl/material/reactant = GET_DECL(reactant_id)
 				reactant_values += "[reaction.required_reagents[reactant_id]]u <span codexlink='[reactant.codex_name || reactant.name] (substance)'>[reactant.name]</span>"
 			if(!reactant_values.len)
 				continue
+
 			var/list/catalysts = list()
 			for(var/catalyst_id in reaction.catalysts)
 				var/decl/material/catalyst = GET_DECL(catalyst_id)
 				catalysts += "[reaction.catalysts[catalyst_id]]u <span codexlink='[catalyst.codex_name || catalyst.name] (substance)'>[catalyst.name]</span>"
-			var/decl/material/result = reaction.result
+
 			var/mix_link = "Mixing"
 			if(istype(reaction, /decl/chemical_reaction/alloy))
 				mix_link = "Alloying"
+
 			mix_link = "<span codexlink='[reaction.name] (chemical reaction)'>[mix_link]</span>"
 			if(catalysts.len)
-				production_strings += "[mix_link] [english_list(reactant_values)], catalyzed by [english_list(catalysts)], producing [reaction.result_amount]u [lowertext(initial(result.name))]."
+				production_strings += "[mix_link] [english_list(reactant_values)], catalyzed by [english_list(catalysts)], producing [reaction.result_amount]u [mat.name]."
 			else
-				production_strings += "[mix_link] [english_list(reactant_values)], producing [reaction.result_amount]u [lowertext(initial(result.name))]."
+				production_strings += "[mix_link] [english_list(reactant_values)], producing [reaction.result_amount]u [mat.name]."
 			// Todo: smelting and compressing
 
 		if(length(production_strings))
@@ -55,11 +63,14 @@
 				material_info += "<li>It is a moderately strong solvent, capable of removing ink.</li>"
 			else if(mat.solvent_power <= MAT_SOLVENT_STRONG)
 				material_info += "<li>It is a strong solvent and will burn exposed skin on contact.</li>"
-		if(LAZYLEN(mat.dissolves_into))
+		if(mat.dissolves_in != MAT_SOLVENT_IMMUNE && LAZYLEN(mat.dissolves_into))
 			var/chems = list()
 			for(var/chemical in mat.dissolves_into)
-				var/decl/material/R = chemical
-				chems += "[initial(R.name)] ([mat.dissolves_into[chemical]*100]%)"
+				var/decl/material/material = GET_DECL(chemical)
+				var/material_link = "<span codexlink='[material.codex_name || material.name] (substance)'>[material.name]</span>"
+				if(material.hidden_from_codex)
+					material_link = material.name
+				chems += "[material_link] ([mat.dissolves_into[chemical]*100]%)"
 			var/solvent_needed
 			if(mat.dissolves_in <= MAT_SOLVENT_NONE)
 				solvent_needed = "any liquid"
@@ -68,7 +79,7 @@
 			else if(mat.dissolves_in <= MAT_SOLVENT_MODERATE)
 				solvent_needed = "a moderately strong solvent, like acetone"
 			else if(mat.dissolves_in <= MAT_SOLVENT_STRONG)
-				solvent_needed = "a strong solvent, like sulphuric acid"
+				solvent_needed = "a strong solvent, like sulfuric acid"
 			material_info += "<li>It can be dissolved with [solvent_needed] solvent, producing [english_list(chems)].</li>"
 		if(mat.radioactivity)
 			material_info += "<li>It is radioactive.</li>"

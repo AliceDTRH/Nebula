@@ -12,10 +12,10 @@
 	item_state = "multitool"
 	w_class = ITEM_SIZE_SMALL
 	action_button_name = "Toggle geiger counter"
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(
-		/decl/material/solid/metal/copper    = MATTER_AMOUNT_REINFORCEMENT, 
-		/decl/material/solid/silicon         = MATTER_AMOUNT_REINFORCEMENT, 
+		/decl/material/solid/metal/copper    = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/silicon         = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/aluminium = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/glass           = MATTER_AMOUNT_TRACE,
 	)
@@ -46,13 +46,13 @@
 	radiation_count = SSradiation.get_rads_at_turf(get_turf(src))
 	update_icon()
 
-/obj/item/geiger/examine(mob/user)
+/obj/item/geiger/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	var/msg = "[scanning ? "ambient" : "stored"] Radiation level: [radiation_count ? radiation_count : "0"] Roentgen."
 	if(radiation_count > RAD_LEVEL_LOW)
-		to_chat(user, "<span class='warning'>[msg]</span>")
+		. += SPAN_DANGER("[msg]")
 	else
-		to_chat(user, "<span class='notice'>[msg]</span>")
+		. += SPAN_NOTICE("[msg]")
 
 /obj/item/geiger/attack_self(var/mob/user)
 	scanning = !scanning

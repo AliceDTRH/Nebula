@@ -5,12 +5,12 @@
 ////////////////////////////////////////////////////////////////////////////////////////
 /obj/item/stock_parts/printer
 	name       = "printer"
-	desc       = "A full fledged laser printer. This one is meant to be installed inside another machine. Comes with its own paper feeder and toner slot."
+	desc       = "A full-fledged laser printer. This one is meant to be installed inside another machine. Comes with its own paper feeder and toner slot."
 	icon       = 'icons/obj/items/stock_parts/modular_components.dmi'
 	icon_state = "printer"
 	randpixel  = 5
 	w_class    = ITEM_SIZE_SMALL
-	material   = /decl/material/solid/plastic
+	material   = /decl/material/solid/organic/plastic
 	matter     = list(
 		/decl/material/solid/metal/steel  = MATTER_AMOUNT_SECONDARY,
 		/decl/material/solid/fiberglass   = MATTER_AMOUNT_REINFORCEMENT,
@@ -58,18 +58,18 @@
 	unregister_on_status_changed()
 	return ..()
 
-/obj/item/stock_parts/printer/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/chems/toner_cartridge))
+/obj/item/stock_parts/printer/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/chems/toner_cartridge))
 		if(toner)
-			to_chat(user, SPAN_WARNING("There is already \a [W] in \the [src]!"))
-		else
-			return insert_toner(W, user)
+			to_chat(user, SPAN_WARNING("There is already \a [used_item] in \the [src]!"))
+			return TRUE
+		return insert_toner(used_item, user)
 
-	else if((istype(W, /obj/item/paper) || istype(W, /obj/item/paper_bundle)))
+	else if(istype(used_item, /obj/item/paper) || istype(used_item, /obj/item/paper_bundle))
 		if(paper_left >= paper_max)
 			to_chat(user, SPAN_WARNING("There is no more room for paper in \the [src]!"))
-		else
-			return insert_paper(W, user)
+			return TRUE
+		return insert_paper(used_item, user)
 	. = ..()
 
 /obj/item/stock_parts/printer/attack_hand(mob/user)
@@ -82,7 +82,7 @@
 		return remove_toner(user)
 	return ..()
 
-/obj/item/stock_parts/printer/dump_contents()
+/obj/item/stock_parts/printer/dump_contents(atom/forced_loc = loc, mob/user)
 	. = ..()
 	LAZYREMOVE(., print_queue) //Don't drop our stored copies, those are gonna get deleted
 	remove_paper() //Dump the blank paper we contain
@@ -144,10 +144,10 @@
 	if(toner)
 		if(user)
 			to_chat(user, SPAN_WARNING("There's already a cartridge in \the [src]."))
-		return
+		return TRUE
 
 	if(!user.try_unequip(T, src))
-		return
+		return TRUE
 	toner = T
 	if(user)
 		to_chat(user, SPAN_NOTICE("You install \a [T] in \the [src]."))
@@ -160,7 +160,7 @@
 	if(!toner)
 		if(user)
 			to_chat(user, SPAN_WARNING("There is no toner cartridge in \the [src]."))
-		return
+		return TRUE
 
 	if(user)
 		user.put_in_hands(toner)
@@ -177,16 +177,16 @@
 	if(paper_left >= paper_max)
 		if(user)
 			to_chat(user, SPAN_WARNING("There is no room for more paper in \the [src]."))
-		return
+		return TRUE
 
 	if(istype(paper_refill, /obj/item/paper))
 		var/obj/item/paper/P = paper_refill
 		if(!P.is_blank())
 			if(user)
 				to_chat(user, SPAN_WARNING("\The [P] isn't blank!"))
-			return
+			return TRUE
 		if(!user?.try_unequip(paper_refill))
-			return
+			return TRUE
 		if(user)
 			to_chat(user, SPAN_NOTICE("You insert \a [paper_refill] in \the [src]."))
 		qdel(paper_refill)
@@ -197,17 +197,16 @@
 		if(!B.is_blank())
 			if(user)
 				to_chat(user, SPAN_WARNING("\The [B] contains some non-blank pages, or something else than paper sheets!"))
-			return
+			return TRUE
 
 		var/amt_papers = B.get_amount_papers()
 		var/to_insert = min((paper_max - paper_left), amt_papers)
-		if(user)
-			to_chat(user, SPAN_NOTICE("You insert \a [paper_refill] in \the [src]."))
 		if(to_insert >= amt_papers)
-			if(user.try_unequip(B))
-				qdel(B)
-			else
-				return
+			if(!user.try_unequip(B))
+				return TRUE
+			if(user)
+				to_chat(user, SPAN_NOTICE("You insert \a [paper_refill] in \the [src]."))
+			qdel(B)
 		else
 			B.remove_sheets(to_insert, user)
 		paper_left += to_insert
@@ -281,7 +280,19 @@
 			stop_printing_queue()
 			return FALSE
 		print_picture(queued_element)
-	else
+	else if(istype(queued_element, /obj/item/paper_bundle))
+		var/obj/item/paper_bundle/bundle = queued_element
+		var/photo_count = 0
+		for(var/obj/item/photo/picture in bundle.pages)
+			photo_count++
+		if(!has_enough_to_print((TONER_USAGE_PAPER * (length(bundle.pages) - photo_count)) + (TONER_USAGE_PHOTO * photo_count)))
+			var/obj/machinery/M = loc
+			if(istype(M))
+				M.state("Warning: Not enough paper or toner!")
+			stop_printing_queue()
+			return FALSE
+		print_paper_bundle(bundle)
+	else if(istype(queued_element, /obj/item/paper))
 		if(!has_enough_to_print(TONER_USAGE_PAPER))
 			var/obj/machinery/M = loc
 			if(istype(M))
@@ -289,6 +300,8 @@
 			stop_printing_queue()
 			return FALSE
 		print_paper(queued_element)
+	else
+		PRINT_STACK_TRACE("A printer printed something that wasn't a paper, paper bundle, or photo: [queued_element] ([queued_element.type])")
 
 	//#TODO: machinery should allow a component to trigger and wait for an animation sequence. So that we can drop out the paper in sync.
 	queued_element.dropInto(get_turf(loc))
@@ -305,6 +318,14 @@
 
 	use_toner(TONER_USAGE_PHOTO, FALSE) //photos use a lot of ink!
 	use_paper(1)
+	P.update_icon()
+
+/obj/item/stock_parts/printer/proc/print_paper_bundle(var/obj/item/paper_bundle/bundle)
+	for(var/obj/item/paper/page in bundle.pages)
+		print_paper(page)
+	for(var/obj/item/photo/picture in bundle.pages)
+		print_picture(picture)
+	bundle.update_icon()
 
 /obj/item/stock_parts/printer/proc/print_paper(var/obj/item/paper/P)
 	//Apply a greyscale filter on all stamps overlays
@@ -321,6 +342,7 @@
 
 	use_toner(TONER_USAGE_PAPER, FALSE)
 	use_paper(1)
+	P.update_icon() // reapply stamp overlays
 
 /obj/item/stock_parts/printer/proc/use_toner(var/amount, var/update_parent = TRUE)
 	if(!toner?.use_toner(amount))
@@ -401,14 +423,16 @@
 /decl/interaction_handler/empty/stock_parts_printer
 	name = "Empty Paper Bin"
 	expected_target_type = /obj/item/stock_parts/printer
+	examine_desc         = "empty $TARGET_THEM$"
 
 /decl/interaction_handler/empty/stock_parts_printer/is_possible(obj/item/stock_parts/printer/target, mob/user, obj/item/prop)
 	return (target.get_amount_paper() > 0) && ..()
 
-/decl/interaction_handler/empty/stock_parts_printer/invoked(obj/item/stock_parts/printer/target, mob/user)
-	if(target.get_amount_paper() <= 0)
+/decl/interaction_handler/empty/stock_parts_printer/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/item/stock_parts/printer/printer = target
+	if(printer.get_amount_paper() <= 0)
 		return
-	var/obj/item/paper_bundle/B = target.remove_paper(user)
+	var/obj/item/paper_bundle/B = printer.remove_paper(user)
 	if(B)
 		user.put_in_hands(B)
 	target.update_icon()

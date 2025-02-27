@@ -57,7 +57,7 @@
 
 	var/decl/material/mat = GET_DECL(mat_type)
 	if(mat && stored_material[mat_type] >= SHEET_MATERIAL_AMOUNT)
-		var/sheet_count = FLOOR(stored_material[mat_type]/SHEET_MATERIAL_AMOUNT)
+		var/sheet_count = floor(stored_material[mat_type]/SHEET_MATERIAL_AMOUNT)
 		stored_material[mat_type] -= sheet_count * SHEET_MATERIAL_AMOUNT
 		SSmaterials.create_object(mat_type, get_turf(src), sheet_count)
 		if(isnull(stored_material[mat_type]))
@@ -111,28 +111,22 @@
 	rod_makeup[mat_type] = amt
 	return TOPIC_REFRESH
 
-/obj/machinery/fuel_compressor/receive_mouse_drop(var/atom/movable/dropping, var/mob/user)
+/obj/machinery/fuel_compressor/receive_mouse_drop(atom/dropping, mob/user, params)
 	if(user.incapacitated() || !user.Adjacent(src))
 		return
 	return !add_material(dropping, user)
 
-/obj/machinery/fuel_compressor/attackby(var/obj/item/thing, var/mob/user)
-	return add_material(thing, user) || ..()
+/obj/machinery/fuel_compressor/attackby(var/obj/item/used_item, var/mob/user)
+	return add_material(used_item, user) || ..()
 
 /obj/machinery/fuel_compressor/proc/add_material(var/obj/item/thing, var/mob/user)
 	if(istype(thing) && thing.reagents && thing.reagents.total_volume && ATOM_IS_OPEN_CONTAINER(thing))
 		for(var/R in thing.reagents.reagent_volumes)
 			var/taking_reagent = REAGENT_VOLUME(thing.reagents, R)
-			thing.reagents.remove_reagent(R, taking_reagent)
+			thing.remove_from_reagents(R, taking_reagent)
 			stored_material[R] += taking_reagent
 
 		to_chat(user, SPAN_NOTICE("You add the contents of \the [thing] to \the [src]'s material buffer."))
-		return TRUE
-
-	if(istype(thing, /obj/machinery/power/supermatter/shard))
-		stored_material[/decl/material/solid/exotic_matter] = 5 * SHEET_MATERIAL_AMOUNT
-		to_chat(user, SPAN_NOTICE("You awkwardly cram \the [thing] into \the [src]'s material buffer."))
-		qdel(thing)
 		return TRUE
 
 	if(istype(thing, /obj/item/stack/material))

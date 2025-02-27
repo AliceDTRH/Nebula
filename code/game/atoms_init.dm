@@ -1,24 +1,30 @@
 // Atom-level definitions
 
 /atom/New(loc, ...)
+
+	// Do this as early as humanly possible to replicate previous type-based storage behavior.
+	if(storage)
+		if(ispath(storage))
+			storage = new storage(src)
+		if(!istype(storage))
+			storage = null
+
+	// This preloader code is also duplicated in /turf/unsimulated/New(). If you change this, be sure to change it there, too.
 	//atom creation method that preloads variables at creation
 	if(global.use_preloader && (src.type == global._preloader.target_path))//in case the instanciated atom is creating other atoms in New()
 		global._preloader.load(src)
 
 	var/do_initialize = SSatoms.atom_init_stage
 	var/list/created = SSatoms.created_atoms
-	if(do_initialize > INITIALIZATION_INSSATOMS_LATE)
+	if(do_initialize > INITIALIZATION_INSSATOMS)
 		args[1] = do_initialize == INITIALIZATION_INNEW_MAPLOAD
 		if(SSatoms.InitAtom(src, args))
 			//we were deleted
 			return
-	else if(created)
-		var/list/argument_list
-		if(length(args) > 1)
-			argument_list = args.Copy(2)
-		if(argument_list || do_initialize == INITIALIZATION_INSSATOMS_LATE)
-			created[src] = argument_list
-
+	else if(length(args) > 1)
+		created[++created.len] = list(src, args.Copy(2))
+	else
+		created[++created.len] = list(src, null)
 	if(atom_flags & ATOM_FLAG_CLIMBABLE)
 		verbs += /atom/proc/climb_on
 
@@ -57,7 +63,7 @@
 	if(light_power && light_range)
 		update_light()
 
-	if(opacity)
+	if(simulated && opacity)
 		updateVisibility(src)
 		var/turf/T = loc
 		if(istype(T))
@@ -70,22 +76,25 @@
 	return
 
 /atom/Destroy()
+	// must be done before deletion // TODO: ADD PRE_DELETION OBSERVATION
+	if(isatom(loc) && loc.storage && !QDELETED(loc.storage))
+		loc.storage.on_item_pre_deletion(src)
 	UNQUEUE_TEMPERATURE_ATOM(src)
-
 	QDEL_NULL(reagents)
-
 	LAZYCLEARLIST(our_overlays)
 	LAZYCLEARLIST(priority_overlays)
-
 	LAZYCLEARLIST(climbers)
-
 	QDEL_NULL(light)
-
-	if(opacity)
+	if(simulated && opacity)
 		updateVisibility(src)
 	if(atom_codex_ref && atom_codex_ref != TRUE) // may be null, TRUE or a datum instance
 		QDEL_NULL(atom_codex_ref)
-	return ..()
+	var/atom/oldloc = loc
+	. = ..()
+	if(isatom(oldloc) && oldloc.storage && !QDELETED(loc.storage))
+		oldloc.storage.on_item_post_deletion(src) // must be done after deletion
+	// This might need to be moved onto a Del() override at some point.
+	QDEL_NULL(storage)
 
 // Called if an atom is deleted before it initializes. Only call Destroy in this if you know what you're doing.
 /atom/proc/EarlyDestroy(force = FALSE)
@@ -106,6 +115,8 @@
 	// Changing this behavior will almost certainly break power; update accordingly.
 	if (!ml && loc)
 		loc.Entered(src, null)
+	if(loc && (z_flags & ZMM_WIDE_LOAD))
+		SSzcopy.discover_movable(src)
 
 /atom/movable/EarlyDestroy(force = FALSE)
 	loc = null // should NOT use forceMove, in order to avoid events
@@ -116,16 +127,13 @@
 	if(isatom(virtual_mob))
 		QDEL_NULL(virtual_mob)
 
-	// If you want to keep any of these atoms, handle them before ..()
-	for(var/thing in contents) // proooobably safe to assume they're never going to have non-movables in contents?
-		qdel(thing)
-
 	unregister_all_movement(loc, src) // unregister events before destroy to avoid expensive checking
 
-	. = ..()
+	// If you want to keep any of these atoms, handle them before ..()
+	for(var/atom/movable/thing as anything in src) // safe to assume they're never going to have non-movables in contents
+		qdel(thing)
 
-	for(var/A in src)
-		qdel(A)
+	. = ..()
 
 	forceMove(null)
 
@@ -136,13 +144,18 @@
 		QDEL_NULL(bound_overlay)
 
 	vis_locs = null //clears this atom out of all vis_contents
-	clear_vis_contents(src)
+	clear_vis_contents()
+
+	if(!isnull(updating_turf_alpha_mask))
+		var/atom/movable/mask = global._alpha_masks[src]
+		if(!QDELETED(mask))
+			qdel(mask)
 
 /atom/GetCloneArgs()
 	return list(loc)
 
 /atom/PopulateClone(atom/clone)
-	//Not entirely sure about icon stuff. Some legacy things would need it copied, but not more recently coded atoms..
+	//Not entirely sure about icon stuff. Some legacy things would need it copied, but not more recently coded atoms.
 	clone.appearance = appearance
 	clone.set_invisibility(invisibility)
 

@@ -1,7 +1,7 @@
-#define HEX_RED(COLOUR)   hex2num(copytext(COLOUR,2,4))
-#define HEX_GREEN(COLOUR) hex2num(copytext(COLOUR,4,6))
-#define HEX_BLUE(COLOUR)  hex2num(copytext(COLOUR,6,8))
-#define HEX_ALPHA(COLOUR) hex2num(copytext(COLOUR,8,10))
+#define HEX_RED(COLOR)   hex2num(copytext(COLOR,2,4))
+#define HEX_GREEN(COLOR) hex2num(copytext(COLOR,4,6))
+#define HEX_BLUE(COLOR)  hex2num(copytext(COLOR,6,8))
+#define HEX_ALPHA(COLOR) hex2num(copytext(COLOR,8,10))
 
 // BYOND lower-cases color values, and thus we do so as well to ensure atom.color == COLOR_X will work correctly
 #define COLOR_BLACK            "#000000"
@@ -39,6 +39,7 @@
 #define COLOR_GREEN_GRAY       "#8daf6a"
 #define COLOR_DARK_GREEN_GRAY  "#54654c"
 #define COLOR_BLUE_GRAY        "#6a97b0"
+#define COLOR_MID_BLUE_GRAY    "#666699"
 #define COLOR_DARK_BLUE_GRAY   "#3e4855"
 #define COLOR_SURGERY_BLUE     "#e0f2f6"
 #define COLOR_SUN              "#ec8b2f"
@@ -92,6 +93,13 @@
 #define COLOR_CRYSTAL          "#00c8a5"
 #define COLOR_ASTEROID_ROCK    "#735555"
 #define COLOR_DIAMOND          "#d8d4ea"
+#define COLOR_BLOOD_RED        "#990000"
+#define COLOR_PALE_GOLD        "#cc9900"
+#define COLOR_ROYAL_BLUE       "#0033ff"
+#define COLOR_VERDANT_GREEN    "#287d00"
+#define COLOR_SCIENCE_PURPLE   "#6633cc"
+#define COLOR_DAYLIGHT         "#f3e6ca"
+#define COLOR_CHERRY_RED       "#902630"
 
 #define PIPE_COLOR_GREY        "#808080"
 #define PIPE_COLOR_RED         "#ff0000"
@@ -141,7 +149,7 @@ var/global/list/telecomms_colours = list(
 #define WOOD_COLOR_RICH        "#792f27"
 #define WOOD_COLOR_PALE        "#d2bc9d"
 #define WOOD_COLOR_PALE2       "#e6d2ba"
-#define WOOD_COLOR_BLACK       "#332521"
+#define WOOD_COLOR_BLACK       "#39342c"
 #define WOOD_COLOR_CHOCOLATE   "#543c30"
 #define WOOD_COLOR_YELLOW      "#e3994e"
 

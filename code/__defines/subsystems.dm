@@ -1,7 +1,6 @@
 #define INITIALIZATION_INSSATOMS      0	//New should not call Initialize
-#define INITIALIZATION_INSSATOMS_LATE 1	//New should not call Initialize; after the first pass is complete (handled differently)
-#define INITIALIZATION_INNEW_MAPLOAD  2	//New should call Initialize(TRUE)
-#define INITIALIZATION_INNEW_REGULAR  3	//New should call Initialize(FALSE)
+#define INITIALIZATION_INNEW_MAPLOAD  1	//New should call Initialize(TRUE)
+#define INITIALIZATION_INNEW_REGULAR  2	//New should call Initialize(FALSE)
 
 #define INITIALIZE_HINT_NORMAL   0  //Nothing happens
 #define INITIALIZE_HINT_LATELOAD 1  //Call LateInitialize
@@ -48,12 +47,13 @@
 #define SS_INIT_MISC_CODEX      -3
 #define SS_INIT_ALARM           -4
 #define SS_INIT_SHUTTLE         -5
-#define SS_INIT_GOALS           -5
-#define SS_INIT_LIGHTING        -6
-#define SS_INIT_WEATHER         -7
-#define SS_INIT_ZCOPY           -8
-#define SS_INIT_HOLOMAP         -9
-#define SS_INIT_XENOARCH        -10
+#define SS_INIT_GOALS           -6
+#define SS_INIT_LIGHTING        -7
+#define SS_INIT_WEATHER         -8
+#define SS_INIT_VIS_CONTENTS    -9
+#define SS_INIT_ZCOPY           -10
+#define SS_INIT_HOLOMAP         -11
+#define SS_INIT_XENOARCH        -12
 #define SS_INIT_TICKER          -20
 #define SS_INIT_UNIT_TESTS      -100
 
@@ -63,4 +63,7 @@
 #define RUNLEVEL_SETUP 2
 #define RUNLEVEL_GAME 4
 #define RUNLEVEL_POSTGAME 8
+/// default runlevels for most subsystems
 #define RUNLEVELS_DEFAULT (RUNLEVEL_SETUP | RUNLEVEL_GAME | RUNLEVEL_POSTGAME)
+/// all valid runlevels - subsystems with this will run all the time after their MC init stage.
+#define RUNLEVELS_ALL (RUNLEVEL_LOBBY | RUNLEVEL_SETUP | RUNLEVEL_GAME | RUNLEVEL_POSTGAME)

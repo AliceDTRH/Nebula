@@ -10,7 +10,7 @@
 	anchored = TRUE
 	movable_flags = MOVABLE_FLAG_PROXMOVE
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'SOUTH':{'y':21}, 'EAST':{'x':-10}, 'WEST':{'x':10}}"
+	directional_offset = @'{"SOUTH":{"y":21}, "EAST":{"x":-10}, "WEST":{"x":10}}'
 	base_type = /obj/machinery/camera
 	uncreated_component_parts = null
 	construct_state = /decl/machine_construction/wall_frame/panel_closed
@@ -28,7 +28,6 @@
 	var/detectTime = 0
 	var/alarm_delay = 100 // Don't forget, there's another 10 seconds in queueAlarm()
 
-	var/number = 1
 	var/c_tag = null
 	var/status = 1
 	var/cut_power = FALSE
@@ -47,22 +46,12 @@
 
 	var/affected_by_emp_until = 0
 
-/obj/machinery/camera/examine(mob/user)
+/obj/machinery/camera/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(stat & BROKEN)
-		to_chat(user, SPAN_WARNING("It is completely demolished."))
+		. += SPAN_WARNING("It is completely demolished.")
 
-/obj/machinery/camera/malf_upgrade(var/mob/living/silicon/ai/user)
-	..()
-	malf_upgraded = 1
-
-	install_component(/obj/item/stock_parts/capacitor/adv, TRUE)
-	install_component(/obj/item/stock_parts/scanning_module/adv, TRUE)
-
-	to_chat(user, SPAN_NOTICE("\The [src] has been upgraded. It now has X-Ray capability and EMP resistance."))
-	return 1
-
-/obj/machinery/camera/apply_visual(mob/living/carbon/human/M)
+/obj/machinery/camera/apply_visual(mob/living/human/M)
 	if(!M.client || !istype(M))
 		return
 	M.overlay_fullscreen("fishbed",/obj/screen/fullscreen/fishbed)
@@ -71,7 +60,7 @@
 	M.machine_visual = src
 	return 1
 
-/obj/machinery/camera/remove_visual(mob/living/carbon/human/M)
+/obj/machinery/camera/remove_visual(mob/living/human/M)
 	if(!M.client || !istype(M))
 		return
 	M.clear_fullscreen("fishbed",0)
@@ -86,19 +75,18 @@
 	if(!c_tag)
 		var/area/A = get_area(src)
 		if(isturf(loc) && A)
-			for(var/obj/machinery/camera/C in A)
-				if(C == src) continue
-				if(C.number)
-					number = max(number, C.number+1)
-			c_tag = "[A.proper_name][number == 1 ? "" : " #[number]"]"
-		if(!c_tag)	// Add a default c_tag in case the camera has been placed in an invalid location or inside another object.
-			c_tag = "Security Camera - [random_id(/obj/machinery/camera, 100,999)]"
+			var/suffix = uniqueness_repository.Generate(/datum/uniqueness_generator/id_sequential, "c_tag [A.proper_name]", 1) // unlike sequential_id, starts at 1 instead of 100
+			if(suffix == 1)
+				suffix = null
+			c_tag = "[A.proper_name][suffix ? " [suffix]" : null]"
+		// Add a default c_tag in case the camera has been placed in an invalid location or inside another object.
+		c_tag ||= "Security Camera - [random_id(/obj/machinery/camera, 100,999)]"
 
 		invalidateCameraCache()
 	set_extension(src, /datum/extension/network_device/camera, null, null, null, TRUE, preset_channels, c_tag, cameranet_enabled, requires_connection)
 
 /obj/machinery/camera/Destroy()
-	set_status(0) //kick anyone viewing out
+	set_camera_status(0) //kick anyone viewing out
 	return ..()
 
 /obj/machinery/camera/Process()
@@ -131,7 +119,7 @@
 /obj/machinery/camera/proc/newTarget(var/mob/target)
 	if (!motion_sensor)
 		return FALSE
-	if (istype(target, /mob/living/silicon/ai))
+	if (isAI(target))
 		return FALSE
 	if (detectTime == 0)
 		detectTime = world.time // start the clock
@@ -180,7 +168,7 @@
 			START_PROCESSING_MACHINE(src, MACHINERY_PROCESS_SELF)
 
 /obj/machinery/camera/bullet_act(var/obj/item/projectile/P)
-	take_damage(P.get_structure_damage())
+	take_damage(P.get_structure_damage(), P.atom_damage_type)
 
 /obj/machinery/camera/explosion_act(severity)
 	..()
@@ -188,28 +176,30 @@
 		set_broken(TRUE)
 
 /obj/machinery/camera/hitby(var/atom/movable/AM)
-	..()
-	if (istype(AM, /obj))
-		var/obj/O = AM
-		if (O.throwforce >= src.toughness)
-			visible_message("<span class='warning'><B>[src] was hit by [O].</B></span>")
-		take_damage(O.throwforce)
+	. = ..()
+	if(. && isobj(AM))
+		var/thrown_force = AM.get_thrown_attack_force()
+		if (thrown_force >= toughness)
+			visible_message(SPAN_DANGER("\The [src] was hit by \the [AM]!"))
+			var/obj/O = AM
+			take_damage(thrown_force, O.atom_damage_type)
 
-/obj/machinery/camera/physical_attack_hand(mob/living/carbon/human/user)
+/obj/machinery/camera/physical_attack_hand(mob/living/human/user)
 	if(!istype(user))
-		return
-	if(user.species.can_shred(user))
+		return TRUE
+	if(user.can_shred())
 		user.do_attack_animation(src)
-		visible_message("<span class='warning'>\The [user] slashes at [src]!</span>")
+		visible_message(SPAN_WARNING("\The [user] slashes at [src]!"))
 		playsound(src.loc, 'sound/weapons/slash.ogg', 100, 1)
 		add_hiddenprint(user)
 		take_damage(25)
 		return TRUE
+	return FALSE
 
-/obj/machinery/camera/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/paper))
+/obj/machinery/camera/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/paper))
 		var/datum/extension/network_device/camera/D = get_extension(src, /datum/extension/network_device)
-		D.show_paper(W, user)
+		D.show_paper(used_item, user)
 	return ..()
 
 /obj/machinery/camera/interface_interact(mob/user)
@@ -237,11 +227,11 @@
 		//sparks
 		spark_at(loc, amount=5)
 
-/obj/machinery/camera/proc/set_status(var/newstatus, var/mob/user)
+/obj/machinery/camera/proc/set_camera_status(var/newstatus, var/mob/user)
 	if (status != newstatus && (!cut_power || status == TRUE))
 		status = newstatus
 		// The only way for AI to reactivate cameras are malf abilities, this gives them different messages.
-		if(istype(user, /mob/living/silicon/ai))
+		if(isAI(user))
 			user = null
 
 		if(status)
@@ -324,15 +314,6 @@
 	var/datum/extension/network_device/camera/D = get_extension(src, /datum/extension/network_device)
 	return D.channels
 
-// Resets the camera's wires to fully operational state. Used by one of Malfunction abilities.
-/obj/machinery/camera/proc/reset_wires()
-	if(!wires)
-		return
-	set_broken(FALSE) // Fixes the camera and updates the icon.
-	wires.CutAll()
-	wires.MendAll()
-	update_coverage()
-
 /obj/machinery/camera/proc/nano_structure()
 	var/datum/extension/network_device/camera/D = get_extension(src, /datum/extension/network_device/)
 	return D.nano_structure()
@@ -356,12 +337,12 @@
 	)
 
 /obj/machinery/camera/proc/toggle_status()
-	set_status(!status)
+	set_camera_status(!status)
 
 /decl/public_access/public_method/toggle_camera
 	name = "toggle camera"
 	desc = "Toggles camera on or off."
-	call_proc = /obj/machinery/camera/proc/toggle_status
+	call_proc = TYPE_PROC_REF(/obj/machinery/camera, toggle_status)
 
 /decl/public_access/public_variable/camera_state
 	expected_type = /obj/machinery/camera
@@ -389,5 +370,4 @@
 	can_write = FALSE
 
 /decl/public_access/public_variable/camera_channels/access_var(obj/machinery/camera/C)
-	var/datum/extension/network_device/camera/camera_device = get_extension(C, /datum/extension/network_device/)
-	return english_list(camera_device?.channels)
+	return english_list(C.get_channels())

@@ -6,12 +6,12 @@
 	density = FALSE
 	layer = ABOVE_OBJ_LAYER
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':-32}, 'WEST':{'x':32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":-32}, "WEST":{"x":32}}'
 	var/datum/turbolift/lift
 
 /obj/structure/lift/proc/pressed(var/mob/user)
-	if(!istype(user, /mob/living/silicon))
-		if(user.a_intent == I_HURT)
+	if(!issilicon(user))
+		if(user.check_intent(I_FLAG_HARM))
 			user.visible_message("<span class='danger'>\The [user] hammers on the lift button!</span>")
 		else
 			user.visible_message("<span class='notice'>\The [user] presses the lift button.</span>")
@@ -110,15 +110,15 @@
 		var/datum/turbolift_floor/floor = lift.floors[i]
 		var/label = floor.label? floor.label : "Level #[i]"
 		dat += "<font color = '[(floor in lift.queued_floors) ? COLOR_YELLOW : COLOR_WHITE]'>"
-		dat += "<a href='?src=\ref[src];move_to_floor=["\ref[floor]"]'>[label]</a>: [floor.name]</font><br>"
+		dat += "<a href='byond://?src=\ref[src];move_to_floor=["\ref[floor]"]'>[label]</a>: [floor.name]</font><br>"
 
 	dat += "<hr>"
 	if(LAZYLEN(lift.doors))
 		if(lift.doors_are_open())
-			dat += "<a href='?src=\ref[src];close_doors=1'>Close Doors</a><br>"
+			dat += "<a href='byond://?src=\ref[src];close_doors=1'>Close Doors</a><br>"
 		else
-			dat += "<a href='?src=\ref[src];open_doors=1'>Open Doors</a><br>"
-	dat += "<a href='?src=\ref[src];emergency_stop=1'>Emergency Stop</a>"
+			dat += "<a href='byond://?src=\ref[src];open_doors=1'>Open Doors</a><br>"
+	dat += "<a href='byond://?src=\ref[src];emergency_stop=1'>Emergency Stop</a>"
 	dat += "<hr></body></html>"
 
 	var/datum/browser/written_digital/popup = new(user, "turbolift_panel", "Lift Panel", 230, 260)

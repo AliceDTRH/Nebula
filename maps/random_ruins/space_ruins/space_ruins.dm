@@ -1,10 +1,11 @@
 // Hey! Listen! Update \config\space_ruin_blacklist.txt with your new ruins!
-/turf/simulated/wall/diamond
+/turf/wall/diamond
 	color = COLOR_SKY_BLUE
 	icon_state = "stone"
 	material = /decl/material/solid/gemstone/diamond
 
 /datum/map_template/ruin/space
+	abstract_type = /datum/map_template/ruin/space
 	template_categories = list(MAP_TEMPLATE_CATEGORY_SPACE)
 	prefix = "maps/random_ruins/space_ruins/"
 	cost = 1

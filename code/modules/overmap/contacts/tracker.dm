@@ -4,8 +4,8 @@
 	icon = 'icons/obj/ship_tracker.dmi'
 	icon_state = "disabled"
 	w_class = ITEM_SIZE_SMALL
-	
-	origin_tech = "{'magnets':3, 'programming':2}"
+
+	origin_tech = @'{"magnets":3, "programming":2}'
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/metal/silver = MATTER_AMOUNT_TRACE, /decl/material/solid/metal/gold = MATTER_AMOUNT_REINFORCEMENT)
 	var/enabled = FALSE
@@ -23,6 +23,6 @@
 	. = ..()
 	icon_state = enabled ? "enabled" : "disabled"
 
-/obj/item/ship_tracker/examine(var/mob/user)
+/obj/item/ship_tracker/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It appears to be [enabled ? "enabled" : "disabled"]")
+	. += "It appears to be [enabled ? "enabled" : "disabled"]"

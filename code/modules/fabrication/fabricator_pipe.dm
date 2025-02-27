@@ -12,13 +12,14 @@
 	color_selectable = TRUE
 
 /obj/machinery/fabricator/pipe/on_update_icon()
+	return // no icons
 
 /obj/machinery/fabricator/pipe/CanUseTopic(mob/user)
 	if(!anchored)
 		return STATUS_CLOSE
 	return ..()
 
-/obj/machinery/fabricator/pipe/wrench_floor_bolts()
+/obj/machinery/fabricator/pipe/wrench_floor_bolts(mob/user, delay = 2 SECONDS, obj/item/tool)
 	..()
 	update_use_power(anchored ? POWER_USE_IDLE : POWER_USE_OFF)
 
@@ -50,7 +51,7 @@
 	base_type = /obj/machinery/fabricator/pipe/disposal
 
 //Allow you to drag-drop disposal pipes into it
-/obj/machinery/fabricator/pipe/disposal/receive_mouse_drop(var/atom/dropping, mob/user)
+/obj/machinery/fabricator/pipe/disposal/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && istype(dropping, /obj/structure/disposalconstruct))
 		qdel(dropping)

@@ -35,7 +35,7 @@
 
 /obj/machinery/gateway/centerstation/Initialize()
 	update_icon()
-	wait = world.time + config.gateway_delay	//+ thirty minutes default
+	wait = world.time + get_config_value(/decl/config/num/gateway_delay)	//+ thirty minutes default
 	awaygate = locate(/obj/machinery/gateway/centeraway)
 	. = ..()
 
@@ -127,10 +127,11 @@
 		M.set_dir(SOUTH)
 		return
 
-/obj/machinery/gateway/centerstation/attackby(obj/item/W, mob/user)
-	if(IS_MULTITOOL(W))
+/obj/machinery/gateway/centerstation/attackby(obj/item/used_item, mob/user)
+	if(IS_MULTITOOL(used_item))
 		to_chat(user, "The gate is already calibrated, there is no work for you to do here.")
-		return
+		return TRUE
+	return FALSE
 
 /////////////////////////////////////Away////////////////////////
 
@@ -142,7 +143,7 @@
 	var/calibrated = 1
 	var/list/linked = list()	//a list of the connected gateway chunks
 	var/ready = 0
-	var/obj/machinery/gateway/centeraway/stationgate = null
+	var/obj/machinery/gateway/centerstation/stationgate = null
 
 
 /obj/machinery/gateway/centeraway/Initialize()
@@ -214,7 +215,7 @@
 /obj/machinery/gateway/centeraway/Bumped(atom/movable/M)
 	if(!ready)	return
 	if(!active)	return
-	if(istype(M, /mob/living/carbon))
+	if(ishuman(M))
 		for(var/obj/item/implant/exile/E in M)//Checking that there is an exile implant in the contents
 			if(E.imp_in == M)//Checking that it's actually implanted vs just in their pocket
 				to_chat(M, "The remote gate has detected your exile implant and is blocking your entry.")
@@ -222,12 +223,13 @@
 	M.forceMove(get_step(stationgate.loc, SOUTH))
 	M.set_dir(SOUTH)
 
-/obj/machinery/gateway/centeraway/attackby(obj/item/W, mob/user)
-	if(IS_MULTITOOL(W))
+/obj/machinery/gateway/centeraway/attackby(obj/item/used_item, mob/user)
+	if(IS_MULTITOOL(used_item))
 		if(calibrated)
 			to_chat(user, "The gate is already calibrated, there is no work for you to do here.")
-			return
+			return TRUE
 		else
 			to_chat(user, "<span class='notice'><b>Recalibration successful!</b></span>: This gate's systems have been fine tuned.  Travel to this gate will now be on target.")
 			calibrated = 1
-			return
+			return TRUE
+	return FALSE

@@ -1,266 +1,149 @@
 ///////////
 // Foods //
 ///////////
-//Subtypes of /obj/item/chems/food are food items that people consume whole. The key points are that they are created
+//Subtypes of /obj/item/food are food items that people consume whole. The key points are that they are created
 //	already filled with reagents and are destroyed when empty. Additionally, they make a "munching" noise when eaten.
 
 //Food can hold a maximum of 50 units Generally speaking, you don't want to go over 40
 //	total for the item because you want to leave space for extra condiments. If you want an effect, add a reagent for
 //	it. Try to stick to existing reagents when possible (so if you want a stronger healing effect, just use regenerative serum).
 
-/obj/item/chems/food
+/obj/item/food
+	abstract_type = /obj/item/food
 	name = "snack"
 	desc = "Yummy!"
-	icon = 'icons/obj/food.dmi'
-	icon_state = null
+	icon = 'icons/obj/food/error.dmi'
+	icon_state = ICON_STATE_WORLD
 	randpixel = 6
-	atom_flags = ATOM_FLAG_OPEN_CONTAINER
-	possible_transfer_amounts = null
-	volume = 50
-	center_of_mass = @"{'x':16,'y':16}"
+	item_flags = null
+	material = /decl/material/liquid/nutriment
+	center_of_mass = @'{"x":16,"y":16}'
 	w_class = ITEM_SIZE_SMALL
+	abstract_type = /obj/item/food
+	needs_attack_dexterity = DEXTERITY_NONE
 
-	var/cooked_food = FALSE // Indicates the food should give a positive stress effect on eating. This is set to true if the food is created by a recipe.
+	/// The maximum reagent volume of this food. Used in initialize_reagents.
+	var/volume = 50
+	/// Indicates the food should give a stress effect on eating.
+	// This is set to 1 if the food is created by a recipe, -1 if the food is raw.
+	var/cooked_food = FOOD_PREPARED
 	var/bitesize = 1
 	var/bitecount = 0
 	var/slice_path
-	var/slices_num
-	var/dried_type = null
-	var/dry = 0
+	var/slice_num
+	var/dry = FALSE
 	var/nutriment_amt = 0
 	var/nutriment_type = /decl/material/liquid/nutriment // Used to determine which base nutriment type is spawned for this item.
-	var/list/nutriment_desc = list("food" = 1)    // List of flavours and flavour strengths. The flavour strength text is determined by the ratio of flavour strengths in the snack.
+	// List of flavours and flavour strengths.
+	// The flavour strength text is determined by the ratio of flavour strengths in the snack.
+	var/list/nutriment_desc
+	/// Either a path to a sound file, a get_sfx sound string, or a list of any combination of those.
 	var/list/eat_sound = 'sound/items/eatfood.ogg'
 	var/filling_color = "#ffffff" //Used by sandwiches.
-	var/trash = null
-	var/list/attack_products //Items you can craft together. Like bomb making, but with food and less screwdrivers.
-	// Uses format list(ingredient = result_type). The ingredient can be a typepath or a kitchen_tag string (used for mobs or plants)
+	var/trash
+	var/obj/item/plate/plate
+	/// A type used when cloning this food item for utensils.
+	var/_utensil_food_type
+	/// A set of utensil flags determining which utensil interactions are valid with this food.
+	var/utensil_flags = UTENSIL_FLAG_SCOOP | UTENSIL_FLAG_COLLECT
 
-/obj/item/chems/food/standard_pour_into(mob/user, atom/target)
-	return FALSE
-
-/obj/item/chems/food/update_container_name()
-	return FALSE
-
-/obj/item/chems/food/update_container_desc()
-	return FALSE
-
-/obj/item/chems/food/Initialize()
-	.=..()
-	amount_per_transfer_from_this = bitesize
-
-	//Placeholder for effect that trigger on eating that aren't tied to reagents.
-/obj/item/chems/food/proc/On_Consume(var/mob/M)
-	if(isliving(M) && cooked_food)
-		var/mob/living/eater = M
-		eater.add_stressor(/datum/stressor/ate_cooked_food, 15 MINUTES)
-	if(!reagents.total_volume)
-		M.visible_message("<span class='notice'>[M] finishes eating \the [src].</span>","<span class='notice'>You finish eating \the [src].</span>")
-		M.drop_item()
-		M.update_personal_goal(/datum/goal/achievement/specific_object/food, type)
-		if(trash)
-			if(ispath(trash,/obj/item))
-				var/obj/item/TrashItem = new trash(get_turf(M))
-				M.put_in_hands(TrashItem)
-			else if(istype(trash,/obj/item))
-				M.put_in_hands(trash)
-		qdel(src)
-	return
-
-/obj/item/chems/food/attack_self(mob/user)
-	attack(user, user)
-
-/obj/item/chems/food/dragged_onto(var/mob/user)
-	attack(user, user)
-
-/obj/item/chems/food/self_feed_message(mob/user)
-	if(!iscarbon(user))
-		return ..()
-	var/mob/living/carbon/C = user
-	var/fullness = C.get_fullness()
-	if (fullness <= 50)
-		to_chat(C, SPAN_WARNING("You hungrily chew out a piece of [src] and gobble it!"))
-	if (fullness > 50 && fullness <= 150)
-		to_chat(C, SPAN_NOTICE("You hungrily begin to eat [src]."))
-	if (fullness > 150 && fullness <= 350)
-		to_chat(C, SPAN_NOTICE("You take a bite of [src]."))
-	if (fullness > 350 && fullness <= 550)
-		to_chat(C, SPAN_NOTICE("You unwillingly chew a bit of [src]."))
-
-/obj/item/chems/food/feed_sound(mob/user)
-	if(eat_sound)
-		playsound(user, pick(eat_sound), rand(10, 50), 1)
-
-/obj/item/chems/food/standard_feed_mob(mob/user, mob/target)
+/obj/item/food/Initialize(ml, material_key, skip_plate = FALSE)
 	. = ..()
-	if(.)
-		bitecount++
-		On_Consume(target)
+	if(cooked_food == FOOD_RAW)
+		name = "raw [name]"
 
-/obj/item/chems/food/attack(mob/M, mob/user, def_zone)
-	if(!reagents || !reagents.total_volume)
-		to_chat(user, "<span class='danger'>None of [src] left!</span>")
-		qdel(src)
-		return 0
-	if(istype(M, /mob/living/carbon))
-		//TODO: replace with standard_feed_mob() call.
-		var/mob/living/carbon/C = M
-		var/fullness = C.get_fullness()
-		if (fullness > 550)
-			var/message = C == user ? "You cannot force any more of [src] to go down your throat." : "[user] cannot force anymore of [src] down [M]'s throat."
-			to_chat(user, SPAN_WARNING(message))
-			return 0
-		if(standard_feed_mob(user, M))
-			return 1
-	return 0
+	if(skip_plate)
+		plate = null
+	else if(ispath(plate))
+		plate = new plate(src)
+	else if(!istype(plate))
+		plate = null
 
-/obj/item/chems/food/examine(mob/user, distance)
+	initialize_reagents()
+	if(isnull(_utensil_food_type))
+		_utensil_food_type = type
+	if(slice_path && slice_num)
+		utensil_flags |= UTENSIL_FLAG_SLICE
+
+/obj/item/food/initialize_reagents(populate = TRUE)
+	if(!reagents)
+		create_reagents(volume)
+	else
+		reagents.maximum_volume = max(reagents.maximum_volume, volume)
+	return ..()
+
+// Dummy type used solely for soup bowls/soup spoons.
+/obj/item/food/lump
+	name = "lump"
+
+/obj/item/food/lump/on_reagent_change()
+	. = ..()
+	if(reagents?.total_volume)
+		SetName(reagents.get_primary_reagent_name())
+		filling_color = reagents.get_color()
+	else
+		SetName(initial(name))
+		filling_color = COLOR_WHITE
+	color = filling_color
+
+/obj/item/food/on_reagent_change()
+	if((. = ..()))
+		update_icon()
+
+/obj/item/food/can_be_injected_by(var/atom/injector)
+	return TRUE
+
+// Does not rely on ATOM_IS_OPEN_CONTAINER because we want to be able to pour in but not out.
+/obj/item/food/can_be_poured_into(atom/source)
+	return (reagents?.maximum_volume > 0)
+
+/obj/item/food/attack_self(mob/user)
+	if(is_edible(user) && handle_eaten_by_mob(user, user) != EATEN_INVALID)
+		return TRUE
+	return ..()
+
+/obj/item/food/dragged_onto(var/mob/user)
+	return attack_self(user)
+
+/obj/item/food/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance > 1)
 		return
+	if(backyard_grilling_rawness > 0 && backyard_grilling_rawness != initial(backyard_grilling_rawness))
+		. += "\The [src] is [get_backyard_grilling_text()]."
+	if(plate)
+		. += SPAN_NOTICE("\The [src] has been arranged on \a [plate].")
 	if (bitecount==0)
 		return
 	else if (bitecount==1)
-		to_chat(user, "<span class='notice'>\The [src] was bitten by someone!</span>")
+		. += SPAN_NOTICE("\The [src] was bitten by someone!")
 	else if (bitecount<=3)
-		to_chat(user, "<span class='notice'>\The [src] was bitten [bitecount] time\s!</span>")
+		. += SPAN_NOTICE("\The [src] was bitten [bitecount] time\s!")
 	else
-		to_chat(user, "<span class='notice'>\The [src] was bitten multiple times!</span>")
+		. += SPAN_NOTICE("\The [src] was bitten multiple times!")
 
-/obj/item/chems/food/attackby(obj/item/W, mob/living/user)
-	if(!istype(user))
-		return
-	if(istype(W,/obj/item/storage))
-		..()// -> item/attackby()
-		return
-	// Eating with forks
-	if(istype(W,/obj/item/kitchen/utensil))
-		var/obj/item/kitchen/utensil/U = W
-		if(U.scoop_food)
-			if(!U.reagents)
-				U.create_reagents(5)
+/obj/item/food/proc/is_sliceable()
+	return (slice_num && slice_path && slice_num > 0)
 
-			if (U.reagents.total_volume > 0)
-				to_chat(user, "<span class='warning'>You already have something on your [U].</span>")
-				return
+/obj/item/food/proc/drop_plate(var/drop_loc)
+	if(istype(plate))
+		plate.dropInto(drop_loc || loc)
+		plate.make_dirty(src)
+	plate = null
 
-			user.visible_message( \
-				"\The [user] scoops up some [src] with \the [U]!", \
-				"<span class='notice'>You scoop up some [src] with \the [U]!</span>" \
-			)
+/obj/item/food/physically_destroyed()
+	drop_plate()
+	return ..()
 
-			src.bitecount++
-			U.overlays.Cut()
-			U.loaded = "[src]"
-			var/image/I = new(U.icon, "loadedfood")
-			I.color = src.filling_color
-			U.overlays += I
-
-			if(!reagents)
-				PRINT_STACK_TRACE("A snack [type] failed to have a reagent holder when attacked with a [W.type]. It was [QDELETED(src) ? "" : "not"] being deleted.")
-			else
-				reagents.trans_to_obj(U, min(reagents.total_volume,5))
-				if (reagents.total_volume <= 0)
-					qdel(src)
-			return
-
-	if (is_sliceable())
-		//these are used to allow hiding edge items in food that is not on a table/tray
-		var/can_slice_here = isturf(src.loc) && ((locate(/obj/structure/table) in src.loc) || (locate(/obj/machinery/optable) in src.loc) || (locate(/obj/item/storage/tray) in src.loc))
-		var/hide_item = !has_edge(W) || !can_slice_here
-
-		if (hide_item)
-			if (W.w_class >= src.w_class || is_robot_module(W) || istype(W,/obj/item/chems/condiment))
-				return
-			if(!user.try_unequip(W, src))
-				return
-
-			to_chat(user, "<span class='warning'>You slip \the [W] inside \the [src].</span>")
-			add_fingerprint(user)
-			W.forceMove(src)
-			return
-
-		if (has_edge(W))
-			if (!can_slice_here)
-				to_chat(user, "<span class='warning'>You cannot slice \the [src] here! You need a table or at least a tray to do it.</span>")
-				return
-
-			var/slices_lost = 0
-			if (W.w_class > ITEM_SIZE_NORMAL)
-				user.visible_message("<span class='notice'>\The [user] crudely slices \the [src] with [W]!</span>", "<span class='notice'>You crudely slice \the [src] with your [W]!</span>")
-				slices_lost = rand(1,min(1,round(slices_num/2)))
-			else
-				user.visible_message("<span class='notice'>\The [user] slices \the [src]!</span>", "<span class='notice'>You slice \the [src]!</span>")
-
-			var/reagents_per_slice = reagents.total_volume/slices_num
-			for(var/i=1 to (slices_num-slices_lost))
-				var/obj/slice = new slice_path (src.loc)
-				reagents.trans_to_obj(slice, reagents_per_slice)
-			qdel(src)
-			return
-
-	var/create_type
-	for(var/key in attack_products)
-		if(ispath(key) && !istype(W, key))
-			continue
-		if(istext(key))
-			if(!istype(W, /obj/item/chems/food/grown))
-				continue
-			var/obj/item/chems/food/grown/G = W
-			if(G.seed.kitchen_tag && G.seed.kitchen_tag != key)
-				continue
-		create_type = attack_products[key]
-	if (!ispath(create_type))
-		return
-	if(!user.canUnEquip(src))
-		return
-
-	var/obj/item/chems/food/result = new create_type()
-	//If the snack was in your hands, the result will be too
-	if (src in user.get_held_item_slots())
-		user.drop_from_inventory(src)
-		user.put_in_hands(result)
-	else
-		result.dropInto(loc)
-
-	qdel(W)
-	qdel(src)
-	to_chat(user, SPAN_NOTICE("You make \the [result]!"))
-
-/obj/item/chems/food/proc/is_sliceable()
-	return (slices_num && slice_path && slices_num > 0)
-
-/obj/item/chems/food/proc/on_dry(var/atom/newloc)
-	if(dried_type == type)
-		SetName("dried [name]")
-		color = "#a38463"
-		dry = TRUE
-		if(isloc(newloc))
-			forceMove(newloc)
-		return src
-	. = new dried_type(newloc || get_turf(src))
-	qdel(src)
-
-/obj/item/chems/food/Destroy()
-	if(contents)
+/obj/item/food/Destroy()
+	QDEL_NULL(plate)
+	trash = null
+	if(length(contents))
 		for(var/atom/movable/something in contents)
 			something.dropInto(loc)
 	. = ..()
 
-/obj/item/chems/food/attack_animal(var/mob/user)
-	if(!isanimal(user) && !isalien(user))
-		return
-	user.visible_message("<b>[user]</b> nibbles away at \the [src].","You nibble away at \the [src].")
-	bitecount++
-	if(reagents && user.reagents)
-		reagents.trans_to_mob(user, bitesize, CHEM_INGEST)
-	spawn(5)
-		if(!src && !user.client)
-			user.custom_emote(1,"[pick("burps", "cries for more", "burps twice", "looks at the area where the food was")]")
-			qdel(src)
-	On_Consume(user)
-
-/obj/item/chems/food/proc/update_food_appearance_from(var/obj/item/donor, var/food_color, var/copy_donor_appearance = TRUE)
+/obj/item/food/proc/update_food_appearance_from(var/obj/item/donor, var/food_color, var/copy_donor_appearance = TRUE)
 	filling_color = food_color
 	if(copy_donor_appearance)
 		appearance = donor
@@ -272,18 +155,69 @@
 			transform = M
 	update_icon()
 
-/obj/item/chems/food/on_update_icon()
+/obj/item/food/on_update_icon()
+	underlays.Cut()
 	. = ..()
 	//Since other things that don't have filling override this, slap it into its own proc to avoid the overhead of scanning through the icon file
 	apply_filling_overlay() //#TODO: Maybe generalise food item icons.
+	// If we have a plate, add it to our icon.
+	if(plate)
+		var/image/I = new
+		I.appearance = plate
+		I.layer = FLOAT_LAYER
+		I.plane = FLOAT_PLANE
+		I.pixel_x = 0
+		I.pixel_y = 0
+		I.pixel_z = 0
+		I.pixel_w = 0
+		I.appearance_flags |= RESET_TRANSFORM|RESET_COLOR
+		underlays += list(I)
 
-/obj/item/chems/food/proc/apply_filling_overlay()
+/obj/item/food/proc/apply_filling_overlay()
 	if(check_state_in_icon("[icon_state]_filling", icon))
 		add_overlay(overlay_image(icon, "[icon_state]_filling", filling_color))
 
 //Since we automatically create some reagents types for the nutriments, make sure we call this proc when overriding it
-/obj/item/chems/food/populate_reagents()
+/obj/item/food/populate_reagents()
 	. = ..()
 	SHOULD_CALL_PARENT(TRUE)
-	if(nutriment_amt)
-		reagents.add_reagent(nutriment_type, nutriment_amt, nutriment_desc)
+	if(!nutriment_amt || !nutriment_type)
+		return
+	// Ensure our taste data is in the expected format.
+	if(nutriment_desc)
+		if(!islist(nutriment_desc))
+			nutriment_desc = list(nutriment_desc)
+		for(var/taste in nutriment_desc)
+			if(nutriment_desc[taste] <= 0)
+				nutriment_desc[taste] = 1
+	add_to_reagents(nutriment_type, nutriment_amt, get_nutriment_data())
+
+/obj/item/food/proc/get_nutriment_data()
+	if(nutriment_desc)
+		LAZYSET(., DATA_TASTE, nutriment_desc)
+	if(allergen_flags)
+		LAZYINITLIST(.)
+		.[DATA_INGREDIENT_FLAGS] |= allergen_flags
+
+/obj/item/food/proc/set_nutriment_data(list/newdata)
+	if(reagents?.total_volume && reagents.has_reagent(nutriment_type, 1))
+		LAZYINITLIST(reagents.reagent_data)
+		reagents.reagent_data[nutriment_type] = newdata
+
+/obj/item/food/get_utensil_food_type()
+	return _utensil_food_type
+
+/obj/item/food/get_food_filling_color()
+	return filling_color || ..()
+
+/obj/item/food/handle_chunk_separated()
+	bitecount++
+
+
+/obj/item/food/proc/add_allergen_flags(new_flags)
+	for(var/reagent in reagents.reagent_volumes)
+		var/decl/material/mat = GET_DECL(reagent)
+		var/list/newdata = mat.mix_data(reagents, list(DATA_INGREDIENT_FLAGS = new_flags))
+		if(newdata)
+			LAZYSET(reagents.reagent_data, reagent, newdata)
+

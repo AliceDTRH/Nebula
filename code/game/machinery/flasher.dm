@@ -5,7 +5,7 @@
 	desc = "A wall-mounted flashbulb device."
 	icon = 'icons/obj/machines/flash_mounted.dmi'
 	icon_state = "mflash1"
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':32}, 'WEST':{'x':-32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":32}, "WEST":{"x":-32}}'
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
 	var/range = 2 //this is roughly the size of brig cell
 	var/disable = 0
@@ -35,16 +35,17 @@
 //		src.sd_SetLuminosity(0)
 
 //Don't want to render prison breaks impossible
-/obj/machinery/flasher/attackby(obj/item/W, mob/user)
-	if(IS_WIRECUTTER(W))
-		add_fingerprint(user, 0, W)
+/obj/machinery/flasher/attackby(obj/item/used_item, mob/user)
+	if(IS_WIRECUTTER(used_item))
+		add_fingerprint(user, 0, used_item)
 		src.disable = !src.disable
 		if (src.disable)
-			user.visible_message("<span class='warning'>[user] has disconnected the [src]'s flashbulb!</span>", "<span class='warning'>You disconnect the [src]'s flashbulb!</span>")
+			user.visible_message("<span class='warning'>[user] has disconnected \the [src]'s flashbulb!</span>", "<span class='warning'>You disconnect \the [src]'s flashbulb!</span>")
 		if (!src.disable)
-			user.visible_message("<span class='warning'>[user] has connected the [src]'s flashbulb!</span>", "<span class='warning'>You connect the [src]'s flashbulb!</span>")
+			user.visible_message("<span class='warning'>[user] has connected \the [src]'s flashbulb!</span>", "<span class='warning'>You connect \the [src]'s flashbulb!</span>")
+		return TRUE
 	else
-		..()
+		return ..()
 
 //Let the AI trigger them directly.
 /obj/machinery/flasher/attack_ai()
@@ -65,26 +66,28 @@
 	src.last_flash = world.time
 	use_power_oneoff(1500)
 
-	for (var/mob/living/O in viewers(src, null))
-		if (get_dist(src, O) > src.range)
+	for (var/mob/living/viewer in viewers(src, null))
+		if (get_dist(src, viewer) > src.range)
 			continue
 
 		var/flash_time = strength
-		if(isliving(O))
-			if(O.eyecheck() > FLASH_PROTECTION_NONE)
+		if(isliving(viewer))
+			if(viewer.eyecheck() > FLASH_PROTECTION_NONE)
 				continue
-			if(ishuman(O))
-				var/mob/living/carbon/human/H = O
-				flash_time = round(H.getFlashMod() * flash_time)
+			if(ishuman(viewer))
+				var/mob/living/human/H = viewer
+				flash_time = round(H.get_flash_mod() * flash_time)
 				if(flash_time <= 0)
 					return
-				var/obj/item/organ/internal/E = GET_INTERNAL_ORGAN(H, H.get_bodytype().vision_organ)
-				if(E && E.is_bruised() && prob(E.damage + 50))
-					H.flash_eyes()
-					E.damage += rand(1, 5)
+				var/vision_organ_tag = H.get_vision_organ_tag()
+				if(vision_organ_tag)
+					var/obj/item/organ/internal/organ = GET_INTERNAL_ORGAN(H, vision_organ_tag)
+					if(organ && organ.is_bruised() && prob(organ.get_organ_damage() + 50))
+						H.flash_eyes()
+						organ.adjust_organ_damage(rand(1, 5))
 
-		if(!O.is_blind())
-			do_flash(O, flash_time)
+		if(!viewer.is_blind())
+			do_flash(viewer, flash_time)
 
 /obj/machinery/flasher/proc/do_flash(var/mob/living/victim, var/flash_time)
 	victim.flash_eyes()
@@ -115,15 +118,13 @@
 	. = ..()
 	if(!. || !anchored || disable || last_flash && world.time < last_flash + 150)
 		return
-	if(istype(AM, /mob/living/carbon))
-		var/mob/living/carbon/M = AM
+	if(isliving(AM))
+		var/mob/living/M = AM
 		if(!MOVING_DELIBERATELY(M))
 			flash()
-	if(isanimal(AM))
-		flash()
 
-/obj/machinery/flasher/portable/attackby(obj/item/W, mob/user)
-	if(IS_WRENCH(W))
+/obj/machinery/flasher/portable/attackby(obj/item/used_item, mob/user)
+	if(IS_WRENCH(used_item))
 		add_fingerprint(user)
 		src.anchored = !src.anchored
 
@@ -134,6 +135,8 @@
 		else if (src.anchored)
 			user.show_message(text("<span class='warning'>[src] is now secured.</span>"))
 			src.overlays += "[base_state]-s"
+		return TRUE
+	return ..()
 
 /obj/machinery/button/flasher
 	name = "flasher button"
@@ -143,7 +146,7 @@
 /decl/public_access/public_method/flasher_flash
 	name = "flash"
 	desc = "Performs a flash, if possible."
-	call_proc = /obj/machinery/flasher/proc/flash
+	call_proc = TYPE_PROC_REF(/obj/machinery/flasher, flash)
 
 /decl/stock_part_preset/radio/receiver/flasher
 	frequency = BUTTON_FREQ

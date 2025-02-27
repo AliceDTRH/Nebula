@@ -33,7 +33,7 @@ somewhere on that shuttle. Subtypes of these can be then used to perform ship ov
 
 /obj/machinery/computer/ship/proc/display_reconnect_dialog(var/mob/user, var/flavor)
 	var/datum/browser/written_digital/popup = new (user, "[src]", "[src]")
-	popup.set_content("<center><strong><font color = 'red'>Error</strong></font><br>Unable to connect to [flavor].<br><a href='?src=\ref[src];sync=1'>Reconnect</a></center>")
+	popup.set_content("<center><strong><font color = 'red'>Error</strong></font><br>Unable to connect to [flavor].<br><a href='byond://?src=\ref[src];sync=1'>Reconnect</a></center>")
 	popup.open()
 
 /obj/machinery/computer/ship/interface_interact(var/mob/user)
@@ -69,9 +69,9 @@ somewhere on that shuttle. Subtypes of these can be then used to perform ship ov
 		for(var/obj/machinery/computer/ship/sensors/sensor in linked.get_linked_machines_of_type(/obj/machinery/computer/ship))
 			sensor.reveal_contacts(user)
 
-	events_repository.register(/decl/observ/moved, user, src, /obj/machinery/computer/ship/proc/unlook)
+	events_repository.register(/decl/observ/moved, user, src, TYPE_PROC_REF(/obj/machinery/computer/ship, unlook))
 	if(isliving(user))
-		events_repository.register(/decl/observ/stat_set, user, src, /obj/machinery/computer/ship/proc/unlook)
+		events_repository.register(/decl/observ/stat_set, user, src, TYPE_PROC_REF(/obj/machinery/computer/ship, unlook))
 	LAZYDISTINCTADD(viewers, weakref(user))
 	if(linked)
 		LAZYDISTINCTADD(linked.navigation_viewers, weakref(user))
@@ -84,9 +84,9 @@ somewhere on that shuttle. Subtypes of these can be then used to perform ship ov
 		for(var/obj/machinery/computer/ship/sensors/sensor in linked.get_linked_machines_of_type(/obj/machinery/computer/ship))
 			sensor.hide_contacts(user)
 
-	events_repository.unregister(/decl/observ/moved, user, src, /obj/machinery/computer/ship/proc/unlook)
+	events_repository.unregister(/decl/observ/moved, user, src, TYPE_PROC_REF(/obj/machinery/computer/ship, unlook))
 	if(isliving(user))
-		events_repository.unregister(/decl/observ/stat_set, user, src, /obj/machinery/computer/ship/proc/unlook)
+		events_repository.unregister(/decl/observ/stat_set, user, src, TYPE_PROC_REF(/obj/machinery/computer/ship, unlook))
 	LAZYREMOVE(viewers, weakref(user))
 	if(linked)
 		LAZYREMOVE(linked.navigation_viewers, weakref(user))
@@ -113,10 +113,10 @@ somewhere on that shuttle. Subtypes of these can be then used to perform ship ov
 /obj/machinery/computer/ship/sensors/Destroy()
 	sensor_ref = null
 	if(LAZYLEN(viewers))
-		for(var/weakref/W in viewers)
-			var/M = W.resolve()
+		for(var/weakref/viewer_ref in viewers)
+			var/M = viewer_ref.resolve()
 			if(M)
-				unlook(M)
+				INVOKE_ASYNC(PROC_REF(unlook), M)
 				if(linked)
-					LAZYREMOVE(linked.navigation_viewers, W)
+					LAZYREMOVE(linked.navigation_viewers, viewer_ref)
 	. = ..()

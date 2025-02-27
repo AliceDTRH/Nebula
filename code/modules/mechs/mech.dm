@@ -10,16 +10,9 @@
 	default_pixel_x = -8
 	default_pixel_y = 0
 	status_flags = PASSEMOTES
-	a_intent =     I_HURT
 	mob_size =     MOB_SIZE_LARGE
-	atom_flags = ATOM_FLAG_SHIELD_CONTENTS | ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_BLOCK_DIAGONAL_FACING
-
-	meat_type = null
-	meat_amount = 0
-	skin_material = null
-	skin_amount = 0
-	bone_material = null
-	bone_amount = 0
+	atom_flags = ATOM_FLAG_SHIELD_CONTENTS | ATOM_FLAG_BLOCK_DIAGONAL_FACING
+	butchery_data = null
 
 	var/emp_damage = 0
 
@@ -119,8 +112,6 @@
 		if(source_frame.material)
 			material = source_frame.material
 
-	updatehealth()
-
 	// Generate hardpoint list.
 	var/list/component_descriptions
 	for(var/obj/item/mech_component/comp in list(arms, legs, head, body))
@@ -137,7 +128,7 @@
 		desc = "[desc] It has been built with [english_list(component_descriptions)]."
 
 	// Create HUD.
-	InitializeHud()
+	initialize_hud()
 
 	// Build icon.
 	queue_icon_update()
@@ -166,10 +157,14 @@
 	hud_elements.Cut()
 
 	for(var/hardpoint in hardpoints)
-		qdel(hardpoints[hardpoint])
+		var/obj/item/mech_equipment/equipment = hardpoints[hardpoint]
+		if(istype(equipment))
+			equipment.uninstalled()
+		QDEL_NULL(equipment)
 	hardpoints.Cut()
 
 	QDEL_NULL(access_card)
+	QDEL_NULL(radio)
 	QDEL_NULL(arms)
 	QDEL_NULL(legs)
 	QDEL_NULL(head)
@@ -177,40 +172,38 @@
 
 	for(var/hardpoint in hardpoint_hud_elements)
 		var/obj/screen/exosuit/hardpoint/H = hardpoint_hud_elements[hardpoint]
-		H.owner = null
+		H.owner_ref = null
 		H.holding = null
 		qdel(H)
 	hardpoint_hud_elements.Cut()
 
 	. = ..()
 
-/mob/living/exosuit/show_other_examine_strings(mob/user, distance, infix, suffix, hideflags, decl/pronouns/pronouns)
+/mob/living/exosuit/get_other_examine_strings(mob/user, distance, infix, suffix, hideflags, decl/pronouns/pronouns)
 	. = ..()
 	if(LAZYLEN(pilots) && (!hatch_closed || body.pilot_coverage < 100 || body.transparent_cabin))
-		to_chat(user, "It is being piloted by [english_list(pilots, nothing_text = "nobody")].")
+		. += "It is being piloted by [english_list(pilots, nothing_text = "nobody")]."
 	if(body && LAZYLEN(body.pilot_positions))
-		to_chat(user, "It can seat [body.pilot_positions.len] pilot\s total.")
+		. += "It can seat [body.pilot_positions.len] pilot\s total."
 	if(hardpoints.len)
-		to_chat(user, "It has the following hardpoints:")
+		. += "It has the following hardpoints:"
 		for(var/hardpoint in hardpoints)
 			var/obj/item/I = hardpoints[hardpoint]
-			to_chat(user, "- [hardpoint]: [istype(I) ? "[I]" : "nothing"].")
+			. += "- [hardpoint]: [istype(I) ? "[I]" : "nothing"]."
 	else
-		to_chat(user, "It has no visible hardpoints.")
-
+		. += "It has no visible hardpoints."
 	for(var/obj/item/mech_component/thing in list(arms, legs, head, body))
 		if(!thing)
 			continue
-		var/damage_string = thing.get_damage_string()
-		to_chat(user, "Its [thing.name] [thing.gender == PLURAL ? "are" : "is"] [damage_string].")
-	to_chat(user, "It menaces with reinforcements of [material].")
+		. += "Its [thing.name] [thing.gender == PLURAL ? "are" : "is"] [thing.get_damage_string()]."
+	. += "It menaces with reinforcements of [material]."
 
 /mob/living/exosuit/return_air()
-	return (body && body.pilot_coverage >= 100 && hatch_closed && body.cockpit) ? body.cockpit : loc.return_air()
+	return (body && body.pilot_coverage >= 100 && hatch_closed && body.cockpit) ? body.cockpit : loc?.return_air()
 
-/mob/living/exosuit/GetIdCards()
+/mob/living/exosuit/GetIdCards(list/exceptions)
 	. = ..()
-	if(istype(access_card))
+	if(istype(access_card) && !is_type_in_list(access_card, exceptions))
 		LAZYDISTINCTADD(., access_card)
 
 /mob/living/exosuit/set_dir()
@@ -241,3 +234,26 @@
 		hud_power_control?.queue_icon_update()
 	else
 		to_chat(user, SPAN_WARNING("Error: No power cell was detected."))
+
+// Dump exhaled air into the environment to avoid the tank filling
+// up with CO2 and the cockpit filling up with N2. This isn't an
+// ideal fix; regulators or something would be a better solution.
+/mob/living/exosuit/merge_exhaled_volume(datum/gas_mixture/exhaled)
+	return loc?.merge_exhaled_volume(exhaled)
+
+// Override this to avoid triggering the ancient vore code.
+/mob/living/exosuit/relaymove(mob/living/user, direction)
+	return
+
+/mob/living/exosuit/get_available_postures()
+	var/static/list/available_postures = list(
+		/decl/posture/standing
+	)
+	return available_postures
+
+/mob/living/exosuit/try_awaken(mob/user)
+	return FALSE
+
+/mob/living/exosuit/handle_stance()
+	stance_damage = 0
+	return

@@ -16,7 +16,7 @@
 	desc = "Does card things."
 	icon = 'icons/obj/card.dmi'
 	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	slot_flags = SLOT_EARS
 	drop_sound = 'sound/foley/paperpickup1.ogg'
 	pickup_sound = 'sound/foley/paperpickup2.ogg'
@@ -28,15 +28,15 @@
 	slot_flags = SLOT_ID
 	var/signed_by
 
-/obj/item/card/union/examine(mob/user)
+/obj/item/card/union/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(signed_by)
-		to_chat(user, "It has been signed by [signed_by].")
+		. += "It has been signed by [signed_by]."
 	else
-		to_chat(user, "It has a blank space for a signature.")
+		. += "It has a blank space for a signature."
 
-/obj/item/card/union/attackby(var/obj/item/thing, var/mob/user)
-	if(IS_PEN(thing))
+/obj/item/card/union/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_PEN(used_item))
 		if(signed_by)
 			to_chat(user, SPAN_WARNING("\The [src] has already been signed."))
 		else
@@ -44,8 +44,8 @@
 			if(signature && !signed_by && !user.incapacitated() && Adjacent(user))
 				signed_by = signature
 				user.visible_message(SPAN_NOTICE("\The [user] signs \the [src] with a flourish."))
-		return
-	..()
+		return TRUE
+	return ..()
 
 /obj/item/card/data
 	name = "data card"
@@ -63,9 +63,9 @@
 	. = ..()
 	add_overlay(overlay_image(icon, "[icon_state]-color", detail_color))
 
-/obj/item/card/data/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/integrated_electronics/detailer))
-		var/obj/item/integrated_electronics/detailer/D = I
+/obj/item/card/data/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/integrated_electronics/detailer))
+		var/obj/item/integrated_electronics/detailer/D = used_item
 		detail_color = D.detail_color
 		update_icon()
 	return ..()
@@ -75,7 +75,7 @@
 	icon_state = "data_2"
 
 /obj/item/card/data/disk
-	desc = "A plastic magstripe card for simple and speedy data storage and transfer. This one inexplicibly looks like a floppy disk."
+	desc = "A plastic magstripe card for simple and speedy data storage and transfer. This one inexplicably looks like a floppy disk."
 	icon_state = "data_3"
 
 /obj/item/card/data/get_assembly_detail_color()
@@ -90,14 +90,14 @@
 	name = "broken cryptographic sequencer"
 	icon_state = "emag"
 	item_state = "card-id"
-	origin_tech = "{'magnets':2,'esoteric':2}"
+	origin_tech = @'{"magnets":2,"esoteric":2}'
 
 /obj/item/card/emag
 	desc = "It's a card with a magnetic strip attached to some circuitry."
 	name = "cryptographic sequencer"
 	icon_state = "emag"
 	item_state = "card-id"
-	origin_tech = "{'magnets':2,'esoteric':2}"
+	origin_tech = @'{"magnets":2,"esoteric":2}'
 	var/uses = 10
 
 	var/static/list/card_choices = list(
@@ -144,10 +144,10 @@ var/global/const/NO_EMAG_ACT = -50
 
 		disguise(card_choices[picked], usr)
 
-/obj/item/card/emag/examine(mob/user)
+/obj/item/card/emag/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(user.skill_check(SKILL_DEVICES,SKILL_ADEPT))
-		to_chat(user, SPAN_WARNING("This ID card has some form of non-standard modifications."))
+		. += SPAN_WARNING("This ID card has some form of non-standard modifications.")
 
 /obj/item/card/id
 	name = "identification card"
@@ -170,8 +170,8 @@ var/global/const/NO_EMAG_ACT = -50
 	var/icon/side
 
 	//alt titles are handled a bit weirdly in order to unobtrusively integrate into existing ID system
-	var/assignment = null	//can be alt title or the actual job
-	var/rank = null			//actual job
+	var/assignment //can be alt title or the actual job
+	var/position   // actual job
 
 	var/datum/mil_branch/military_branch = null //Vars for tracking branches and ranks on multi-crewtype maps
 	var/datum/mil_rank/military_rank = null
@@ -186,7 +186,7 @@ var/global/const/NO_EMAG_ACT = -50
 	. = ..()
 	update_icon()
 
-/obj/item/card/id/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/card/id/apply_additional_mob_overlays(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && detail_color)
 		overlay.overlays += overlay_image(overlay.icon, "[overlay.icon_state]-colors", detail_color, RESET_COLOR)
 	. = ..()
@@ -196,20 +196,23 @@ var/global/const/NO_EMAG_ACT = -50
 	if(detail_color)
 		add_overlay(overlay_image(icon, "[icon_state]-colors", detail_color, RESET_COLOR))
 	for(var/detail in extra_details)
-		add_overlay(overlay_image(icon, detail, flags = RESET_COLOR))
+		add_overlay(overlay_image(icon, "[icon_state]-[detail]", flags = RESET_COLOR))
 
 /obj/item/card/id/Topic(href, href_list, datum/topic_state/state)
 	var/mob/user = usr
 	if(href_list["look_at_id"] && istype(user))
 		var/turf/T = get_turf(src)
 		if(T.CanUseTopic(user, global.view_topic_state) != STATUS_CLOSE)
-			user.examinate(src)
+			user.examine_verb(src)
 			return TOPIC_HANDLED
 	. = ..()
 
-/obj/item/card/id/examine(mob/user, distance)
+/obj/item/card/id/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It says '[get_display_name()]'.")
+	. += "It says '[get_display_name()]'."
+
+/obj/item/card/id/examined_by(mob/user, distance, infix, suffix)
+	. = ..()
 	if(distance <= 1)
 		show(user)
 
@@ -244,17 +247,17 @@ var/global/const/NO_EMAG_ACT = -50
 	id_card.formal_name_prefix = initial(id_card.formal_name_prefix)
 	id_card.formal_name_suffix = initial(id_card.formal_name_suffix)
 	if(client && client.prefs)
-		for(var/culturetag in client.prefs.cultural_info)
-			var/decl/cultural_info/culture = GET_DECL(client.prefs.cultural_info[culturetag])
-			if(culture)
-				id_card.formal_name_prefix = "[culture.get_formal_name_prefix()][id_card.formal_name_prefix]"
-				id_card.formal_name_suffix = "[id_card.formal_name_suffix][culture.get_formal_name_suffix()]"
+		for(var/token in client.prefs.background_info)
+			var/decl/background_detail/background = GET_DECL(client.prefs.background_info[token])
+			if(background)
+				id_card.formal_name_prefix = "[background.get_formal_name_prefix()][id_card.formal_name_prefix]"
+				id_card.formal_name_suffix = "[id_card.formal_name_suffix][background.get_formal_name_suffix()]"
 
 	id_card.registered_name = real_name
 
-	var/decl/pronouns/G = get_pronouns()
-	if(G)
-		id_card.card_gender = capitalize(G.bureaucratic_term )
+	var/decl/pronouns/pronouns = get_pronouns()
+	if(pronouns)
+		id_card.card_gender = capitalize(pronouns.bureaucratic_term )
 	else
 		id_card.card_gender = "Unset"
 	id_card.set_id_photo(src)
@@ -263,7 +266,7 @@ var/global/const/NO_EMAG_ACT = -50
 	id_card.dna_hash         = get_unique_enzymes()                   || "Unset"
 	id_card.fingerprint_hash = get_full_print(ignore_blockers = TRUE) || "Unset"
 
-/mob/living/carbon/human/set_id_info(var/obj/item/card/id/id_card)
+/mob/living/human/set_id_info(var/obj/item/card/id/id_card)
 	..()
 	id_card.age = get_age()
 	if(global.using_map.flags & MAP_HAS_BRANCH)
@@ -287,7 +290,7 @@ var/global/const/NO_EMAG_ACT = -50
 	dat += text("Blood Type: []<BR>\n", blood_type)
 	dat += text("DNA Hash: []<BR><BR>\n", dna_hash)
 	if(front && side)
-		dat +="<td align = center valign = top>Photo:<br><img src=front.png height=80 width=80 border=4><img src=side.png height=80 width=80 border=4></td>"
+		dat +="<td align = center valign = top>Photo:<br><img src=front.png width=80 border=4><img src=side.png width=80 border=4></td>"
 	dat += "</tr></table>"
 	return jointext(dat,null)
 
@@ -301,11 +304,11 @@ var/global/const/NO_EMAG_ACT = -50
 /obj/item/card/id/GetAccess()
 	return access.Copy()
 
-/obj/item/card/id/GetIdCard()
-	return src
 
-/obj/item/card/id/GetIdCards()
-	return list(src)
+/obj/item/card/id/GetIdCards(list/exceptions)
+	. = ..()
+	if(!is_type_in_list(src, exceptions))
+		LAZYDISTINCTADD(., src)
 
 /obj/item/card/id/verb/read()
 	set name = "Read ID Card"
@@ -385,6 +388,7 @@ var/global/const/NO_EMAG_ACT = -50
 /obj/item/card/id/captains_spare
 	name = "captain's spare ID"
 	desc = "The spare ID of the High Lord himself."
+	icon_state = ICON_STATE_WORLD
 	item_state = "gold_id"
 	registered_name = "Captain"
 	assignment = "Captain"

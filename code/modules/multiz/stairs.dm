@@ -14,7 +14,7 @@
 			warning("Stair created without level above: ([loc.x], [loc.y], [loc.z])")
 			return INITIALIZE_HINT_QDEL
 		if(!above.is_open())
-			above.ChangeTurf(/turf/simulated/open)
+			above.ChangeTurf(/turf/space) // This will be resolved to the appropriate open space type by ChangeTurf().
 	. = ..()
 
 /obj/structure/stairs/CheckExit(atom/movable/mover, turf/target)
@@ -30,10 +30,10 @@
 		A.forceMove(target)
 		if(isliving(A))
 			var/mob/living/L = A
-			for(var/obj/item/grab/G in L.get_active_grabs())
-				G.affecting.forceMove(target)
+			for(var/obj/item/grab/grab as anything in L.get_active_grabs())
+				grab.affecting.forceMove(target)
 		if(ishuman(A))
-			var/mob/living/carbon/human/H = A
+			var/mob/living/human/H = A
 			if(H.has_footsteps())
 				playsound(source, 'sound/effects/stairs_step.ogg', 50)
 				playsound(target, 'sound/effects/stairs_step.ogg', 50)
@@ -43,7 +43,22 @@
 /obj/structure/stairs/CanPass(obj/mover, turf/source, height, airflow)
 	return airflow || !density
 
+/obj/structure/stairs/catwalk
+	name = "catwalk stairs"
+	icon_state = "catwalk"
+
 // type paths to make mapping easier.
+/obj/structure/stairs/north
+	dir = NORTH
+
+/obj/structure/stairs/south
+	dir = SOUTH
+
+/obj/structure/stairs/east
+	dir = EAST
+
+/obj/structure/stairs/west
+	dir = WEST
 
 /obj/structure/stairs/long
 	icon = 'icons/obj/stairs_64.dmi'
@@ -62,6 +77,27 @@
 	pixel_x = -32
 
 /obj/structure/stairs/long/west
+	dir = WEST
+	bound_width = 64
+	bound_height = 32
+
+/obj/structure/stairs/long/catwalk
+	name = "catwalk stairs"
+	icon_state = "catwalk"
+
+/obj/structure/stairs/long/catwalk/north
+	dir = NORTH
+	bound_y = -32
+	pixel_y = -32
+
+/obj/structure/stairs/long/catwalk/east
+	dir = EAST
+	bound_width = 64
+	bound_height = 32
+	bound_x = -32
+	pixel_x = -32
+
+/obj/structure/stairs/long/catwalk/west
 	dir = WEST
 	bound_width = 64
 	bound_height = 32

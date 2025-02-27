@@ -3,8 +3,8 @@
 	desc = "A device which aids in triangulation of exotic particles."
 	icon = 'icons/obj/xenoarchaeology.dmi'
 	icon_state = "flashgun"
-	item_state = "lampgreen"
-	origin_tech = "{'wormholes':3,'magnets':3}"
+	item_state = "flashgun"
+	origin_tech = @'{"wormholes":3,"magnets":3}'
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/metal/aluminium = MATTER_AMOUNT_REINFORCEMENT,
@@ -35,7 +35,7 @@
 			nearestTargetDist = artifact[2]
 
 		for(var/A in SSxenoarch.digsite_spawning_turfs)
-			var/turf/exterior/wall/T = A
+			var/turf/wall/natural/T = A
 			if(T.density && T.finds && T.finds.len)
 				if(T.z == cur_turf.z)
 					var/cur_dist = get_dist(cur_turf, T) * 2

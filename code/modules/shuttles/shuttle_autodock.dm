@@ -16,7 +16,7 @@
 	var/obj/effect/shuttle_landmark/landmark_transition  //This variable is type-abused initially: specify the landmark_tag, not the actual landmark.
 	var/move_time = 240		//the time spent in the transition area
 
-	category = /datum/shuttle/autodock
+	abstract_type = /datum/shuttle/autodock
 	flags = SHUTTLE_FLAGS_PROCESS | SHUTTLE_FLAGS_ZERO_G
 
 /datum/shuttle/autodock/New(var/map_hash, var/obj/effect/shuttle_landmark/start_waypoint)
@@ -54,15 +54,23 @@
 	if(shuttle_docking_controller)
 		shuttle_docking_controller.docking_codes = code
 
-/datum/shuttle/autodock/shuttle_moved()
+/datum/shuttle/autodock/shuttle_moved(obj/effect/shuttle_landmark/destination, list/turf_translation, angle = 0)
 	force_undock() //bye!
 	..()
+
+/datum/shuttle/autodock/proc/get_dock_target_by_port_tag(var/port_tag)
+	var/obj/abstract/local_dock/dock = get_port_by_tag(port_tag)
+	if(!dock)
+		return dock_target // fallback, this should never happen
+	return dock.dock_target // do not fall back to default here; allow certain rotation points (center, etc) to disable docking
 
 /datum/shuttle/autodock/proc/update_docking_target(var/obj/effect/shuttle_landmark/location)
 	if(location && docking_cues && location.special_dock_targets && location.special_dock_targets[type])
 		current_dock_target = docking_cues[location.special_dock_targets[type]]
+	else if(current_port_tag)
+		current_dock_target = get_dock_target_by_port_tag(current_port_tag)
 	else
-		current_dock_target = dock_target
+		current_dock_target = dock_target // fallback
 	shuttle_docking_controller = SSshuttle.docking_registry[current_dock_target]
 /*
 	Docking stuff

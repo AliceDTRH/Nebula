@@ -4,7 +4,7 @@
 	icon_state = "cyberbrain"
 	allowed_organs = list(BP_AUGMENT_HEAD)
 	augment_flags = AUGMENTATION_MECHANIC
-	origin_tech = "{'materials':2,'magnets':3,'engineering':3,'biotech':2,'programming':4}"
+	origin_tech = @'{"materials":2,"magnets":3,"engineering":3,"biotech":2,"programming":4}'
 
 	var/list/default_hardware = list(
 		/obj/item/stock_parts/computer/processor_unit/small,
@@ -54,13 +54,14 @@
 	else if(!assembly.enabled && assembly.screen_on)
 		assembly.turn_on(owner)
 
-/obj/item/organ/internal/augment/active/cyberbrain/attackby(var/obj/item/W, var/mob/user)
+/obj/item/organ/internal/augment/active/cyberbrain/attackby(var/obj/item/used_item, var/mob/user)
 	var/datum/extension/assembly/assembly = get_extension(src, /datum/extension/assembly)
-	if(assembly.attackby(W, user))
+	. = assembly.attackby(used_item, user)
+	if(.)
 		return
 	return ..()
 
-/obj/item/organ/internal/augment/active/cyberbrain/handle_mouse_drop(atom/over, mob/user)
+/obj/item/organ/internal/augment/active/cyberbrain/handle_mouse_drop(atom/over, mob/user, params)
 	if(!istype(over, /obj/screen))
 		attack_self(user)
 		return TRUE

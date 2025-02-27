@@ -8,7 +8,7 @@
 	active_power_usage = 2000
 	anchored = TRUE
 	density = FALSE
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
 	stat_immune = 0
@@ -26,9 +26,10 @@
 	if(!enabled)
 		return
 	for(var/direction in global.cardinal)
-		var/turf/simulated/shielded_tile = get_step(get_turf(src), direction)
-		for(var/obj/effect/shield/S in shielded_tile)
-			S.diffuse(5)
+		var/turf/shielded_tile = get_step(get_turf(src), direction)
+		if(shielded_tile?.simulated)
+			for(var/obj/effect/shield/S in shielded_tile)
+				S.diffuse(5)
 
 /obj/machinery/shield_diffuser/on_update_icon()
 	if(alarm)
@@ -58,8 +59,8 @@
 	alarm = round(max(alarm, duration))
 	update_icon()
 
-/obj/machinery/shield_diffuser/examine(mob/user)
+/obj/machinery/shield_diffuser/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It is [enabled ? "enabled" : "disabled"].")
+	. += "It is [enabled ? "enabled" : "disabled"]."
 	if(alarm)
-		to_chat(user, "A red LED labeled \"Proximity Alarm\" is blinking on the control panel.")
+		. += "A red LED labeled \"Proximity Alarm\" is blinking on the control panel."

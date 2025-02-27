@@ -1,11 +1,10 @@
-var/global/list/overmap_unknown_ids = list()
-
 /obj/effect/overmap
 	name = "map object"
 	icon = 'icons/obj/overmap.dmi'
 	icon_state = "object"
 	color = "#c0c0c0"
 	animate_movement = NO_STEPS
+	is_spawnable_type = FALSE
 
 	var/scannable                       // if set to TRUE will show up on ship sensors for detailed scans, and will ping when detected by scanners.
 	var/unknown_id                      // A unique identifier used when this entity is scanned. Assigned in Initialize().
@@ -54,26 +53,30 @@ var/global/list/overmap_unknown_ids = list()
 		return INITIALIZE_HINT_QDEL
 
 	if(requires_contact)
-		invisibility = INVISIBILITY_OVERMAP // Effects that require identification have their images cast to the client via sensors.
+		set_invisibility(INVISIBILITY_OVERMAP) // Effects that require identification have their images cast to the client via sensors.
 
 	if(scannable)
 		unknown_id = "[pick(global.phonetic_alphabet)]-[random_id(/obj/effect/overmap, 100, 999)]"
 
 	update_moving()
 
-	add_filter("glow", 1, list("drop_shadow", color = color + "F0", size = 2, offset = 1,x = 0, y = 0))
+	add_filter("glow", 1, list(type = "drop_shadow", color = color + "F0", size = 2, offset = 1,x = 0, y = 0))
 	update_icon()
 
-/obj/effect/overmap/Crossed(var/obj/effect/overmap/visitable/other)
-	if(istype(other))
-		for(var/obj/effect/overmap/visitable/O in loc)
-			SSskybox.rebuild_skyboxes(O.map_z)
+/obj/effect/overmap/Crossed(atom/movable/AM)
+	var/obj/effect/overmap/visitable/other = AM
+	if(!istype(other))
+		return
+	for(var/obj/effect/overmap/visitable/O in loc)
+		SSskybox.rebuild_skyboxes(O.map_z)
 
-/obj/effect/overmap/Uncrossed(var/obj/effect/overmap/visitable/other)
-	if(istype(other))
-		SSskybox.rebuild_skyboxes(other.map_z)
-		for(var/obj/effect/overmap/visitable/O in loc)
-			SSskybox.rebuild_skyboxes(O.map_z)
+/obj/effect/overmap/Uncrossed(atom/movable/AM)
+	var/obj/effect/overmap/visitable/other = AM
+	if(!istype(other))
+		return
+	SSskybox.rebuild_skyboxes(other.map_z)
+	for(var/obj/effect/overmap/visitable/O in loc)
+		SSskybox.rebuild_skyboxes(O.map_z)
 
 /obj/effect/overmap/on_update_icon()
 	. = ..()
@@ -179,9 +182,9 @@ var/global/list/overmap_unknown_ids = list()
 		// Add speed to this dimension of our position.
 		position[i] += clamp((speed[i] * OVERMAP_SPEED_CONSTANT) * (wait / (1 SECOND)), -1, 1)
 		if(position[i] < 0)
-			deltas[i] = CEILING(position[i])
+			deltas[i] = ceil(position[i])
 		else if(position[i] > 0)
-			deltas[i] = FLOOR(position[i])
+			deltas[i] = floor(position[i])
 		moved = TRUE
 		// Delta over 0 means we've moved a turf, so we adjust our position accordingly.
 		if(deltas[i] != 0)
@@ -226,10 +229,12 @@ var/global/list/overmap_unknown_ids = list()
 		var/spd = speed[i]
 		var/abs_spd = abs(spd)
 		if(abs_spd)
-			var/partial_power = clamp(abs_spd / (get_delta_v() / KM_OVERMAP_RATE), 0, 1)
-			var/delta_v = min(get_delta_v(TRUE, partial_power) / KM_OVERMAP_RATE, abs_spd)
-			.[i] = -SIGN(spd) * delta_v
-			burn = TRUE
+			var/base_delta_v = get_delta_v()
+			if(base_delta_v > 0)
+				var/partial_power = clamp(abs_spd / (base_delta_v / KM_OVERMAP_RATE), 0, 1)
+				var/delta_v = min(get_delta_v(TRUE, partial_power) / KM_OVERMAP_RATE, abs_spd)
+				.[i] = -SIGN(spd) * delta_v
+				burn = TRUE
 
 	if(burn)
 		last_burn = world.time
@@ -240,7 +245,7 @@ var/global/list/overmap_unknown_ids = list()
 	pixel_y = position[2] * (world.icon_size/2)
 
 /obj/effect/overmap/proc/get_delta_v()
-	return
+	return 0
 
 /obj/effect/overmap/proc/get_vessel_mass() //Same as above.
 	return vessel_mass

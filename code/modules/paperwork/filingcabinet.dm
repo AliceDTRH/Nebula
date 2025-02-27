@@ -9,7 +9,7 @@
 	material               = /decl/material/solid/metal/steel
 	density                = TRUE
 	anchored               = TRUE
-	atom_flags             = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE
+	atom_flags             = ATOM_FLAG_CLIMBABLE
 	obj_flags              = OBJ_FLAG_ANCHORABLE
 	tool_interaction_flags = TOOL_INTERACTION_ANCHOR | TOOL_INTERACTION_DECONSTRUCT
 	var/tmp/list/can_hold  = list(
@@ -27,22 +27,22 @@
 				I.forceMove(src)
 	. = ..()
 
-/obj/structure/filing_cabinet/attackby(obj/item/P, mob/user)
-	if(is_type_in_list(P, can_hold))
-		if(!user.try_unequip(P, src))
-			return
-		add_fingerprint(user)
-		to_chat(user, SPAN_NOTICE("You put [P] in [src]."))
-		flick("[initial(icon_state)]-open",src)
-		updateUsrDialog()
+/obj/structure/filing_cabinet/attackby(obj/item/used_item, mob/user)
+	if(!is_type_in_list(used_item, can_hold))
+		return ..()
+	if(!user.try_unequip(used_item, src))
 		return TRUE
+	add_fingerprint(user)
+	to_chat(user, SPAN_NOTICE("You put [used_item] in [src]."))
+	flick("[initial(icon_state)]-open",src)
+	updateUsrDialog()
+	return TRUE
 
-	return ..()
 /obj/structure/filing_cabinet/interact(mob/user)
 	user.set_machine(src)
 	var/dat = "<HR><TABLE>"
-	for(var/obj/item/P in src)
-		dat += "<TR><TD><A href='?src=\ref[src];retrieve=\ref[P]'>[P.name]</A></TD></TR>"
+	for(var/obj/item/paper in src)
+		dat += "<TR><TD><A href='byond://?src=\ref[src];retrieve=\ref[paper]'>[paper.name]</A></TD></TR>"
 	dat += "</TABLE>"
 	show_browser(user, "<html><head><title>[name]</title></head><body>[dat]</body></html>", "window=filingcabinet;size=350x300")
 
@@ -53,9 +53,9 @@
 /obj/structure/filing_cabinet/OnTopic(mob/user, href_list, datum/topic_state/state)
 	if(href_list["retrieve"])
 		close_browser(user, "window=filingcabinet")
-		var/obj/item/P = locate(href_list["retrieve"])
-		if(istype(P) && CanPhysicallyInteractWith(user, src))
-			user.put_in_hands(P)
+		var/obj/item/paper = locate(href_list["retrieve"])
+		if(istype(paper) && CanPhysicallyInteractWith(user, src))
+			user.put_in_hands(paper)
 			flick("[initial(icon_state)]-open", src)
 			updateUsrDialog()
 			. = TOPIC_REFRESH
@@ -70,7 +70,7 @@
 	desc               = "A filing cabinet installed into a cavity in the wall to save space. Wow!"
 	icon_state         = "wallcabinet"
 	obj_flags          = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':-32}, 'WEST':{'x':32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":-32}, "WEST":{"x":32}}'
 
 /obj/structure/filing_cabinet/tall
 	icon_state = "tallcabinet"
@@ -120,11 +120,11 @@
 	. += "<b>Details:</b> [record.get_medical_record()]"
 	return jointext(., "<br>")
 
-/obj/structure/filing_cabinet/records/medical
+/obj/structure/filing_cabinet/records/employment
 	name = "employment record archive"
 	archive_name = "employment record"
 
-/obj/structure/filing_cabinet/records/medical/collate_data(var/datum/computer_file/report/crew_record/record)
+/obj/structure/filing_cabinet/records/employment/collate_data(var/datum/computer_file/report/crew_record/record)
 	. = list()
 	. += "<b>Name:</b> [record.get_name()]"
 	. += "<b>Gender:</b> [record.get_gender()]"

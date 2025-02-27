@@ -62,7 +62,7 @@
 	uncreated_component_parts = list(/obj/item/stock_parts/power/apc = 1)
 	construct_state = /decl/machine_construction/wall_frame/panel_closed
 	wires = /datum/wires/alarm
-	directional_offset = "{'NORTH':{'y':-21}, 'SOUTH':{'y':21}, 'EAST':{'x':-21}, 'WEST':{'x':21}}"
+	directional_offset = @'{"NORTH":{"y":-21}, "SOUTH":{"y":21}, "EAST":{"x":-21}, "WEST":{"x":21}}'
 
 	var/alarm_id = null
 	var/breach_detection = 1 // Whether to use automatic breach detection or not
@@ -136,17 +136,20 @@
 	return ..()
 
 /obj/machinery/alarm/Initialize(mapload, var/dir)
-	. = ..()
 	if (name != BASE_ALARM_NAME)
 		custom_alarm_name = TRUE // this will prevent us from messing with alarms with names set on map
 
 	set_frequency(frequency)
 	reset_area(null, get_area(src))
+
+	. = ..()
+
 	if(!alarm_area)
 		return // spawned in nullspace, presumably as a prototype for construction purposes.
 	area_uid = alarm_area.uid
 
-	// breathable air according to human/Life()
+	// breathable air according to default human species
+	// TODO: make it use map default species?
 	var/decl/material/gas_mat = GET_DECL(/decl/material/gas/oxygen)
 	TLV[gas_mat.gas_name] =	list(16, 19, 135, 140) // Partial pressure, kpa
 	gas_mat = GET_DECL(/decl/material/gas/carbon_dioxide)
@@ -159,6 +162,15 @@
 	for(var/g in decls_repository.get_decl_paths_of_subtype(/decl/material/gas))
 		if(!env_info.important_gasses[g])
 			trace_gas += g
+	// not everything in these lists is a subtype of /decl/material/gas, so:
+	for(var/dangerous_gas in env_info.dangerous_gasses)
+		if(env_info.important_gasses[dangerous_gas] || !env_info.dangerous_gasses[dangerous_gas])
+			continue
+		trace_gas |= dangerous_gas
+	for(var/filtered_gas in env_info.filter_gasses)
+		if(env_info.important_gasses[filtered_gas])
+			continue
+		trace_gas |= filtered_gas
 
 	queue_icon_update()
 
@@ -175,8 +187,8 @@
 	if((stat & (NOPOWER|BROKEN)) || shorted)
 		return
 
-	var/turf/simulated/location = loc
-	if(!istype(location))	return//returns if loc is not simulated
+	var/turf/location = loc
+	if(!istype(location) || !location.simulated)	return//returns if loc is not simulated
 
 	var/datum/gas_mixture/environment = location.return_air()
 
@@ -285,9 +297,9 @@
 
 // Returns whether this air alarm thinks there is a breach, given the sensors that are available to it.
 /obj/machinery/alarm/proc/breach_detected()
-	var/turf/simulated/location = loc
+	var/turf/location = loc
 
-	if(!istype(location))
+	if(!istype(location) || !location.simulated)
 		return 0
 
 	if(breach_detection	== 0)
@@ -655,7 +667,7 @@
 			var/device_id = href_list["id_tag"]
 			switch(href_list["command"])
 				if("set_external_pressure")
-					var/input_pressure = input(user, "What pressure you like the system to mantain?", "Pressure Controls") as num|null
+					var/input_pressure = input(user, "What pressure you like the system to maintain?", "Pressure Controls") as num|null
 					if(isnum(input_pressure) && CanUseTopic(user, state))
 						send_signal(device_id, list(href_list["command"] = input_pressure))
 					return TOPIC_REFRESH
@@ -767,14 +779,16 @@
 		apply_danger_level(danger_level)
 	update_icon()
 
-/obj/machinery/alarm/attackby(obj/item/W, mob/user)
+/obj/machinery/alarm/attackby(obj/item/used_item, mob/user)
 	if(!(stat & (BROKEN|NOPOWER)))
-		if (istype(W, /obj/item/card/id) || istype(W, /obj/item/modular_computer))// trying to unlock the interface with an ID card
+		if (istype(used_item, /obj/item/card/id) || istype(used_item, /obj/item/modular_computer))// trying to unlock the interface with an ID card
+			if(!used_item.user_can_attack_with(user))
+				return TRUE
 			if(allowed(user) && !wires.IsIndexCut(AALARM_WIRE_IDSCAN))
 				locked = !locked
-				to_chat(user, "<span class='notice'>You [ locked ? "lock" : "unlock"] the Air Alarm interface.</span>")
+				to_chat(user, SPAN_NOTICE("You [ locked ? "lock" : "unlock"] the Air Alarm interface."))
 			else
-				to_chat(user, "<span class='warning'>Access denied.</span>")
+				to_chat(user, SPAN_WARNING("Access denied."))
 			return TRUE
 	return ..()
 
@@ -795,13 +809,13 @@
 	if(old_area && old_area == alarm_area)
 		alarm_area = null
 		area_uid = null
-		events_repository.unregister(/decl/observ/name_set, old_area, src, .proc/change_area_name)
+		events_repository.unregister(/decl/observ/name_set, old_area, src, PROC_REF(change_area_name))
 	if(new_area)
 		ASSERT(isnull(alarm_area))
 		alarm_area = new_area
 		area_uid = new_area.uid
 		change_area_name(alarm_area, null, alarm_area.name)
-		events_repository.register(/decl/observ/name_set, alarm_area, src, .proc/change_area_name)
+		events_repository.register(/decl/observ/name_set, alarm_area, src, PROC_REF(change_area_name))
 		for(var/device_tag in alarm_area.air_scrub_names + alarm_area.air_vent_names)
 			send_signal(device_tag, list()) // ask for updates; they initialized before us and we didn't get the data
 
@@ -824,7 +838,7 @@ FIRE ALARM
 	frame_type = /obj/item/frame/fire_alarm
 	uncreated_component_parts = list(/obj/item/stock_parts/power/apc = 1)
 	construct_state = /decl/machine_construction/wall_frame/panel_closed
-	directional_offset = "{'NORTH':{'y':-21}, 'SOUTH':{'y':21}, 'EAST':{'x':21}, 'WEST':{'x':-21}}"
+	directional_offset = @'{"NORTH":{"y":-21}, "SOUTH":{"y":21}, "EAST":{"x":21}, "WEST":{"x":-21}}'
 
 	var/detecting =    TRUE
 	var/working =      TRUE
@@ -836,68 +850,60 @@ FIRE ALARM
 	var/sound_id
 	var/datum/sound_token/sound_token
 
-/obj/machinery/firealarm/examine(mob/user)
+/obj/machinery/firealarm/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(isContactLevel(loc.z))
 		var/decl/security_state/security_state = GET_DECL(global.using_map.security_state)
-		to_chat(user, "The current alert level is [security_state.current_security_level.name].")
-
-/obj/machinery/firealarm/proc/get_cached_overlay(key)
-	if(!LAZYACCESS(overlays_cache, key))
-		var/state
-		switch(key)
-			if(/decl/machine_construction/wall_frame/panel_open)
-				state = "b2"
-			if(/decl/machine_construction/wall_frame/no_wires)
-				state = "b1"
-			if(/decl/machine_construction/wall_frame/no_circuit)
-				state = "b0"
-			else
-				state = key
-		LAZYSET(overlays_cache, key, image(icon, state))
-	return overlays_cache[key]
+		. += "The current alert level is [security_state.current_security_level.name]."
 
 /obj/machinery/firealarm/on_update_icon()
-	overlays.Cut()
+	cut_overlays()
 	icon_state = "casing"
 	if(construct_state && !istype(construct_state, /decl/machine_construction/wall_frame/panel_closed))
-		overlays += get_cached_overlay(construct_state.type)
+		var/construct_icon_state
+		switch(construct_state.type)
+			if(/decl/machine_construction/wall_frame/panel_open)
+				construct_icon_state = "b2"
+			if(/decl/machine_construction/wall_frame/no_wires)
+				construct_icon_state = "b1"
+			if(/decl/machine_construction/wall_frame/no_circuit)
+				construct_icon_state = "b0"
+		add_overlay(construct_icon_state)
 		set_light(0)
 		return
 
 	if(stat & BROKEN)
-		overlays += get_cached_overlay("broken")
+		add_overlay("broken")
 		set_light(0)
 	else if(stat & NOPOWER)
-		overlays += get_cached_overlay("unpowered")
+		add_overlay("unpowered")
 		set_light(0)
 	else
 		if(!detecting)
-			overlays += get_cached_overlay("fire1")
+			add_overlay("fire1")
 			set_light(2, 0.25, COLOR_RED)
 		else if(isContactLevel(z))
 			var/decl/security_state/security_state = GET_DECL(global.using_map.security_state)
-			var/decl/security_level/sl = security_state.current_security_level
+			var/decl/security_level/sec_level = security_state.current_security_level
 
-			set_light(sl.light_power, sl.light_range, sl.light_color_alarm)
+			set_light(sec_level.light_power, sec_level.light_range, sec_level.light_color_alarm)
 
-			if(sl.alarm_appearance.alarm_icon)
-				var/image/alert1 = image(sl.icon, sl.alarm_appearance.alarm_icon)
-				alert1.color = sl.alarm_appearance.alarm_icon_color
-				overlays |= alert1
+			if(sec_level.alarm_appearance.alarm_icon)
+				var/image/alert1 = image(sec_level.icon, sec_level.alarm_appearance.alarm_icon)
+				alert1.color = sec_level.alarm_appearance.alarm_icon_color
+				add_overlay(alert1)
 
-			if(sl.alarm_appearance.alarm_icon_twotone)
-				var/image/alert2 = image(sl.icon, sl.alarm_appearance.alarm_icon_twotone)
-				alert2.color = sl.alarm_appearance.alarm_icon_twotone_color
-				overlays |= alert2
+			if(sec_level.alarm_appearance.alarm_icon_twotone)
+				var/image/alert2 = image(sec_level.icon, sec_level.alarm_appearance.alarm_icon_twotone)
+				alert2.color = sec_level.alarm_appearance.alarm_icon_twotone_color
+				add_overlay(alert2)
 		else
-			overlays += get_cached_overlay("fire0")
+			add_overlay("fire0")
 
 /obj/machinery/firealarm/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
-	if(src.detecting)
-		if(exposed_temperature > T0C+200)
-			src.alarm()			// added check of detector status here
-	return
+	if(detecting && exposed_temperature > T0C+200)
+		alarm()
+	return ..()
 
 /obj/machinery/firealarm/bullet_act()
 	return src.alarm()
@@ -907,7 +913,7 @@ FIRE ALARM
 		alarm(rand(30/severity, 60/severity))
 	..()
 
-/obj/machinery/firealarm/attackby(obj/item/W, mob/user)
+/obj/machinery/firealarm/attackby(obj/item/used_item, mob/user)
 	if((. = ..()))
 		return
 	src.alarm()
@@ -941,35 +947,35 @@ FIRE ALARM
 	var/d2
 
 	var/decl/security_state/security_state = GET_DECL(global.using_map.security_state)
-	if (istype(user, /mob/living/carbon/human) || istype(user, /mob/living/silicon))
+	if (ishuman(user) || issilicon(user) || isobserver(user))
 		A = A.loc
 
 		if (A.fire)
-			d1 = text("<A href='?src=\ref[];reset=1'>Reset - Lockdown</A>", src)
+			d1 = text("<A href='byond://?src=\ref[];reset=1'>Reset - Lockdown</A>", src)
 		else
-			d1 = text("<A href='?src=\ref[];alarm=1'>Alarm - Lockdown</A>", src)
+			d1 = text("<A href='byond://?src=\ref[];alarm=1'>Alarm - Lockdown</A>", src)
 		if (src.timing)
-			d2 = text("<A href='?src=\ref[];time=0'>Stop Time Lock</A>", src)
+			d2 = text("<A href='byond://?src=\ref[];time=0'>Stop Time Lock</A>", src)
 		else
-			d2 = text("<A href='?src=\ref[];time=1'>Initiate Time Lock</A>", src)
+			d2 = text("<A href='byond://?src=\ref[];time=1'>Initiate Time Lock</A>", src)
 		var/second = round(src.time) % 60
 		var/minute = (round(src.time) - second) / 60
-		var/dat = "<HTML><HEAD></HEAD><BODY><TT><B>Fire alarm</B> [d1]\n<HR>The current alert level is <b>[security_state.current_security_level.name]</b><br><br>\nTimer System: [d2]<BR>\nTime Left: [(minute ? "[minute]:" : null)][second] <A href='?src=\ref[src];tp=-30'>-</A> <A href='?src=\ref[src];tp=-1'>-</A> <A href='?src=\ref[src];tp=1'>+</A> <A href='?src=\ref[src];tp=30'>+</A>\n</TT></BODY></HTML>"
+		var/dat = "<HTML><HEAD></HEAD><BODY><TT><B>Fire alarm</B> [d1]\n<HR>The current alert level is <b>[security_state.current_security_level.name]</b><br><br>\nTimer System: [d2]<BR>\nTime Left: [(minute ? "[minute]:" : null)][second] <A href='byond://?src=\ref[src];tp=-30'>-</A> <A href='byond://?src=\ref[src];tp=-1'>-</A> <A href='byond://?src=\ref[src];tp=1'>+</A> <A href='byond://?src=\ref[src];tp=30'>+</A>\n</TT></BODY></HTML>"
 		show_browser(user, dat, "window=firealarm")
 		onclose(user, "firealarm")
 	else
 		A = A.loc
 		if (A.fire)
-			d1 = text("<A href='?src=\ref[];reset=1'>[]</A>", src, stars("Reset - Lockdown"))
+			d1 = text("<A href='byond://?src=\ref[];reset=1'>[]</A>", src, stars("Reset - Lockdown"))
 		else
-			d1 = text("<A href='?src=\ref[];alarm=1'>[]</A>", src, stars("Alarm - Lockdown"))
+			d1 = text("<A href='byond://?src=\ref[];alarm=1'>[]</A>", src, stars("Alarm - Lockdown"))
 		if (src.timing)
-			d2 = text("<A href='?src=\ref[];time=0'>[]</A>", src, stars("Stop Time Lock"))
+			d2 = text("<A href='byond://?src=\ref[];time=0'>[]</A>", src, stars("Stop Time Lock"))
 		else
-			d2 = text("<A href='?src=\ref[];time=1'>[]</A>", src, stars("Initiate Time Lock"))
+			d2 = text("<A href='byond://?src=\ref[];time=1'>[]</A>", src, stars("Initiate Time Lock"))
 		var/second = round(src.time) % 60
 		var/minute = (round(src.time) - second) / 60
-		var/dat = "<HTML><HEAD></HEAD><BODY><TT><B>[stars("Fire alarm")]</B> [d1]\n<HR>The current security level is <b>[security_state.current_security_level.name]</b><br><br>\nTimer System: [d2]<BR>\nTime Left: [(minute ? text("[]:", minute) : null)][second] <A href='?src=\ref[src];tp=-30'>-</A> <A href='?src=\ref[src];tp=-1'>-</A> <A href='?src=\ref[src];tp=1'>+</A> <A href='?src=\ref[src];tp=30'>+</A>\n</TT></BODY></HTML>"
+		var/dat = "<HTML><HEAD></HEAD><BODY><TT><B>[stars("Fire alarm")]</B> [d1]\n<HR>The current security level is <b>[security_state.current_security_level.name]</b><br><br>\nTimer System: [d2]<BR>\nTime Left: [(minute ? text("[]:", minute) : null)][second] <A href='byond://?src=\ref[src];tp=-30'>-</A> <A href='byond://?src=\ref[src];tp=-1'>-</A> <A href='byond://?src=\ref[src];tp=1'>+</A> <A href='byond://?src=\ref[src];tp=30'>+</A>\n</TT></BODY></HTML>"
 		show_browser(user, dat, "window=firealarm")
 		onclose(user, "firealarm")
 	return
@@ -1036,7 +1042,7 @@ FIRE ALARM
 	idle_power_usage = 2
 	active_power_usage = 6
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-21}, 'SOUTH':{'y':21}, 'EAST':{'x':21}, 'WEST':{'x':-21}}"
+	directional_offset = @'{"NORTH":{"y":-21}, "SOUTH":{"y":21}, "EAST":{"x":21}, "WEST":{"x":-21}}'
 	var/time =         1 SECOND
 	var/timing =       FALSE
 	var/working =      TRUE
@@ -1051,33 +1057,33 @@ FIRE ALARM
 	ASSERT(isarea(A))
 	var/d1
 	var/d2
-	if (istype(user, /mob/living/carbon/human) || istype(user, /mob/living/silicon/ai))
+	if (ishuman(user) || isAI(user))
 
 		if (A.party)
-			d1 = text("<A href='?src=\ref[];reset=1'>No Party :(</A>", src)
+			d1 = text("<A href='byond://?src=\ref[];reset=1'>No Party :(</A>", src)
 		else
-			d1 = text("<A href='?src=\ref[];alarm=1'>PARTY!!!</A>", src)
+			d1 = text("<A href='byond://?src=\ref[];alarm=1'>PARTY!!!</A>", src)
 		if (timing)
-			d2 = text("<A href='?src=\ref[];time=0'>Stop Time Lock</A>", src)
+			d2 = text("<A href='byond://?src=\ref[];time=0'>Stop Time Lock</A>", src)
 		else
-			d2 = text("<A href='?src=\ref[];time=1'>Initiate Time Lock</A>", src)
+			d2 = text("<A href='byond://?src=\ref[];time=1'>Initiate Time Lock</A>", src)
 		var/second = time % 60
 		var/minute = (time - second) / 60
-		var/dat = text("<HTML><HEAD></HEAD><BODY><TT><B>Party Button</B> []\n<HR>\nTimer System: []<BR>\nTime Left: [][] <A href='?src=\ref[];tp=-30'>-</A> <A href='?src=\ref[];tp=-1'>-</A> <A href='?src=\ref[];tp=1'>+</A> <A href='?src=\ref[];tp=30'>+</A>\n</TT></BODY></HTML>", d1, d2, (minute ? text("[]:", minute) : null), second, src, src, src, src)
+		var/dat = text("<HTML><HEAD></HEAD><BODY><TT><B>Party Button</B> []\n<HR>\nTimer System: []<BR>\nTime Left: [][] <A href='byond://?src=\ref[];tp=-30'>-</A> <A href='byond://?src=\ref[];tp=-1'>-</A> <A href='byond://?src=\ref[];tp=1'>+</A> <A href='byond://?src=\ref[];tp=30'>+</A>\n</TT></BODY></HTML>", d1, d2, (minute ? text("[]:", minute) : null), second, src, src, src, src)
 		show_browser(user, dat, "window=partyalarm")
 		onclose(user, "partyalarm")
 	else
 		if (A.fire)
-			d1 = text("<A href='?src=\ref[];reset=1'>[]</A>", src, stars("No Party :("))
+			d1 = text("<A href='byond://?src=\ref[];reset=1'>[]</A>", src, stars("No Party :("))
 		else
-			d1 = text("<A href='?src=\ref[];alarm=1'>[]</A>", src, stars("PARTY!!!"))
+			d1 = text("<A href='byond://?src=\ref[];alarm=1'>[]</A>", src, stars("PARTY!!!"))
 		if (timing)
-			d2 = text("<A href='?src=\ref[];time=0'>[]</A>", src, stars("Stop Time Lock"))
+			d2 = text("<A href='byond://?src=\ref[];time=0'>[]</A>", src, stars("Stop Time Lock"))
 		else
-			d2 = text("<A href='?src=\ref[];time=1'>[]</A>", src, stars("Initiate Time Lock"))
+			d2 = text("<A href='byond://?src=\ref[];time=1'>[]</A>", src, stars("Initiate Time Lock"))
 		var/second = time % 60
 		var/minute = (time - second) / 60
-		var/dat = text("<HTML><HEAD></HEAD><BODY><TT><B>[]</B> []\n<HR>\nTimer System: []<BR>\nTime Left: [][] <A href='?src=\ref[];tp=-30'>-</A> <A href='?src=\ref[];tp=-1'>-</A> <A href='?src=\ref[];tp=1'>+</A> <A href='?src=\ref[];tp=30'>+</A>\n</TT></BODY></HTML>", stars("Party Button"), d1, d2, (minute ? text("[]:", minute) : null), second, src, src, src, src)
+		var/dat = text("<HTML><HEAD></HEAD><BODY><TT><B>[]</B> []\n<HR>\nTimer System: []<BR>\nTime Left: [][] <A href='byond://?src=\ref[];tp=-30'>-</A> <A href='byond://?src=\ref[];tp=-1'>-</A> <A href='byond://?src=\ref[];tp=1'>+</A> <A href='byond://?src=\ref[];tp=30'>+</A>\n</TT></BODY></HTML>", stars("Party Button"), d1, d2, (minute ? text("[]:", minute) : null), second, src, src, src, src)
 		show_browser(user, dat, "window=partyalarm")
 		onclose(user, "partyalarm")
 	return

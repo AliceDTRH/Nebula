@@ -21,9 +21,9 @@
 		last_regen = world.time
 		update_icon()
 
-/obj/item/gun/launcher/alien/examine(mob/user)
+/obj/item/gun/launcher/alien/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It has [ammo] [ammo_name]\s remaining.")
+	. += "It has [ammo] [ammo_name]\s remaining."
 
 /obj/item/gun/launcher/alien/consume_next_projectile()
 	if(ammo < 1) return null
@@ -42,7 +42,7 @@
 	desc = "A vicious alien projectile weapon. Parts of it quiver gelatinously, as though the thing is insectile and alive."
 	w_class = ITEM_SIZE_LARGE
 	ammo_name = "spike"
-	ammo_type = /obj/item/spike
+	ammo_type = /obj/item/stack/material/bow_ammo/spike
 	release_force = 30
 	icon = 'mods/species/vox/icons/gear/voxspike.dmi'
 	icon_state = ICON_STATE_WORLD
@@ -53,10 +53,12 @@
 	. = ..()
 	icon_state = "[get_world_inventory_state()][clamp(ammo,0,3)]"
 
-/obj/item/arrow/quill
+/obj/item/stack/material/bow_ammo/quill
 	name = "vox quill"
 	desc = "A wickedly barbed quill from some bizarre animal."
-	icon_state = "quill"
-	item_state = "quill"
-	throwforce = 5
-	material = /decl/material/solid/leather/chitin
+	icon = 'mods/species/vox/icons/gear/arrow_quill.dmi'
+	material = /decl/material/solid/organic/leather/chitin
+	material_alteration = MAT_FLAG_ALTERATION_NONE
+
+/obj/item/stack/material/bow_ammo/quill/make_superheated()
+	return

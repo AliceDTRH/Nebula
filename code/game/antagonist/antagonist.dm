@@ -19,6 +19,7 @@
 	// Visual references.
 	var/antaghud_indicator = "hudsyndicate" // Used by the ghost antagHUD.
 	var/antag_indicator                     // icon_state for icons/mob/mob.dm visual indicator.
+	var/antag_hud_icon = 'icons/screen/hud_antag.dmi'
 	var/faction_indicator                   // See antag_indicator, but for factionalized people only.
 	var/faction_invisible                   // Can members of the faction identify other antagonists?
 
@@ -42,7 +43,7 @@
 
 	// Misc.
 	var/landmark_id                         // Spawn point identifier.
-	var/mob_path = /mob/living/carbon/human // Mobtype this antag will use if none is provided.
+	var/mob_path = /mob/living/human // Mobtype this antag will use if none is provided.
 	var/minimum_player_age = 7            	// Players need to be at least minimum_player_age days old before they are eligable for auto-spawning
 	var/flags = 0                           // Various runtime options.
 	var/show_objectives_on_creation = 1     // Whether or not objectives are shown when a player is added to this antag datum
@@ -50,6 +51,7 @@
 	var/decl/language/required_language
 
 	// Used for setting appearance.
+	/// Species that are valid when changing appearance while spawning as this role. Null allows all species.
 	var/list/valid_species
 	var/min_player_age = 14
 
@@ -92,7 +94,7 @@
 	get_starting_locations()
 	if(!name_plural)
 		name_plural = name
-	if(config.protect_roles_from_antagonist)
+	if(get_config_value(/decl/config/toggle/protect_roles_from_antagonist))
 		restricted_jobs |= protected_jobs
 	if(antaghud_indicator)
 		if(!global.hud_icon_reference)
@@ -104,6 +106,17 @@
 
 /decl/special_role/validate()
 	. = ..()
+
+	// Check for our antaghud icons.
+	if(faction_indicator || antag_indicator)
+		if(antag_hud_icon)
+			if(faction_indicator && !check_state_in_icon(faction_indicator, antag_hud_icon))
+				. += "missing faction_indicator '[faction_indicator]' from icon 'antag_hud_icon]'"
+			if(antag_indicator && !check_state_in_icon(antag_indicator, antag_hud_icon))
+				. += "missing antag_indicator '[antag_indicator]' from icon 'antag_hud_icon]'"
+		else
+			. += "missing antag_hud_icon"
+
 	// Grab initial in case it was already successfully loaded.
 	var/initial_base_to_load = initial(base_to_load)
 	if(isnull(initial_base_to_load))
@@ -131,15 +144,16 @@
 	return 1
 
 // Get the raw list of potential players.
-/decl/special_role/proc/build_candidate_list(datum/game_mode/mode, ghosts_only)
+/decl/special_role/proc/build_candidate_list(decl/game_mode/mode, ghosts_only)
 	candidates = list() // Clear.
 
 	// Prune restricted status. Broke it up for readability.
 	// Note that this is done before jobs are handed out.
+	var/age_restriction = get_config_value(/decl/config/num/use_age_restriction_for_antags)
 	for(var/datum/mind/player in mode.get_players_for_role(type))
 		if(ghosts_only && !(isghostmind(player) || isnewplayer(player.current)))
 			log_debug("[key_name(player)] is not eligible to become a [name]: Only ghosts may join as this role!")
-		else if(config.use_age_restriction_for_antags && player.current.client.player_age < minimum_player_age)
+		else if(age_restriction && player.current.client.player_age < minimum_player_age)
 			log_debug("[key_name(player)] is not eligible to become a [name]: Is only [player.current.client.player_age] day\s old, has to be [minimum_player_age] day\s!")
 		else if(player.assigned_special_role)
 			log_debug("[key_name(player)] is not eligible to become a [name]: They already have a special role ([player.get_special_role_name("unknown role")])!")
@@ -155,14 +169,15 @@
 	return candidates
 
 // Builds a list of potential antags without actually setting them. Used to test mode viability.
-/decl/special_role/proc/get_potential_candidates(var/datum/game_mode/mode, var/ghosts_only)
+/decl/special_role/proc/get_potential_candidates(var/decl/game_mode/mode, var/ghosts_only)
 	var/candidates = list()
 
 	// Keeping broken up for readability
+	var/age_restriction = get_config_value(/decl/config/num/use_age_restriction_for_antags)
 	for(var/datum/mind/player in mode.get_players_for_role(type))
 		if(ghosts_only && !(isghostmind(player) || isnewplayer(player.current)))
 			continue
-		if(config.use_age_restriction_for_antags && player.current.client.player_age < minimum_player_age)
+		if(age_restriction && player.current.client.player_age < minimum_player_age)
 			continue
 		if(player.assigned_special_role)
 			continue
@@ -205,7 +220,7 @@
 		return 0
 
 	var/datum/mind/player = pending_antagonists[1]
-	if(!add_antagonist(player,0,0,0,1,1))
+	if(!add_antagonist(player, do_not_announce = TRUE, preserve_appearance = TRUE))
 		message_admins("Could not auto-spawn a [name], failed to add antagonist.")
 		return 0
 
@@ -241,7 +256,7 @@
 	if(player.assigned_special_role)
 		log_debug("[player.key] was selected for [name] by lottery, but they already have a special role.")
 		return 0
-	if(!(flags & ANTAG_OVERRIDE_JOB) && (!player.current || istype(player.current, /mob/new_player)))
+	if(!(flags & ANTAG_OVERRIDE_JOB) && (!player.current || isnewplayer(player.current)))
 		log_debug("[player.key] was selected for [name] by lottery, but they have not joined the game.")
 		return 0
 	if(GAME_STATE >= RUNLEVEL_GAME && (isghostmind(player) || isnewplayer(player.current)) && !(player in SSticker.antag_pool))

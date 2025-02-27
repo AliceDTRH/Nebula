@@ -10,17 +10,17 @@
 
 	initial_access = list(list(access_captain, access_bridge))
 
-	var/active = 0          // PLEASE HOLD.
-	var/safeties = 1        // The cycler won't start with a living thing inside it unless safeties are off.
-	var/irradiating = 0     // If this is > 0, the cycler is decontaminating whatever is inside it.
+	var/active = FALSE      // PLEASE HOLD.
+	var/safeties = TRUE     //! The cycler won't start with a living thing inside it unless safeties are off.
+	var/irradiating = 0     //! The number of Process() ticks we should irradiate our contents for. If > 0, will irradiate contents. Decrements every Process().
 	var/radiation_level = 2 // 1 is removing germs, 2 is removing blood, 3 is removing contaminants.
-	var/model_text = ""     // Some flavour text for the topic box.
-	var/locked = 1          // If locked, nothing can be taken from or added to the cycler.
-	var/can_repair = 1      // If set, the cycler can repair voidsuits.
-	var/electrified = 0     // If set, will shock users.
+	var/model_text = ""     //! Some flavour text for the topic box.
+	var/locked = TRUE       //! If locked, nothing can be taken from or added to the cycler.
+	var/can_repair = TRUE   //! If TRUE, the cycler can repair voidsuits.
+	var/electrified = 0     //! The number of Process() ticks we should shock users for. If > 0, will shock users. Decrements every Process().
 
-	// Possible modifications to pick between
-	var/list/available_modifications = list(
+	/// Possible suit modifier decls to pick between
+	var/list/decl/item_modifier/space_suit/available_modifications = list(
 		/decl/item_modifier/space_suit/engineering,
 		/decl/item_modifier/space_suit/mining,
 		/decl/item_modifier/space_suit/medical,
@@ -31,7 +31,7 @@
 	)
 
 	// Extra modifications to add when emagged, duplicates won't be added
-	var/emagged_modifications = list(
+	var/list/decl/item_modifier/space_suit/emagged_modifications = list(
 		/decl/item_modifier/space_suit/engineering,
 		/decl/item_modifier/space_suit/mining,
 		/decl/item_modifier/space_suit/medical,
@@ -48,7 +48,7 @@
 	var/decl/item_modifier/target_modification
 	var/target_bodytype
 
-	var/mob/living/carbon/human/occupant
+	var/mob/living/human/occupant
 	var/obj/item/clothing/suit/space/void/suit
 	var/obj/item/clothing/head/helmet/space/helmet
 	var/obj/item/clothing/shoes/magboots/boots
@@ -94,6 +94,40 @@
 
 	overlays = new_overlays
 
+/obj/machinery/suit_cycler/proc/loaded_item_destroyed()
+	if(suit && QDELETED(suit))
+		suit = null
+		. = TRUE
+	if(helmet && QDELETED(helmet))
+		helmet = null
+		. = TRUE
+	if(boots && QDELETED(boots))
+		boots = null
+		. = TRUE
+	if(.)
+		update_icon()
+
+/obj/machinery/suit_cycler/proc/set_suit(obj/item/new_suit)
+	if(istype(suit))
+		events_repository.unregister(/decl/observ/destroyed, suit, src)
+	suit = new_suit
+	if(istype(suit))
+		events_repository.register(/decl/observ/destroyed, suit, src, TYPE_PROC_REF(/obj/machinery/suit_cycler, loaded_item_destroyed))
+
+/obj/machinery/suit_cycler/proc/set_helmet(obj/item/new_helmet)
+	if(istype(helmet))
+		events_repository.unregister(/decl/observ/destroyed, helmet, src)
+	helmet = new_helmet
+	if(istype(helmet))
+		events_repository.register(/decl/observ/destroyed, helmet, src, TYPE_PROC_REF(/obj/machinery/suit_cycler, loaded_item_destroyed))
+
+/obj/machinery/suit_cycler/proc/set_boots(obj/item/new_boots)
+	if(istype(boots))
+		events_repository.unregister(/decl/observ/destroyed, boots, src)
+	boots = new_boots
+	if(istype(boots))
+		events_repository.register(/decl/observ/destroyed, boots, src, TYPE_PROC_REF(/obj/machinery/suit_cycler, loaded_item_destroyed))
+
 /obj/machinery/suit_cycler/Initialize(mapload, d=0, populate_parts = TRUE)
 	. = ..()
 	if(!length(available_modifications) || !length(available_bodytypes))
@@ -102,11 +136,11 @@
 
 	if(populate_parts)
 		if(ispath(suit))
-			suit = new suit(src)
+			set_suit(new suit(src))
 		if(ispath(helmet))
-			helmet = new helmet(src)
+			set_helmet(new helmet(src))
 		if(ispath(boots))
-			boots = new boots(src)
+			set_boots(new boots(src))
 
 	available_modifications = list_values(decls_repository.get_decls(available_modifications))
 
@@ -124,7 +158,7 @@
 	DROP_NULL(boots)
 	return ..()
 
-/obj/machinery/suit_cycler/receive_mouse_drop(var/atom/dropping, var/mob/user)
+/obj/machinery/suit_cycler/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && ismob(dropping) && try_move_inside(dropping, user))
 		return TRUE
@@ -143,7 +177,7 @@
 
 	visible_message(SPAN_WARNING("\The [user] starts putting \the [target] into the suit cycler."))
 	if(do_after(user, 20, src))
-		if(!istype(target) || locked || suit || helmet || !target.Adjacent(user) || !user.Adjacent(src) || user.incapacitated())
+		if(!istype(target) || locked || suit || helmet || boots || !target.Adjacent(user) || !user.Adjacent(src) || user.incapacitated())
 			return FALSE
 		target.reset_view(src)
 		target.forceMove(src)
@@ -153,77 +187,73 @@
 		return TRUE
 	return FALSE
 
-/obj/machinery/suit_cycler/attackby(obj/item/I, mob/user)
+/obj/machinery/suit_cycler/grab_attack(obj/item/grab/grab, mob/user)
+	var/mob/living/victim = grab.get_affecting_mob()
+	if(istype(victim) && try_move_inside(victim, user))
+		qdel(grab)
+		updateUsrDialog()
+		return TRUE
+	return ..()
 
-	if(electrified != 0)
-		if(shock(user, 100))
-			return
+/obj/machinery/suit_cycler/attackby(obj/item/used_item, mob/user)
+
+	if(electrified != 0 && shock(user, 100))
+		return TRUE
 
 	//Hacking init.
-	if(IS_MULTITOOL(I) || IS_WIRECUTTER(I))
+	if(IS_MULTITOOL(used_item) || IS_WIRECUTTER(used_item))
 		if(panel_open)
 			physical_attack_hand(user)
-		return
-	//Other interface stuff.
-	if(istype(I, /obj/item/grab))
-		var/obj/item/grab/G = I
+		return TRUE
 
-		if(!(ismob(G.affecting)))
-			return
-
-		if(try_move_inside(G.affecting, user))
-			qdel(G)
-			updateUsrDialog()
-			return
-
-	else if(istype(I, /obj/item/clothing/shoes/magboots))
+	if(istype(used_item, /obj/item/clothing/shoes/magboots))
 		if(locked)
 			to_chat(user, SPAN_WARNING("The suit cycler is locked."))
-			return
+			return TRUE
 		if(boots)
 			to_chat(user, SPAN_WARNING("The cycler already contains some boots."))
-			return
-		if(!user.try_unequip(I, src))
-			return
-		to_chat(user, "You fit \the [I] into the suit cycler.")
-		boots = I
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		to_chat(user, "You fit \the [used_item] into the suit cycler.")
+		set_boots(used_item)
 		update_icon()
 		updateUsrDialog()
+		return TRUE
 
-	else if(istype(I,/obj/item/clothing/head/helmet/space) && !istype(I, /obj/item/clothing/head/helmet/space/rig))
+	if(istype(used_item,/obj/item/clothing/head/helmet/space) && !istype(used_item, /obj/item/clothing/head/helmet/space/rig))
 
 		if(locked)
 			to_chat(user, SPAN_WARNING("The suit cycler is locked."))
-			return
+			return TRUE
 
 		if(helmet)
 			to_chat(user, SPAN_WARNING("The cycler already contains a helmet."))
-			return
-		if(!user.try_unequip(I, src))
-			return
-		to_chat(user, "You fit \the [I] into the suit cycler.")
-		helmet = I
-		update_icon()
-		updateUsrDialog()
-		return
+			return TRUE
 
-	else if(istype(I,/obj/item/clothing/suit/space/void))
+		if(user.try_unequip(used_item, src))
+			to_chat(user, "You fit \the [used_item] into the suit cycler.")
+			set_helmet(used_item)
+			update_icon()
+			updateUsrDialog()
+		return TRUE
+
+	if(istype(used_item,/obj/item/clothing/suit/space/void))
 
 		if(locked)
 			to_chat(user, SPAN_WARNING("The suit cycler is locked."))
-			return
+			return TRUE
 
 		if(suit)
 			to_chat(user, SPAN_WARNING("The cycler already contains a voidsuit."))
-			return
+			return TRUE
 
-		if(!user.try_unequip(I, src))
-			return
-		to_chat(user, "You fit \the [I] into the suit cycler.")
-		suit = I
-		update_icon()
-		updateUsrDialog()
-		return
+		if(user.try_unequip(used_item, src))
+			to_chat(user, "You fit \the [used_item] into the suit cycler.")
+			set_suit(used_item)
+			update_icon()
+			updateUsrDialog()
+		return TRUE
 
 	return ..()
 
@@ -239,7 +269,7 @@
 	available_modifications |= additional_modifications
 
 	emagged = 1
-	safeties = 0
+	safeties = FALSE
 	req_access = list()
 	updateUsrDialog()
 	return 1
@@ -265,120 +295,123 @@
 	else if(locked)
 		dat += "<br><font color='red'><B>The [model_text ? "[model_text] " : ""]suit cycler is currently locked. Please contact your system administrator.</b></font>"
 		if(allowed(user))
-			dat += "<br><a href='?src=\ref[src];toggle_lock=1'>Unlock unit</a>"
+			dat += "<br><a href='byond://?src=\ref[src];toggle_lock=1'>Unlock unit</a>"
 	else
 		dat += "<h1>Suit cycler</h1>"
-		dat += "<B>Welcome to the [model_text ? "[model_text] " : ""]suit cycler control panel. <a href='?src=\ref[src];toggle_lock=1'>Lock unit</a></B><HR>"
+		dat += "<B>Welcome to the [model_text ? "[model_text] " : ""]suit cycler control panel. <a href='byond://?src=\ref[src];toggle_lock=1'>Lock unit</a></B><HR>"
 
 		dat += "<h2>Maintenance</h2>"
-		dat += "<b>Helmet: </b> [helmet ? "\the [helmet]" : "no helmet stored" ]. <A href='?src=\ref[src];eject_helmet=1'>Eject</a><br/>"
-		dat += "<b>Suit: </b> [suit ? "\the [suit]" : "no suit stored" ]. <A href='?src=\ref[src];eject_suit=1'>Eject</a><br/>"
-		dat += "<b>Boots: </b> [boots ? "\the [boots]" : "no boots stored" ]. <A href='?src=\ref[src];eject_boots=1'>Eject</a>"
+		dat += "<b>Helmet: </b> [helmet ? "\the [helmet]" : "no helmet stored" ]. <A href='byond://?src=\ref[src];eject_helmet=1'>Eject</a><br/>"
+		dat += "<b>Suit: </b> [suit ? "\the [suit]" : "no suit stored" ]. <A href='byond://?src=\ref[src];eject_suit=1'>Eject</a><br/>"
+		dat += "<b>Boots: </b> [boots ? "\the [boots]" : "no boots stored" ]. <A href='byond://?src=\ref[src];eject_boots=1'>Eject</a>"
 
-		if(can_repair && suit && istype(suit))
-			dat += "[(suit.damage ? " <A href='?src=\ref[src];repair_suit=1'>Repair</a>" : "")]"
+		if(can_repair && istype(suit))
+			dat += "[(suit.damage ? " <A href='byond://?src=\ref[src];repair_suit=1'>Repair</a>" : "")]"
 
 		dat += "<br/><b>UV decontamination systems:</b> <font color = '[emagged ? "red'>SYSTEM ERROR" : "green'>READY"]</font><br>"
 		dat += "Output level: [radiation_level]<br>"
-		dat += "<A href='?src=\ref[src];select_rad_level=1'>Select power level</a> <A href='?src=\ref[src];begin_decontamination=1'>Begin decontamination cycle</a><br><hr>"
+		dat += "<A href='byond://?src=\ref[src];select_rad_level=1'>Select power level</a> <A href='byond://?src=\ref[src];begin_decontamination=1'>Begin decontamination cycle</a><br><hr>"
 
 		dat += "<h2>Customisation</h2>"
-		dat += "<b>Target product:</b> <A href='?src=\ref[src];select_department=1'>[target_modification.name]</a>, <A href='?src=\ref[src];select_bodytype=1'>[target_bodytype]</a>."
-		dat += "<br><A href='?src=\ref[src];apply_paintjob=1'>Apply customisation routine</a><br><hr>"
+		dat += "<b>Target product:</b> <A href='byond://?src=\ref[src];select_department=1'>[target_modification.name]</a>, <A href='byond://?src=\ref[src];select_bodytype=1'>[target_bodytype]</a>."
+		dat += "<br><A href='byond://?src=\ref[src];apply_paintjob=1'>Apply customisation routine</a><br><hr>"
 
 	var/datum/browser/written_digital/popup = new(user, "suit_cycler", "Suit Cycler")
 	popup.set_content(JOINTEXT(dat))
 	popup.open()
 
-/obj/machinery/suit_cycler/Topic(href, href_list)
+/obj/machinery/suit_cycler/OnTopic(user, href_list)
 	if((. = ..()))
 		return
 
 	if(href_list["eject_suit"])
-		if(!suit) return
+		if(!suit) return TOPIC_NOACTION
 		suit.dropInto(loc)
-		suit = null
+		set_suit(null)
 	else if(href_list["eject_helmet"])
-		if(!helmet) return
+		if(!helmet) return TOPIC_NOACTION
 		helmet.dropInto(loc)
-		helmet = null
+		set_helmet(null)
 	else if(href_list["eject_boots"])
-		if(!boots) return
+		if(!boots) return TOPIC_NOACTION
 		boots.dropInto(loc)
-		boots = null
+		set_boots(null)
 	else if(href_list["select_department"])
-		var/choice = input("Please select the target department paintjob.", "Suit cycler", target_modification) as null|anything in available_modifications
-		if(choice && CanPhysicallyInteract(usr))
+		var/choice = input(user, "Please select the target department paintjob.", "Suit cycler", target_modification) as null|anything in available_modifications
+		. = TOPIC_HANDLED // no matter what, we've prompted for user input so we cancel any further behavior on subtypes
+		if(choice && CanPhysicallyInteract(user))
 			target_modification = choice
+			. = TOPIC_REFRESH
 	else if(href_list["select_bodytype"])
 		var/choice = input("Please select the target body configuration.","Suit cycler",null) as null|anything in available_bodytypes
-		if(choice && CanPhysicallyInteract(usr))
+		. = TOPIC_HANDLED
+		if(choice && CanPhysicallyInteract(user))
 			target_bodytype = choice
+			. = TOPIC_REFRESH
 	else if(href_list["select_rad_level"])
 		var/choices = list(1,2,3)
 		if(emagged)
 			choices = list(1,2,3,4,5)
 		var/choice = input("Please select the desired radiation level.","Suit cycler",null) as null|anything in choices
+		. = TOPIC_HANDLED
 		if(choice)
 			radiation_level = choice
+			. = TOPIC_REFRESH
 	else if(href_list["repair_suit"])
-
-		if(!suit || !can_repair) return
-		active = 1
-		spawn(100)
-			repair_suit()
-			finished_job()
+		if(!suit || !can_repair) return TOPIC_NOACTION
+		active = TRUE
+		addtimer(CALLBACK(src, PROC_REF(repair_suit)), 10 SECONDS)
+		. = TOPIC_REFRESH
 
 	else if(href_list["apply_paintjob"])
-
-		if(!suit && !helmet) return
-		active = 1
-		spawn(100)
-			apply_paintjob()
-			finished_job()
+		if(!suit && !helmet) return TOPIC_NOACTION
+		active = TRUE
+		addtimer(CALLBACK(src, PROC_REF(apply_paintjob)), 10 SECONDS)
+		. = TOPIC_REFRESH
 
 	else if(href_list["toggle_safties"])
 		safeties = !safeties
+		. = TOPIC_REFRESH
 
 	else if(href_list["toggle_lock"])
-
-		if(allowed(usr))
+		if(allowed(user))
 			locked = !locked
-			to_chat(usr, "You [locked ? "lock" : "unlock"] [src].")
+			to_chat(user, "You [locked ? "lock" : "unlock"] [src].")
+			. = TOPIC_REFRESH
 		else
-			to_chat(usr, FEEDBACK_ACCESS_DENIED)
+			to_chat(user, FEEDBACK_ACCESS_DENIED)
+			. = TOPIC_HANDLED
 
 	else if(href_list["begin_decontamination"])
-
 		if(safeties && occupant)
-			to_chat(usr, SPAN_DANGER("\The [src] has detected an occupant. Please remove the occupant before commencing the decontamination cycle."))
-			return
+			to_chat(user, SPAN_DANGER("\The [src] has detected an occupant. Please remove the occupant before commencing the decontamination cycle."))
+			return TOPIC_HANDLED
 
-		active = 1
+		active = TRUE
 		irradiating = 10
-		update_icon()
-		updateUsrDialog()
+		. = TOPIC_REFRESH
+		addtimer(CALLBACK(src, PROC_REF(finish_decontamination)), 1 SECOND)
+	update_icon()
 
-		sleep(10)
-
+/obj/machinery/suit_cycler/proc/finish_decontamination()
+	if(active && operable()) // doesn't currently use power when active, but maybe it should?
 		if(helmet)
 			if(radiation_level > 2)
 				helmet.decontaminate()
 			if(radiation_level > 1)
-				helmet.clean_blood()
-
+				helmet.clean()
 		if(suit)
 			if(radiation_level > 2)
 				suit.decontaminate()
 			if(radiation_level > 1)
-				suit.clean_blood()
-
+				suit.clean()
 		if(boots)
 			if(radiation_level > 2)
 				boots.decontaminate()
 			if(radiation_level > 1)
-				boots.clean_blood()
-
+				boots.clean()
+	// maybe add a failure message if it's been interrupted by the time decontamination finishes?
+	// Update post-decontamination
 	update_icon()
 	updateUsrDialog()
 
@@ -390,7 +423,7 @@
 		return
 
 	if(active && stat & (BROKEN|NOPOWER))
-		active = 0
+		active = FALSE
 		irradiating = 0
 		electrified = 0
 		update_icon()
@@ -407,7 +440,7 @@
 
 	if(occupant)
 		if(prob(radiation_level*2) && occupant.can_feel_pain())
-			occupant.emote("scream")
+			occupant.emote(/decl/emote/audible/scream)
 		if(radiation_level > 2)
 			occupant.take_organ_damage(0, radiation_level*2 + rand(1,3))
 		if(radiation_level > 1)
@@ -417,7 +450,7 @@
 /obj/machinery/suit_cycler/proc/finished_job()
 	var/turf/T = get_turf(src)
 	T.visible_message(SPAN_NOTICE("\The [src] pings loudly."))
-	active = 0
+	active = FALSE
 	updateUsrDialog()
 	update_icon()
 
@@ -427,6 +460,7 @@
 
 	suit.breaches = list()
 	suit.calc_breach_damage()
+	finished_job()
 
 /obj/machinery/suit_cycler/verb/leave()
 	set name = "Eject Cycler"
@@ -462,11 +496,9 @@
 	if(helmet)
 		target_modification.RefitItem(helmet)
 		helmet.refit_for_bodytype(target_bodytype)
-		helmet.SetName("refitted [helmet.name]")
 	if(suit)
 		target_modification.RefitItem(suit)
 		suit.refit_for_bodytype(target_bodytype)
-		suit.SetName("refitted [suit.name]")
 	if(boots)
 		boots.refit_for_bodytype(target_bodytype)
-		boots.SetName("refitted [initial(boots.name)]")
+	finished_job()

@@ -16,8 +16,8 @@
 	..()
 	update_icon()
 
-/obj/structure/closet/secure_closet/guncabinet/open() //There are plenty of things that can open it that don't use toggle
-	..()
+/obj/structure/closet/secure_closet/guncabinet/open(mob/user) //There are plenty of things that can open it that don't use toggle
+	. = ..()
 	update_icon()
 
 // TODO rewrite to use parent call and proper closet icon stuff.
@@ -55,3 +55,16 @@
 				add_overlay("locked")
 			else
 				add_overlay("open")
+
+// Subtypes
+/obj/structure/closet/secure_closet/guncabinet/sidearm
+	name = "emergency weapon cabinet"
+	req_access = list(
+		access_armory,
+		access_captain
+	)
+
+/obj/structure/closet/secure_closet/guncabinet/sidearm/WillContain()
+	return list(
+		/obj/item/gun/energy/gun = 4
+	)

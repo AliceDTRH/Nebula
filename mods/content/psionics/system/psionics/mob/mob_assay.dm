@@ -5,15 +5,16 @@
 	var/use_He_is =  "You are"
 	var/use_He_has = "You have"
 	if(istype(machine) || viewer != src)
-		var/decl/pronouns/G = get_pronouns(ignore_coverings = TRUE)
-		use_He_is =  "[G.He] [G.is]"
-		use_He_has = "[G.He] [G.has]"
+		var/decl/pronouns/pronouns = get_pronouns(ignore_coverings = TRUE)
+		use_He_is =  "[pronouns.He] [pronouns.is]"
+		use_He_has = "[pronouns.He] [pronouns.has]"
 
 	var/list/dat = list()
 
 	dat += "<h2>Summary</h2>"
 	dat += "<hr>"
 
+	var/datum/ability_handler/psionics/psi = get_ability_handler(/datum/ability_handler/psionics)
 	if(psi)
 
 		// Hi Warhammer 40k rating system, how are you?
@@ -31,8 +32,8 @@
 			// This space intentionally left blank (for Omega-Minus psi vampires. todo)
 			var/decl/special_role/beguiled/beguiled = GET_DECL(/decl/special_role/beguiled)
 			if(viewer != usr && beguiled.is_antagonist(mind) && ishuman(viewer))
-				var/mob/living/H = viewer
-				if(H.psi && H.psi.get_rank(PSI_REDACTION) >= PSI_RANK_GRANDMASTER)
+				var/datum/ability_handler/psionics/viewer_psi = viewer.get_ability_handler(/datum/ability_handler/psionics)
+				if(viewer_psi && viewer_psi.get_rank(PSI_REDACTION) >= PSI_RANK_GRANDMASTER)
 					dat += "<font color='#FF0000'><b>Their mind has been subverted by another operant psychic; their actions are not their own.</b></font>"
 
 		if(!use_rating)
@@ -86,7 +87,7 @@
 		dat += "[use_He_has] no notable psychic latency or operancy."
 
 	if(istype(machine))
-		dat += "<a href='?src=\ref[machine];print=1'>Print</a> <a href='?src=\ref[machine];clear=1'>Clear Buffer</a>"
+		dat += "<a href='byond://?src=\ref[machine];print=1'>Print</a> <a href='byond://?src=\ref[machine];clear=1'>Clear Buffer</a>"
 		machine.last_assay = dat
 		return
 

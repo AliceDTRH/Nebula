@@ -5,7 +5,6 @@
 	item_state = "assembly"
 	movable_flags = MOVABLE_FLAG_PROXMOVE
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	throwforce = 5
 	w_class = ITEM_SIZE_SMALL
 	throw_speed = 3
 	throw_range = 10
@@ -21,7 +20,6 @@
 	global.listening_objects += src
 
 /obj/item/assembly_holder/Destroy()
-	global.listening_objects -= src
 	if(!QDELETED(a_left))
 		a_left.holder = null
 		QDEL_NULL(a_left)
@@ -38,55 +36,45 @@
 		special_assembly = null
 	return ..()
 
-/obj/item/assembly_holder/proc/attach(var/obj/item/D, var/obj/item/D2, var/mob/user)
-	return
-
-/obj/item/assembly_holder/proc/attach_special(var/obj/O, var/mob/user)
-	return
-
-/obj/item/assembly_holder/proc/process_activation(var/obj/item/D)
-	return
-
-/obj/item/assembly_holder/proc/detached()
-	return
-
-
-/obj/item/assembly_holder/IsAssemblyHolder()
-	return 1
-
-
-/obj/item/assembly_holder/attach(var/obj/item/assembly/D, var/obj/item/assembly/D2, var/mob/user)
-	if((!D)||(!D2))
+/obj/item/assembly_holder/proc/attach(var/obj/item/left_item, var/obj/item/right_item, var/mob/user)
+	if(!istype(left_item) || !istype(right_item))
 		return 0
-	if((!istype(D))||(!istype(D2)))
-		return 0
-	if((D.secured)||(D2.secured))
+	var/obj/item/assembly/left = left_item
+	var/obj/item/assembly/right = right_item
+	if((left.secured)||(right.secured))
 		return 0
 	if(user)
-		user.drop_from_inventory(D)
-		user.drop_from_inventory(D2)
-	D.holder = src
-	D2.holder = src
-	D.forceMove(src)
-	D2.forceMove(src)
-	a_left = D
-	a_right = D2
-	SetName("[D.name]-[D2.name] assembly")
+		user.drop_from_inventory(left)
+		user.drop_from_inventory(right)
+	left.holder = src
+	right.holder = src
+	left.forceMove(src)
+	right.forceMove(src)
+	a_left = left
+	a_right = right
+	SetName("[left.name]-[right.name] assembly")
 	update_icon()
 	usr.put_in_hands(src)
 
 	return 1
 
+/obj/item/assembly_holder/proc/process_activation(var/atom/activator, var/normal = 1, var/special = 1)
+	if(!activator)	return 0
+	if(!secured)
+		visible_message("[html_icon(src)] *beep* *beep*", "*beep* *beep*")
+	if((normal) && (a_right) && (a_left))
+		if(a_right != activator)
+			a_right.pulsed(0)
+		if(a_left != activator)
+			a_left.pulsed(0)
+	if(master)
+		master.receive_signal()
+//	if(special && special_assembly)
+//		if(!special_assembly == activator)
+//			special_assembly.dothings()
+	return 1
 
-/obj/item/assembly_holder/attach_special(var/obj/O, var/mob/user)
-	if(!O)	return
-	if(!O.IsSpecialAssembly())	return 0
-
-/*	if(O:Attach_Holder())
-		special_assembly = O
-		update_icon()
-		src.SetName("[a_left.name] [a_right.name] [special_assembly.name] assembly")
-*/
+/obj/item/assembly_holder/proc/detached()
 	return
 
 /obj/item/assembly_holder/HasProximity(atom/movable/AM)
@@ -107,7 +95,6 @@
 		a_right.Crossed(AM)
 	if(special_assembly)
 		special_assembly.Crossed(AM)
-
 
 /obj/item/assembly_holder/on_found(mob/finder as mob)
 	if(a_left)
@@ -131,11 +118,11 @@
 		a_right.holder_movement()
 	return ..()
 
-/obj/item/assembly_holder/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W))
+/obj/item/assembly_holder/attackby(obj/item/used_item, mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		if(!a_left || !a_right)
 			to_chat(user, "<span class='warning'>BUG:Assembly part missing, please report this!</span>")
-			return
+			return TRUE
 		a_left.toggle_secure()
 		a_right.toggle_secure()
 		secured = !secured
@@ -144,13 +131,8 @@
 		else
 			to_chat(user, "<span class='notice'>\The [src] can now be taken apart!</span>")
 		update_icon()
-		return
-	else if(W.IsSpecialAssembly())
-		attach_special(W, user)
-	else
-		..()
-	return
-
+		return TRUE
+	return ..()
 
 /obj/item/assembly_holder/attack_self(mob/user as mob)
 	src.add_fingerprint(user)
@@ -177,26 +159,8 @@
 		if(a_right)
 			a_right.holder = null
 			a_right.forceMove(T)
-		spawn(0)
-			qdel(src)
+		qdel(src)
 	return
-
-
-/obj/item/assembly_holder/process_activation(var/obj/D, var/normal = 1, var/special = 1)
-	if(!D)	return 0
-	if(!secured)
-		visible_message("[html_icon(src)] *beep* *beep*", "*beep* *beep*")
-	if((normal) && (a_right) && (a_left))
-		if(a_right != D)
-			a_right.pulsed(0)
-		if(a_left != D)
-			a_left.pulsed(0)
-	if(master)
-		master.receive_signal()
-//	if(special && special_assembly)
-//		if(!special_assembly == D)
-//			special_assembly.dothings()
-	return 1
 
 /obj/item/assembly_holder/hear_talk(mob/living/M, msg, verb, decl/language/speaking)
 	if(a_right)
@@ -204,13 +168,13 @@
 	if(a_left)
 		a_left.hear_talk(M,msg,verb,speaking)
 
-/obj/item/assembly_holder/examine(mob/user, distance)
+/obj/item/assembly_holder/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (distance <= 1 || src.loc == user)
 		if (src.secured)
-			to_chat(user, "\The [src] is ready!")
+			. += "\The [src] is ready!"
 		else
-			to_chat(user, "\The [src] can be attached!")
+			. += "\The [src] can be attached!"
 
 /obj/item/assembly_holder/on_update_icon()
 	. = ..()

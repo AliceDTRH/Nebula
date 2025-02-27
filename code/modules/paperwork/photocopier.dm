@@ -5,7 +5,7 @@
 	name = "circuitboard (photocopier)"
 	build_path = /obj/machinery/photocopier
 	board_type = "machine"
-	origin_tech = "{'engineering':1, 'programming':1}"
+	origin_tech = @'{"engineering":1, "programming":1}'
 	req_components = list(
 			/obj/item/stock_parts/printer/buildable = 1,
 			/obj/item/stock_parts/manipulator       = 2,
@@ -28,7 +28,7 @@
 	density               = TRUE
 	idle_power_usage      = 30
 	active_power_usage    = 200
-	atom_flags            = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE
+	atom_flags            = ATOM_FLAG_CLIMBABLE
 	obj_flags             = OBJ_FLAG_ANCHORABLE
 	construct_state       = /decl/machine_construction/default/panel_closed
 	maximum_component_parts = list(
@@ -46,7 +46,7 @@
 
 /obj/machinery/photocopier/Initialize(mapload, d=0, populate_parts = TRUE)
 	. = ..()
-	if(.!= INITIALIZE_HINT_QDEL && populate_parts && printer)
+	if(. != INITIALIZE_HINT_QDEL && populate_parts && printer)
 		//Mapped photocopiers shall spawn with ink and paper
 		printer.make_full()
 
@@ -60,10 +60,10 @@
 	printer = get_component_of_type(/obj/item/stock_parts/printer) //Cache the printer component
 	if(printer)
 		printer.show_queue_ctrl = FALSE //Make sure we don't let users mess with the print queue
-		printer.register_on_printed_page(  CALLBACK(src, /obj/machinery/photocopier/proc/update_ui))
-		printer.register_on_finished_queue(CALLBACK(src, /obj/machinery/photocopier/proc/update_ui))
-		printer.register_on_print_error(   CALLBACK(src, /obj/machinery/photocopier/proc/update_ui))
-		printer.register_on_status_changed(CALLBACK(src, /obj/machinery/photocopier/proc/update_ui))
+		printer.register_on_printed_page(  CALLBACK(src, TYPE_PROC_REF(/obj/machinery/photocopier, update_ui)))
+		printer.register_on_finished_queue(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/photocopier, update_ui)))
+		printer.register_on_print_error(   CALLBACK(src, TYPE_PROC_REF(/obj/machinery/photocopier, update_ui)))
+		printer.register_on_status_changed(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/photocopier, update_ui)))
 
 /obj/machinery/photocopier/on_update_icon()
 	cut_overlays()
@@ -198,7 +198,7 @@
 		return TOPIC_REFRESH
 
 	if(href_list["aipic"])
-		if(!istype(user,/mob/living/silicon))
+		if(!issilicon(user))
 			return TOPIC_NOACTION
 		if(printer?.has_enough_to_print(TONER_USAGE_PHOTO))
 			var/mob/living/silicon/tempAI = user
@@ -243,9 +243,9 @@
 	update_icon()
 	return TRUE
 
-/obj/machinery/photocopier/attackby(obj/item/O, mob/user)
-	if(istype(construct_state, /decl/machine_construction/default/panel_closed) && (istype(O, /obj/item/paper) || istype(O, /obj/item/photo) || istype(O, /obj/item/paper_bundle)))
-		insert_item(O, user)
+/obj/machinery/photocopier/attackby(obj/item/used_item, mob/user)
+	if(istype(construct_state, /decl/machine_construction/default/panel_closed) && (istype(used_item, /obj/item/paper) || istype(used_item, /obj/item/photo) || istype(used_item, /obj/item/paper_bundle)))
+		insert_item(used_item, user)
 		return TRUE
 	return..() //Components attackby will handle refilling with paper and toner
 
@@ -268,14 +268,16 @@
 /decl/interaction_handler/empty/photocopier_paper_bin
 	name = "Empty Paper Bin"
 	expected_target_type = /obj/machinery/photocopier
+	examine_desc         = "empty $TARGET_THEM$"
 
 /decl/interaction_handler/empty/photocopier_paper_bin/is_possible(obj/machinery/photocopier/target, mob/user, obj/item/prop)
 	return (target.printer?.get_amount_paper() > 0) && ..()
 
-/decl/interaction_handler/empty/photocopier_paper_bin/invoked(obj/machinery/photocopier/target, mob/user)
-	if(target.printer?.get_amount_paper() <= 0)
+/decl/interaction_handler/empty/photocopier_paper_bin/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/machinery/photocopier/copier = target
+	if(copier.printer?.get_amount_paper() <= 0)
 		return
-	var/obj/item/paper_bundle/B = target.printer?.remove_paper(user)
+	var/obj/item/paper_bundle/B = copier.printer?.remove_paper(user)
 	if(B)
 		user.put_in_hands(B)
 	target.update_icon()
@@ -287,9 +289,11 @@
 /decl/interaction_handler/remove/photocopier_scanner_item
 	name = "Remove Item From Scanner"
 	expected_target_type = /obj/machinery/photocopier
+	examine_desc         = "remove a loaded item"
 
 /decl/interaction_handler/remove/photocopier_scanner_item/is_possible(obj/machinery/photocopier/target, mob/user, obj/item/prop)
 	return target.scanner_item && ..()
 
-/decl/interaction_handler/remove/photocopier_scanner_item/invoked(obj/machinery/photocopier/target, mob/user)
-	target.eject_item(user)
+/decl/interaction_handler/remove/photocopier_scanner_item/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/machinery/photocopier/copier = target
+	copier.eject_item(user)

@@ -1,9 +1,9 @@
 /obj/item/assembly/mousetrap
 	name = "rat trap"
-	desc = "A handy little spring-loaded trap for catching pesty rodents."
+	desc = "A handy little spring-loaded trap for catching pesky pests."
 	icon_state = "mousetrap"
-	origin_tech = "{'combat':1}"
-	material = /decl/material/solid/wood
+	origin_tech = @'{"combat":1}'
+	material = /decl/material/solid/organic/wood/oak
 	matter = list(/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT)
 	var/armed = 0
 
@@ -11,10 +11,10 @@
 	. = ..()
 	set_extension(src, /datum/extension/tool, list(TOOL_HEMOSTAT = TOOL_QUALITY_WORST))
 
-/obj/item/assembly/mousetrap/examine(mob/user)
+/obj/item/assembly/mousetrap/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(armed)
-		to_chat(user, "It looks like it's armed.")
+		. += "It looks like it's armed."
 
 /obj/item/assembly/mousetrap/on_update_icon()
 	. = ..()
@@ -30,7 +30,7 @@
 		return
 	var/obj/item/organ/external/affecting = null
 	if(ishuman(target))
-		var/mob/living/carbon/human/H = target
+		var/mob/living/human/H = target
 		switch(type)
 			if("feet")
 				if(!H.get_equipped_item(slot_shoes_str))
@@ -41,10 +41,10 @@
 					affecting = GET_EXTERNAL_ORGAN(H, type)
 					SET_STATUS_MAX(H, STAT_STUN, 3)
 		if(affecting)
-			affecting.take_external_damage(1, 0)
-			H.updatehealth()
+			affecting.take_damage(1)
+
 	else if(ismouse(target))
-		var/mob/living/simple_animal/mouse/M = target
+		var/mob/living/simple_animal/passive/mouse/M = target
 		visible_message("<span class='danger'>SPLAT!</span>")
 		M.splat()
 	playsound(target.loc, 'sound/effects/snap.ogg', 50, 1)
@@ -54,7 +54,7 @@
 	pulse_device(0)
 
 /obj/item/assembly/mousetrap/proc/toggle_arming(var/mob/user)
-	if((MUTATION_CLUMSY in user.mutations) && prob(50))
+	if(user.has_genetic_condition(GENE_COND_CLUMSY) && prob(50))
 		var/which_hand = user.get_active_held_item_slot()
 		triggered(user, which_hand)
 		user.visible_message(SPAN_DANGER("\The [user] accidentally sets off [src], hurting their fingers."), \
@@ -74,17 +74,16 @@
 	. = toggle_arming(user) || ..()
 
 /obj/item/assembly/mousetrap/Crossed(atom/movable/AM)
-	if(armed)
-		if(ishuman(AM))
-			var/mob/living/carbon/H = AM
-			if(!MOVING_DELIBERATELY(H))
-				triggered(H)
-				H.visible_message("<span class='warning'>[H] accidentally steps on [src].</span>", \
-								  "<span class='warning'>You accidentally step on [src]</span>")
-		if(ismouse(AM))
-			triggered(AM)
 	..()
-
+	if(!armed || !isliving(AM))
+		return
+	var/mob/living/M = AM
+	if(MOVING_DELIBERATELY(M))
+		return
+	M.visible_message(
+		SPAN_DANGER("\The [M] steps on \the [src]!"),
+		SPAN_DANGER("You step on \the [src]!"))
+	triggered(M)
 
 /obj/item/assembly/mousetrap/on_found(mob/finder)
 	if(armed)
@@ -96,8 +95,8 @@
 
 
 /obj/item/assembly/mousetrap/hitby(atom/A)
-	..()
-	if(armed)
+	. = ..()
+	if(. && armed)
 		visible_message(SPAN_WARNING("\The [src] is triggered by \the [A]."))
 		triggered(A)
 

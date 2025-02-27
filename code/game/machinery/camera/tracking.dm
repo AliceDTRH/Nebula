@@ -43,20 +43,20 @@
 
 	camera_loc = sanitize(camera_loc)
 	if(!camera_loc)
-		to_chat(src, "<span class='warning'>Must supply a location name</span>")
+		to_chat(src, SPAN_WARNING("Must supply a location name."))
 		return
 
 	if(stored_locations.len >= max_locations)
-		to_chat(src, "<span class='warning'>Cannot store additional locations. Remove one first</span>")
+		to_chat(src, SPAN_WARNING("Cannot store additional locations, remove one first."))
 		return
 
 	if(camera_loc in stored_locations)
-		to_chat(src, "<span class='warning'>There is already a stored location by this name</span>")
+		to_chat(src, SPAN_WARNING("There is already a stored location by that name."))
 		return
 
 	var/L = src.eyeobj.getLoc()
 	if (InvalidPlayerTurf(get_turf(L)))
-		to_chat(src, "<span class='warning'>Unable to store this location</span>")
+		to_chat(src, SPAN_WARNING("Unable to store this location."))
 		return
 
 	stored_locations[camera_loc] = L
@@ -71,7 +71,7 @@
 	set desc = "Returns to the selected camera location"
 
 	if (!(loc in stored_locations))
-		to_chat(src, "<span class='warning'>Location [loc] not found</span>")
+		to_chat(src, SPAN_WARNING("Location [loc] not found."))
 		return
 
 	var/L = stored_locations[loc]
@@ -83,7 +83,7 @@
 	set desc = "Deletes the selected camera location"
 
 	if (!(loc in stored_locations))
-		to_chat(src, "<span class='warning'>Location [loc] not found</span>")
+		to_chat(src, SPAN_WARNING("Location [loc] not found."))
 		return
 
 	stored_locations.Remove(loc)
@@ -115,7 +115,7 @@
 		else
 			TB.names.Add(name)
 			TB.namecounts[name] = 1
-		if(istype(M, /mob/living/carbon/human))
+		if(ishuman(M))
 			TB.humans[name] = M
 		else
 			TB.others[name] = M
@@ -149,33 +149,32 @@
 
 /mob/living/silicon/ai/proc/ai_actual_track(mob/living/target)
 	if(!istype(target))	return
-	var/mob/living/silicon/ai/U = usr
 
-	if(target == U.cameraFollow)
+	if(target == cameraFollow)
 		return
 
-	if(U.cameraFollow)
-		U.ai_cancel_tracking()
-	U.cameraFollow = target
-	to_chat(U, "Tracking target...")
+	if(cameraFollow)
+		ai_cancel_tracking()
+	cameraFollow = target
+	to_chat(src, "Tracking target...")
 	target.tracking_initiated()
 
 	spawn (0)
-		while (U.cameraFollow == target)
-			if (U.cameraFollow == null)
+		while (cameraFollow == target)
+			if (cameraFollow == null)
 				return
 
 			switch(target.tracking_status())
 				if(TRACKING_NO_COVERAGE)
-					to_chat(U, "Target is not near any active cameras.")
+					to_chat(src, "Target is not near any active cameras.")
 					sleep(100)
 					continue
 				if(TRACKING_TERMINATE)
-					U.ai_cancel_tracking(1)
+					ai_cancel_tracking(1)
 					return
 
-			if(U.eyeobj)
-				U.eyeobj.setLoc(get_turf(target), 0)
+			if(eyeobj)
+				eyeobj.setLoc(get_turf(target), 0)
 			else
 				view_core()
 				return
@@ -221,7 +220,7 @@
 		var/datum/extension/network_device/camera/robot/D = get_extension(src, /datum/extension/network_device)
 		return D && D.is_functional() ? TRACKING_POSSIBLE : TRACKING_NO_COVERAGE
 
-/mob/living/carbon/human/tracking_status()
+/mob/living/human/tracking_status()
 	if(is_cloaked())
 		. = TRACKING_TERMINATE
 	else
@@ -232,7 +231,7 @@
 
 	if(. == TRACKING_NO_COVERAGE)
 		var/turf/T = get_turf(src)
-		if(T && isStationLevel(T.z) && hassensorlevel(src, SUIT_SENSOR_TRACKING))
+		if(T && isStationLevel(T.z) && hassensorlevel(src, VITALS_SENSOR_TRACKING))
 			return TRACKING_POSSIBLE
 
 /mob/living/proc/tracking_initiated()
@@ -240,14 +239,14 @@
 /mob/living/silicon/robot/tracking_initiated()
 	tracking_entities++
 	if(tracking_entities == 1 && has_zeroth_law())
-		to_chat(src, "<span class='warning'>Internal camera is currently being accessed.</span>")
+		to_chat(src, SPAN_WARNING("Internal camera is currently being accessed."))
 
 /mob/living/proc/tracking_cancelled()
 
 /mob/living/silicon/robot/tracking_cancelled()
 	tracking_entities--
 	if(!tracking_entities && has_zeroth_law())
-		to_chat(src, "<span class='notice'>Internal camera is no longer being accessed.</span>")
+		to_chat(src, SPAN_NOTICE("Internal camera is no longer being accessed."))
 
 
 #undef TRACKING_POSSIBLE

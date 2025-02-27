@@ -1,6 +1,6 @@
 /obj/machinery/self_destruct
 	name = "\improper Nuclear Cylinder Inserter"
-	desc = "A hollow space used to insert nuclear cylinders for arming the self destruct."
+	desc = "A hollow space used to insert nuclear cylinders for arming the self-destruct mechanism."
 	icon = 'icons/obj/machines/self_destruct.dmi'
 	icon_state = "empty"
 	density = FALSE
@@ -9,35 +9,37 @@
 	var/armed = 0
 	var/damaged = 0
 
-/obj/machinery/self_destruct/attackby(obj/item/W, mob/user)
-	if(IS_WELDER(W))
-		if(damaged)
-			user.visible_message("[user] begins to repair [src].", "You begin repairing [src].")
-			if(do_after(usr, 100, src))
-				var/obj/item/weldingtool/w = W
-				if(w.weld(10))
-					damaged = 0
-					user.visible_message("[user] repairs [src].", "You repair [src].")
-				else
-					to_chat(user, "<span class='warning'>There is not enough fuel to repair [src].</span>")
-				return
-	if(istype(W, /obj/item/nuclear_cylinder))
+/obj/machinery/self_destruct/attackby(obj/item/used_item, mob/user)
+	if(IS_WELDER(used_item))
+		if(!damaged)
+			return FALSE
+		user.visible_message("[user] begins to repair [src].", "You begin repairing [src].")
+		if(do_after(user, 100, src))
+			var/obj/item/weldingtool/w = used_item
+			if(w.weld(10))
+				damaged = 0
+				user.visible_message("[user] repairs [src].", "You repair [src].")
+			else
+				to_chat(user, "<span class='warning'>There is not enough fuel to repair [src].</span>")
+		return TRUE
+	if(istype(used_item, /obj/item/nuclear_cylinder))
 		if(damaged)
 			to_chat(user, "<span class='warning'>[src] is damaged, you cannot place the cylinder.</span>")
-			return
+			return TRUE
 		if(cylinder)
 			to_chat(user, "There is already a cylinder here.")
-			return
-		user.visible_message("[user] begins to carefully place [W] onto the Inserter.", "You begin to carefully place [W] onto the Inserter.")
-		if(do_after(user, 80, src) && user.try_unequip(W, src))
-			cylinder = W
+			return TRUE
+		user.visible_message("[user] begins to carefully place [used_item] onto [src].", "You begin to carefully place [used_item] onto [src].")
+		if(do_after(user, 80, src) && user.try_unequip(used_item, src))
+			cylinder = used_item
 			density = TRUE
-			user.visible_message("[user] places [W] onto the Inserter.", "You place [W] onto the Inserter.")
+			user.visible_message("[user] places [used_item] onto [src].", "You place [used_item] onto [src].")
 			update_icon()
-			return
-	..()
+		return TRUE
+	return ..()
 
 /obj/machinery/self_destruct/physical_attack_hand(mob/user)
+	. = FALSE
 	if(cylinder)
 		. = TRUE
 		if(armed)
@@ -46,10 +48,10 @@
 				return
 			var/obj/machinery/nuclearbomb/nuke = locate(/obj/machinery/nuclearbomb/station) in get_area(src)
 			if(!nuke)
-				to_chat(user, "<span class='warning'>Unable to interface with the self destruct terminal, unable to disarm.</span>")
+				to_chat(user, "<span class='warning'>Unable to interface with the self-destruct terminal, unable to disarm.</span>")
 				return
 			if(nuke.timing)
-				to_chat(user, "<span class='warning'>The self destruct sequence is in progress, unable to disarm.</span>")
+				to_chat(user, "<span class='warning'>The self-destruct sequence is in progress, unable to disarm.</span>")
 				return
 			user.visible_message("[user] begins extracting [cylinder].", "You begin extracting [cylinder].")
 			if(do_after(user, 40, src))
@@ -68,7 +70,7 @@
 		update_icon()
 		src.add_fingerprint(user)
 
-/obj/machinery/self_destruct/handle_mouse_drop(var/atom/over, var/mob/user)
+/obj/machinery/self_destruct/handle_mouse_drop(atom/over, mob/user, params)
 	if(over == user && cylinder)
 		if(armed)
 			to_chat(user, SPAN_WARNING("Disarm the cylinder first."))
@@ -99,16 +101,16 @@
 		visible_message(SPAN_DANGER("\The [src] dents and chars."))
 		damaged = 1
 
-/obj/machinery/self_destruct/examine(mob/user)
+/obj/machinery/self_destruct/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(damaged)
-		to_chat(user, "<span class='warning'>[src] is damaged, it needs repairs.</span>")
+		. += SPAN_WARNING("\The [src] is damaged and needs to be repaired.")
 		return
 	if(armed)
-		to_chat(user, "[src] is armed and ready.")
+		. += SPAN_DANGER("\The [src] is armed and ready.")
 		return
 	if(cylinder)
-		to_chat(user, "[src] is loaded and ready to be armed.")
+		. += "\the [src] is loaded and ready to be armed."
 
 /obj/machinery/self_destruct/on_update_icon()
 	if(armed)

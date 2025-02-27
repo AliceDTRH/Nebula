@@ -22,31 +22,32 @@
 	initial_spawn_target = 2
 	min_player_age = 14
 	faction = "foundation"
-	default_outfit = /decl/hierarchy/outfit/foundation
+	default_outfit = /decl/outfit/foundation
 	id_title = "Foundation Agent"
 
-/decl/special_role/foundation/equip(var/mob/living/carbon/human/player)
+/decl/special_role/foundation/equip_role(var/mob/living/human/player)
 	. = ..()
 	if(.)
 		player.set_psi_rank(PSI_REDACTION,     3, defer_update = TRUE)
 		player.set_psi_rank(PSI_COERCION,      3, defer_update = TRUE)
 		player.set_psi_rank(PSI_PSYCHOKINESIS, 3, defer_update = TRUE)
 		player.set_psi_rank(PSI_ENERGISTICS,   3, defer_update = TRUE)
-		player.psi.update(TRUE)
+		var/datum/ability_handler/psionics/psi = player.get_ability_handler(/datum/ability_handler/psionics)
+		psi?.update(TRUE)
 
-/decl/hierarchy/outfit/foundation
+/decl/outfit/foundation
 	name = "Cuchulain Foundation Agent"
 	glasses =  /obj/item/clothing/glasses/sunglasses
-	uniform =  /obj/item/clothing/under/suit_jacket/charcoal
+	uniform =  /obj/item/clothing/pants/slacks/black/outfit
 	shoes =    /obj/item/clothing/shoes/color/black
-	hands =    list(/obj/item/storage/briefcase/foundation)
+	hands =    list(/obj/item/briefcase/foundation)
 	l_ear =    /obj/item/radio/headset/foundation
-	holster =  /obj/item/clothing/accessory/storage/holster/armpit
+	holster =  /obj/item/clothing/webbing/holster/armpit
 	id_type = /obj/item/card/id/foundation
 	id_slot =  slot_wear_id_str
 
 /obj/item/radio/headset/foundation
 	name = "\improper Foundation radio headset"
-	desc = "The headeset of the occult cavalry."
+	desc = "The headset of the occult cavalry."
 	icon = 'icons/obj/items/device/radio/headsets/headset_command.dmi'
 	encryption_keys = list(/obj/item/encryptionkey/ert)

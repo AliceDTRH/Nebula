@@ -39,10 +39,10 @@ var/global/list/internet_uplinks = list()
 	global.internet_uplinks -= src
 	. = ..()
 
-/obj/machinery/internet_uplink/attackby(var/obj/item/W, var/mob/user)
-	if(IS_MULTITOOL(W))
-		var/datum/extension/local_network_member/uplink = get_extension(src, /datum/extension/local_network_member)
-		uplink.get_new_tag(user)
+/obj/machinery/internet_uplink/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_MULTITOOL(used_item))
+		var/datum/extension/local_network_member/uplink_comp = get_extension(src, /datum/extension/local_network_member)
+		uplink_comp.get_new_tag(user)
 		return TRUE
 
 	return ..()
@@ -173,15 +173,15 @@ var/global/list/internet_uplinks = list()
 		var/datum/extension/local_network_member/uplink_comp = get_extension(src, /datum/extension/local_network_member)
 		uplink_comp.set_tag(null, initial_id_tag)
 
-/obj/machinery/computer/internet_uplink/attackby(var/obj/item/W, var/mob/user)
-	if(IS_MULTITOOL(W))
+/obj/machinery/computer/internet_uplink/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_MULTITOOL(used_item))
 		var/datum/extension/local_network_member/uplink_comp = get_extension(src, /datum/extension/local_network_member)
 		uplink_comp.get_new_tag(user)
 		return TRUE
 
 	return ..()
 
-/obj/machinery/computer/internet_uplink/interface_interact(user)
+/obj/machinery/computer/internet_uplink/interface_interact(mob/user)
 	var/datum/extension/local_network_member/uplink_comp = get_extension(src, /datum/extension/local_network_member)
 	var/datum/local_network/lan = uplink_comp.get_local_network()
 
@@ -193,5 +193,5 @@ var/global/list/internet_uplinks = list()
 		return FALSE
 
 	var/datum/topic_state/remote/R = new(src, linked)
-	linked.ui_interact(usr, state = R)
+	linked.ui_interact(user, state = R)
 	return TRUE

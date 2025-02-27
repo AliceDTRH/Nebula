@@ -6,18 +6,15 @@
 	icon = 'icons/obj/trash.dmi'
 	w_class = ITEM_SIZE_SMALL
 	desc = "This is rubbish."
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	var/age = 0
 
 /obj/item/trash/Initialize(mapload, var/_age)
+	if(!mapload)
+		SSpersistence.track_value(src, /decl/persistence_handler/filth/trash)
 	. = ..(mapload)
 	if(!isnull(_age))
 		age = _age
-
-/obj/item/trash/Initialize(var/ml)
-	if(!ml)
-		SSpersistence.track_value(src, /decl/persistence_handler/filth/trash)
-	. = ..()
 
 /obj/item/trash/Destroy()
 	SSpersistence.forget_value(src, /decl/persistence_handler/filth/trash)
@@ -59,10 +56,6 @@
 	name = "waffles"
 	icon_state = "waffles"
 
-/obj/item/trash/plate
-	name = "plate"
-	icon_state = "plate"
-
 /obj/item/trash/snack_bowl
 	name = "snack bowl"
 	icon_state	= "snack_bowl"
@@ -98,15 +91,6 @@
 /obj/item/trash/driedfish
 	name = "vobla pack"
 	icon_state = "driedfish"
-
-/obj/item/trash/tray
-	name = "tray"
-	icon_state = "tray"
-
-/obj/item/trash/candle
-	name = "candle"
-	icon = 'icons/obj/candle.dmi'
-	icon_state = "candle4"
 
 /obj/item/trash/liquidfood
 	name = "\improper \"LiquidFood\" MRE"
@@ -182,8 +166,8 @@
 
 /obj/item/trash/stick
 	name = "stick"
-	desc = "a stick from some snack food item or a lollipop, not even useful as crafting material."
+	desc = "A stick from some snack food item or a lollipop, not even useful as crafting material."
 	icon_state = "stick"
 
-/obj/item/trash/attack(mob/M, mob/living/user)
-	return
+/obj/item/trash/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	return FALSE

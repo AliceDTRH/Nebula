@@ -39,7 +39,7 @@
 
 // Used to install preset-specific programs
 /obj/item/modular_computer/proc/install_default_programs()
-	var/mob/living/carbon/human/H = get_recursive_loc_of_type(/mob)
+	var/mob/living/human/H = get_recursive_loc_of_type(/mob)
 	var/list/job_programs = list()
 	if(H)
 		var/datum/job/jb = SSjobs.get_by_title(H.job)
@@ -102,6 +102,8 @@
 	var/image/screen_overlay = os?.get_screen_overlay()
 	if(screen_overlay)
 		add_overlay(screen_overlay)
+	else if(dark_screen_state)
+		add_overlay(dark_screen_state)
 	var/image/keyboard_overlay = os?.get_keyboard_overlay()
 	if(keyboard_overlay)
 		add_overlay(keyboard_overlay)
@@ -132,11 +134,11 @@
 		if(user)
 			ui_interact(user)
 
-/obj/item/modular_computer/GetIdCards()
+/obj/item/modular_computer/GetIdCards(list/exceptions)
 	. = ..()
 	var/datum/extension/assembly/assembly = get_extension(src, /datum/extension/assembly)
 	var/obj/item/stock_parts/computer/card_slot/card_slot = assembly.get_component(PART_CARD)
-	if(card_slot && card_slot.can_broadcast && istype(card_slot.stored_card) && card_slot.check_functionality())
+	if(card_slot && card_slot.can_broadcast && istype(card_slot.stored_card) && card_slot.check_functionality() && !is_type_in_list(card_slot.stored_card, exceptions))
 		LAZYDISTINCTADD(., card_slot.stored_card)
 
 /obj/item/modular_computer/GetChargeStick()
@@ -145,7 +147,8 @@
 	if(mstick_slot && mstick_slot.can_broadcast && istype(mstick_slot.stored_stick) && mstick_slot.check_functionality())
 		return mstick_slot.stored_stick
 
-/obj/item/modular_computer/proc/update_name()
+/obj/item/modular_computer/update_name()
+	return
 
 /obj/item/modular_computer/get_cell()
 	var/datum/extension/assembly/assembly = get_extension(src, /datum/extension/assembly)

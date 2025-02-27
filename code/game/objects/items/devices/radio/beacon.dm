@@ -6,7 +6,7 @@ var/global/list/radio_beacons = list()
 	icon = 'icons/obj/items/device/radio/beacon.dmi'
 	icon_state = "beacon"
 	item_state = "signaler"
-	origin_tech = "{'wormholes':1}"
+	origin_tech = @'{"wormholes":1}'
 	material = /decl/material/solid/metal/aluminium
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 
@@ -74,8 +74,8 @@ var/global/list/radio_beacons = list()
 	var/turf/T = get_turf(src)
 	hide(hides_under_flooring() && !T.is_plating())
 
-/obj/item/radio/beacon/anchored/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/stack/nanopaste))
+/obj/item/radio/beacon/anchored/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/stack/nanopaste))
 		if(functioning)
 			to_chat(user, SPAN_WARNING("\The [src] does not need any repairs."))
 			return TRUE
@@ -83,7 +83,7 @@ var/global/list/radio_beacons = list()
 			to_chat(user, SPAN_WARNING("\The [src] is completely irrepairable."))
 			return TRUE
 
-		var/obj/item/stack/nanopaste/S = I
+		var/obj/item/stack/nanopaste/S = used_item
 		if(!panel_open)
 			to_chat(user, SPAN_WARNING("You can't work on \the [src] until its been opened up."))
 			return TRUE
@@ -93,7 +93,7 @@ var/global/list/radio_beacons = list()
 		to_chat(user, SPAN_NOTICE("You pour some of \the [S] over \the [src]'s circuitry."))
 		if(prob(repair_fail_chance))
 			flick("[initial(icon_state)]", src)
-			visible_message(SPAN_WARNING("The [src]'s lights come back on briefly, then die out again."), range = 2)
+			visible_message(SPAN_WARNING("\The [src]'s lights come back on briefly, then die out again."), range = 2)
 		else
 			visible_message(SPAN_NOTICE("\The [src]'s lights come back on."), range = 2)
 			functioning = TRUE

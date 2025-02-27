@@ -1,4 +1,5 @@
 /datum/keybinding/robot
+	abstract_type = /datum/keybinding/robot
 	category = CATEGORY_ROBOT
 
 /datum/keybinding/robot/can_use(client/user)
@@ -11,8 +12,8 @@
 	description = "Equips or unequips the first module"
 
 /datum/keybinding/robot/moduleone/down(client/user)
-	var/mob/living/silicon/robot/R = user.mob
-	R.toggle_module(1)
+	var/mob/living/silicon/robot/robot = user.mob
+	robot.toggle_module(1)
 	return TRUE
 
 /datum/keybinding/robot/moduletwo
@@ -22,8 +23,8 @@
 	description = "Equips or unequips the second module"
 
 /datum/keybinding/robot/moduletwo/down(client/user)
-	var/mob/living/silicon/robot/R = user.mob
-	R.toggle_module(2)
+	var/mob/living/silicon/robot/robot = user.mob
+	robot.toggle_module(2)
 	return TRUE
 
 /datum/keybinding/robot/modulethree
@@ -33,8 +34,8 @@
 	description = "Equips or unequips the third module"
 
 /datum/keybinding/robot/modulethree/down(client/user)
-	var/mob/living/silicon/robot/R = user.mob
-	R.toggle_module(3)
+	var/mob/living/silicon/robot/robot = user.mob
+	robot.toggle_module(3)
 	return TRUE
 
 /datum/keybinding/robot/intent_cycle
@@ -44,7 +45,7 @@
 	description = "Cycles the intent left"
 
 /datum/keybinding/robot/intent_cycle/down(client/user)
-	user.mob.a_intent_change(INTENT_HOTKEY_LEFT)
+	user.mob.cycle_intent(INTENT_HOTKEY_LEFT)
 	return TRUE
 
 /datum/keybinding/robot/module_cycle
@@ -54,8 +55,8 @@
 	description = "Cycles your modules"
 
 /datum/keybinding/robot/module_cycle/down(client/user)
-	var/mob/living/silicon/robot/R = user.mob
-	R.cycle_modules()
+	var/mob/living/silicon/robot/robot = user.mob
+	robot.cycle_modules()
 	return TRUE
 
 /datum/keybinding/robot/unequip_module
@@ -65,7 +66,7 @@
 	description = "Unequips the active module"
 
 /datum/keybinding/robot/unequip_module/down(client/user)
-	var/mob/living/silicon/robot/R = user.mob
-	if(R.module)
-		R.uneq_active()
+	var/mob/living/silicon/robot/robot = user.mob
+	if(robot.module)
+		robot.uneq_active()
 	return TRUE

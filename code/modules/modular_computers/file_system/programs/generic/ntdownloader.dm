@@ -43,6 +43,8 @@
 	if(!check_file_download(filename))
 		return 0
 	var/datum/computer_file/program/PRG = net.find_file_by_name(filename, OS_PROGRAMS_DIR, MF_ROLE_SOFTWARE)
+	if(!istype(PRG))
+		return 0
 	var/datum/file_storage/disk/destination = computer.mounted_storage["local"]
 	if(!destination)
 		return 0
@@ -133,7 +135,7 @@
 	// This IF cuts on data transferred to client, so i guess it's worth it.
 	if(prog.downloaderror) // Download errored. Wait until user resets the program.
 		data["error"] = prog.downloaderror
-	if(prog.current_transfer) // Download running. Wait please..
+	if(prog.current_transfer) // Download running. Wait please...
 		data |= prog.current_transfer.get_ui_data()
 		data["downloadspeed"] = prog.current_transfer.get_transfer_speed()
 		var/datum/computer_file/program/P = prog.current_transfer.transferring

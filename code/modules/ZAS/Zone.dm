@@ -74,7 +74,7 @@ Class Procs:
 	if(T.fire)
 		fire_tiles.Add(T)
 		SSair.active_fire_zones |= src
-	T.refresh_vis_contents()
+	T.update_vis_contents()
 
 /zone/proc/remove(turf/T)
 #ifdef ZASDBG
@@ -84,10 +84,11 @@ Class Procs:
 	ASSERT(T.zone == src)
 	soft_assert(T in contents, "Lists are weird broseph")
 #endif
+	T.c_copy_air() // to avoid losing contents
 	contents.Remove(T)
 	fire_tiles.Remove(T)
 	T.zone = null
-	T.refresh_vis_contents()
+	T.update_vis_contents()
 	if(contents.len)
 		air.group_multiplier = contents.len
 	else
@@ -105,7 +106,7 @@ Class Procs:
 		if(!T.zone_membership_candidate)
 			continue
 		into.add(T)
-		T.refresh_vis_contents()
+		T.update_vis_contents()
 		#ifdef ZASDBG
 		T.dbg(zasdbgovl_merged)
 		#endif
@@ -114,8 +115,7 @@ Class Procs:
 	for(var/connection_edge/E in edges)
 		if(E.contains_zone(into))
 			continue //don't need to rebuild this edge
-		for(var/turf/T in E.connecting_turfs)
-			SSair.mark_for_update(T)
+		E.update_post_merge()
 
 /zone/proc/c_invalidate()
 	invalid = 1
@@ -130,7 +130,7 @@ Class Procs:
 	if(invalid) return //Short circuit for explosions where rebuild is called many times over.
 	c_invalidate()
 	for(var/turf/T as anything in contents)
-		T.refresh_vis_contents()
+		T.update_vis_contents()
 		T.needs_air_update = 0 //Reset the marker so that it will be added to the list.
 		SSair.mark_for_update(T)
 		CHECK_TICK
@@ -154,7 +154,7 @@ Class Procs:
 	// Update gas overlays.
 	if(air.check_tile_graphic(graphic_add, graphic_remove))
 		for(var/turf/T as anything in contents)
-			T.refresh_vis_contents()
+			T.update_vis_contents()
 			CHECK_TICK
 		graphic_add.len = 0
 		graphic_remove.len = 0
@@ -173,10 +173,8 @@ Class Procs:
 	if(abs(air.temperature - last_air_temperature) >= ATOM_TEMPERATURE_EQUILIBRIUM_THRESHOLD)
 		last_air_temperature = air.temperature
 		for(var/turf/T as anything in contents)
-			for(var/check_atom in T.contents)
-				var/atom/checking = check_atom
-				if(checking.simulated)
-					queue_temperature_atoms(checking)
+			for(var/atom/check_atom as anything in T.contents)
+				QUEUE_TEMPERATURE_ATOM(check_atom)
 			CHECK_TICK
 
 /zone/proc/handle_condensation()
@@ -193,9 +191,7 @@ Class Procs:
 				if(condense_amt < 1)
 					break
 				air.adjust_gas(g, -condense_amt)
-				var/obj/effect/fluid/F = locate() in flooding
-				if(!F) F = new(flooding)
-				F.reagents.add_reagent(g, condense_amt * REAGENT_UNITS_PER_GAS_MOLE)
+				flooding.add_to_reagents(g, condense_amt * REAGENT_UNITS_PER_GAS_MOLE)
 		CHECK_TICK
 	condensing = FALSE
 

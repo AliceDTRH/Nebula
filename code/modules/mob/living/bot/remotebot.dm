@@ -3,8 +3,7 @@
 	desc = "A remote controlled robot used by lazy people to switch channels and get pizza."
 	icon = 'icons/mob/bot/fetchbot.dmi'
 	icon_state = "fetchbot1"
-	health = 15
-	maxHealth = 15
+	max_health = 15
 
 	var/working = 0
 	var/speed = 10 //lower = better
@@ -18,31 +17,28 @@
 		tally += (2 * holding.w_class)
 	return tally
 
-/mob/living/bot/remotebot/show_other_examine_strings(mob/user, distance, infix, suffix, hideflags, decl/pronouns/pronouns)
+/mob/living/bot/remotebot/get_other_examine_strings(mob/user, distance, infix, suffix, hideflags, decl/pronouns/pronouns)
 	. = ..()
 	if(holding)
-		to_chat(user, "<span class='notice'>It is holding \the [html_icon(holding)] [holding].</span>")
+		. += SPAN_NOTICE("It is holding \the [html_icon(holding)] [holding].")
 
-/mob/living/bot/remotebot/explode()
-	on = 0
-	new /obj/effect/decal/cleanable/blood/oil(get_turf(src.loc))
-	visible_message("<span class='danger'>[src] blows apart!</span>")
-	if(controller)
-		controller.bot = null
-		controller = null
-	for(var/i in 1 to rand(3,5))
-		var/obj/item/stack/material/cardstock/mapped/cardboard/C = new(src.loc)
-		if(prob(50))
-			C.forceMove(get_step(src, pick(global.alldirs)))
+/mob/living/bot/remotebot/gib(do_gibs = TRUE)
+	var/turf/my_turf = get_turf(src)
+	. = ..()
+	if(. && my_turf)
+		if(controller)
+			controller.bot = null
+			controller = null
+		for(var/i in 1 to rand(3,5))
+			var/obj/item/stack/material/cardstock/mapped/cardboard/C = new(my_turf)
+			if(prob(50))
+				C.forceMove(get_step(src, pick(global.alldirs)))
 
-	spark_at(src, cardinal_only = TRUE)
-	qdel(src)
-
-/mob/living/bot/remotebot/attackby(var/obj/item/I, var/mob/user)
-	if(istype(I, /obj/item/bot_controller) && !controller)
-		user.visible_message("\The [user] waves \the [I] over \the [src].")
-		to_chat(user, "<span class='notice'>You link \the [src] to \the [I].</span>")
-		var/obj/item/bot_controller/B = I
+/mob/living/bot/remotebot/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, /obj/item/bot_controller) && !controller)
+		user.visible_message("\The [user] waves \the [used_item] over \the [src].")
+		to_chat(user, "<span class='notice'>You link \the [src] to \the [used_item].</span>")
+		var/obj/item/bot_controller/B = used_item
 		B.bot = src
 		controller = B
 	return ..()
@@ -57,16 +53,16 @@
 		holding = null
 	return ..()
 
-/mob/living/bot/remotebot/proc/pickup(var/obj/item/I)
-	if(holding || get_dist(src,I) > 1)
+/mob/living/bot/remotebot/proc/pickup(var/obj/item/used_item)
+	if(holding || get_dist(src,used_item) > 1)
 		return
-	src.visible_message("<b>\The [src]</b> picks up \the [I].")
+	src.visible_message("<b>\The [src]</b> picks up \the [used_item].")
 	flick("fetchbot-c", src)
 	working = 1
 	sleep(10)
 	working = 0
-	I.forceMove(src)
-	holding = I
+	used_item.forceMove(src)
+	holding = used_item
 
 /mob/living/bot/remotebot/proc/drop()
 	if(working || !holding)
@@ -85,7 +81,7 @@
 	if(working || stat || !on || a == src) //can't touch itself
 		return
 	if(isturf(a) || get_dist(src,a) > 1)
-		walk_to(src,a,0,get_movement_delay(get_dir(src, a)))
+		start_automove(a)
 	else if(istype(a, /obj/item))
 		pickup(a)
 	else
@@ -98,7 +94,7 @@
 	icon_state = ICON_STATE_WORLD
 	w_class = ITEM_SIZE_SMALL
 	slot_flags = SLOT_LOWER_BODY
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(
 		/decl/material/solid/silicon      = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/copper = MATTER_AMOUNT_REINFORCEMENT,
@@ -166,7 +162,7 @@
 	icon = 'icons/obj/items/bot_kit.dmi'
 	icon_state = "remotebot"
 	obj_flags = OBJ_FLAG_HOLLOW
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
 
 /obj/item/bot_kit/attack_self(var/mob/user)
 	to_chat(user, "You quickly dismantle the box and retrieve the controller and the remote bot itself.")

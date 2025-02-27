@@ -1,8 +1,10 @@
+/// This list of names is here to make sure we don't state our descriptive blurb to a person more than once.
+var/global/list/area_blurb_stated_to = list()
 var/global/list/areas = list()
 
 /area
 
-	level = null
+	level = 0
 	name = "Unknown"
 	icon = 'icons/turf/areas.dmi'
 	icon_state = "unknown"
@@ -11,8 +13,17 @@ var/global/list/areas = list()
 	luminosity =    0
 	mouse_opacity = MOUSE_OPACITY_UNCLICKABLE
 
-	var/proper_name /// Automatically set by SetName and Initialize; cached result of strip_improper(name).
-	var/holomap_color	// Color of this area on the holomap. Must be a hex color (as string) or null.
+	// If true, will allow natural walls in this area to have xenoarchaeology finds in them.
+	var/allow_xenoarchaeology_finds = TRUE
+
+	// If set, will modify ambient light of ambiently lit turfs under a ceiling.
+	var/interior_ambient_light_modifier
+	// If set, will apply ambient light of this colour to turfs under a ceiling.
+
+	/// Automatically set by SetName and Initialize; cached result of strip_improper(name).
+	var/tmp/proper_name
+	/// Color of this area on the holomap. Must be a hex color (as string) or null.
+	var/holomap_color
 
 	var/fire
 	var/party
@@ -37,10 +48,25 @@ var/global/list/areas = list()
 
 	var/obj/machinery/power/apc/apc
 	var/list/all_doors		//Added by Strumpetplaya - Alarm Change - Contains a list of doors adjacent to this area
-	var/list/ambience = list('sound/ambience/ambigen1.ogg','sound/ambience/ambigen3.ogg','sound/ambience/ambigen4.ogg','sound/ambience/ambigen5.ogg','sound/ambience/ambigen6.ogg','sound/ambience/ambigen7.ogg','sound/ambience/ambigen8.ogg','sound/ambience/ambigen9.ogg','sound/ambience/ambigen10.ogg','sound/ambience/ambigen11.ogg','sound/ambience/ambigen12.ogg','sound/ambience/ambigen14.ogg')
+	var/list/ambience = list(
+		'sound/ambience/ambigen1.ogg',
+		'sound/ambience/ambigen3.ogg',
+		'sound/ambience/ambigen4.ogg',
+		'sound/ambience/ambigen5.ogg',
+		'sound/ambience/ambigen6.ogg',
+		'sound/ambience/ambigen7.ogg',
+		'sound/ambience/ambigen8.ogg',
+		'sound/ambience/ambigen9.ogg',
+		'sound/ambience/ambigen10.ogg',
+		'sound/ambience/ambigen11.ogg',
+		'sound/ambience/ambigen12.ogg',
+		'sound/ambience/ambigen14.ogg'
+	)
 	var/list/forced_ambience
 	var/sound_env = STANDARD_STATION
 	var/description //A text-based description of what this area is for.
+	var/area_blurb_category // Used to filter description showing across subareas
+	var/const/BLURB_COOLDOWN_TIME = 15 MINUTES
 
 	var/base_turf // The base turf type of the area, which can be used to override the z-level's base turf
 	var/open_turf // The base turf of the area if it has a turf below it in multizi. Overrides turf-specific open type
@@ -54,7 +80,6 @@ var/global/list/areas = list()
 	var/list/air_scrub_names = list()
 	var/list/air_vent_info = list()
 	var/list/air_scrub_info = list()
-	var/list/blurbed_stated_to = list() //This list of names is here to make sure we don't state our descriptive blurb to a person more than once.
 
 	var/tmp/is_outside = OUTSIDE_NO
 
@@ -65,9 +90,19 @@ var/global/list/areas = list()
 	uid = ++global_uid
 	proper_name = strip_improper(name)
 	luminosity = !dynamic_lighting
+	if(isnull(area_blurb_category))
+		area_blurb_category = type
 	..()
 
+/area/proc/get_additional_fishing_results()
+	return
+
 /area/Initialize()
+	var/list/additional_fishing_results = get_additional_fishing_results()
+	if(LAZYLEN(additional_fishing_results))
+		LAZYINITLIST(fishing_results)
+		for(var/fish in additional_fishing_results)
+			fishing_results[fish] = additional_fishing_results[fish]
 	. = ..()
 	global.areas += src
 	if(!requires_power || !apc)
@@ -107,13 +142,16 @@ var/global/list/areas = list()
 	var/area/old_area = get_area(T)
 	if(old_area == A)
 		return
+
+	var/old_area_ambience = old_area?.interior_ambient_light_modifier
+
 	A.contents.Add(T)
 	if(old_area)
 		old_area.Exited(T, A)
-		for(var/atom/movable/AM in T)
+		for(var/atom/movable/AM as anything in T)
 			old_area.Exited(AM, A)  // Note: this _will_ raise exited events.
 	A.Entered(T, old_area)
-	for(var/atom/movable/AM in T)
+	for(var/atom/movable/AM as anything in T)
 		A.Entered(AM, old_area) // Note: this will _not_ raise moved or entered events. If you change this, you must also change everything which uses them.
 
 	for(var/obj/machinery/M in T)
@@ -125,28 +163,28 @@ var/global/list/areas = list()
 		if(adjacent_turf)
 			adjacent_turf.update_registrations_on_adjacent_area_change()
 
-	T.last_outside_check = OUTSIDE_UNCERTAIN
-	if(T.is_outside == OUTSIDE_AREA && T.is_outside() != old_outside)
+	// Handle updating weather and atmos if the outside status of the turf changed.
+	if(T.is_outside == OUTSIDE_AREA)
+		T.update_external_atmos_participation() // Refreshes outside status and adds exterior air to turf air if necessary.
+
+	if(T.is_outside() != old_outside)
 		T.update_weather()
+		AMBIENCE_QUEUE_TURF(T)
+	else if(A.interior_ambient_light_modifier != old_area_ambience)
+		AMBIENCE_QUEUE_TURF(T)
 
 /turf/proc/update_registrations_on_adjacent_area_change()
 	for(var/obj/machinery/door/firedoor/door in src)
 		door.update_area_registrations()
 
-/area/proc/alert_on_fall(var/mob/living/carbon/human/H)
+/area/proc/alert_on_fall(var/mob/living/human/H)
 	return
-
-/area/proc/get_contents()
-	return contents
 
 /area/proc/get_cameras()
 	var/list/cameras = list()
 	for (var/obj/machinery/camera/C in src)
 		cameras += C
 	return cameras
-
-/area/proc/is_shuttle_locked()
-	return 0
 
 /area/proc/atmosalert(danger_level, var/alarm_source)
 	if (danger_level == 0)
@@ -323,7 +361,7 @@ var/global/list/areas = list()
 var/global/list/mob/living/forced_ambiance_list = new
 
 /area/Entered(A)
-	if(!istype(A,/mob/living))
+	if(!isliving(A))
 		return
 	var/mob/living/L = A
 	if(!L.lastarea)
@@ -335,7 +373,9 @@ var/global/list/mob/living/forced_ambiance_list = new
 		L.update_floating()
 	if(L.ckey)
 		play_ambience(L)
-		do_area_blurb(L)
+		// If we haven't changed blurb categories, don't send a blurb.
+		if(oldarea?.area_blurb_category != area_blurb_category)
+			do_area_blurb(L)
 	L.lastarea = src
 
 
@@ -347,13 +387,12 @@ var/global/list/mob/living/forced_ambiance_list = new
 /area/proc/do_area_blurb(var/mob/living/L)
 	if(isnull(description))
 		return
-
 	if(L?.get_preference_value(/datum/client_preference/area_info_blurb) != PREF_YES)
 		return
-
-	if(!(L.ckey in blurbed_stated_to))
-		blurbed_stated_to += L.ckey
-		to_chat(L, SPAN_NOTICE(FONT_SMALL("[description]")))
+	var/next_message_time = LAZYACCESS(global.area_blurb_stated_to[area_blurb_category], L.ckey)
+	if(isnull(next_message_time) || world.time > next_message_time)
+		LAZYSET(global.area_blurb_stated_to[area_blurb_category], L.ckey, world.time + BLURB_COOLDOWN_TIME)
+		to_chat(L, SPAN_NOTICE(FONT_SMALL(description)))
 
 /area/proc/play_ambience(var/mob/living/L)
 	// Ambience goes down here -- make sure to list each area seperately for ease of adding things in later, thanks! Note: areas adjacent to each other should have the same sounds to prevent cutoff when possible.- LastyScratch
@@ -385,11 +424,11 @@ var/global/list/mob/living/forced_ambiance_list = new
 	if(isspaceturf(get_turf(mob))) // Can't fall onto nothing.
 		return
 
-	if(mob.Check_Shoegrip())
+	if(!mob.can_slip(magboots_only = TRUE))
 		return
 
-	if(istype(mob,/mob/living/carbon/human/))
-		var/mob/living/carbon/human/H = mob
+	if(ishuman(mob))
+		var/mob/living/human/H = mob
 		if(prob(H.skill_fail_chance(SKILL_EVA, 100, SKILL_ADEPT)))
 			if(!MOVING_DELIBERATELY(H))
 				ADJ_STATUS(H, STAT_STUN, 6)
@@ -401,10 +440,12 @@ var/global/list/mob/living/forced_ambiance_list = new
 
 /area/proc/throw_unbuckled_occupants(var/maxrange, var/speed, var/direction)
 	for(var/mob/M in src)
-		addtimer(CALLBACK(src, .proc/throw_unbuckled_occupant, M, maxrange, speed, direction), 0)
+		addtimer(CALLBACK(src, PROC_REF(throw_unbuckled_occupant), M, maxrange, speed, direction), 0)
 
 /area/proc/throw_unbuckled_occupant(var/mob/M, var/maxrange, var/speed, var/direction)
-	if(iscarbon(M))
+	if(isliving(M))
+		if(M.anchored) // So mechs don't get tossed around.
+			return
 		if(M.buckled)
 			to_chat(M, SPAN_WARNING("Sudden acceleration presses you into your chair!"))
 			shake_camera(M, 3, 1)
@@ -432,35 +473,10 @@ var/global/list/mob/living/forced_ambiance_list = new
 
 /atom/proc/has_gravity()
 	var/area/A = get_area(src)
-	if(A && A.has_gravity())
-		return 1
-	return 0
-
-/mob/has_gravity()
-	if(!lastarea)
-		lastarea = get_area(src)
-	if(!lastarea || !lastarea.has_gravity())
-		return 0
-
-	return 1
+	return A?.has_gravity()
 
 /turf/has_gravity()
-	var/area/A = loc
-	if(A && A.has_gravity())
-		return 1
-	return 0
-
-/area/proc/get_dimensions()
-	var/list/res = list("x"=1,"y"=1)
-	var/list/min = list("x"=world.maxx,"y"=world.maxy)
-	for(var/turf/T in src)
-		res["x"] = max(T.x, res["x"])
-		res["y"] = max(T.y, res["y"])
-		min["x"] = min(T.x, min["x"])
-		min["y"] = min(T.y, min["y"])
-	res["x"] = res["x"] - min["x"] + 1
-	res["y"] = res["y"] - min["y"] + 1
-	return res
+	return loc.has_gravity()
 
 /area/proc/has_turfs()
 	return !!(locate(/turf) in src)

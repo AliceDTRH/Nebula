@@ -4,26 +4,35 @@
 	icon = 'mods/mobs/borers/icons/borer.dmi'
 	desc = "A small, quivering sluglike creature."
 	speak_emote = list("chirrups")
-	emote_hear = list("chirrups")
 	response_help_3p = "$USER$ pokes $TARGET$."
 	response_help_1p = "You poke $TARGET$."
 	response_disarm =  "prods"
 	response_harm =    "stamps on"
-
-	speed = 5
-	a_intent = I_HURT
-	stop_automated_movement = 1
+	base_movement_delay = 2
 	status_flags = CANPUSH
 	natural_weapon = /obj/item/natural_weapon/bite/weak
-	friendly = "prods"
-	wander = 0
 	pass_flags = PASS_FLAG_TABLE
 	universal_understand = TRUE
 	holder_type = /obj/item/holder/borer
 	mob_size = MOB_SIZE_SMALL
-	can_escape = TRUE
-
 	bleed_colour = "#816e12"
+	ai = /datum/mob_controller/borer
+
+	// Defined here to remove relaymove handlers as being
+	// directly in mob contents breaks relaymove spectacularly.
+	movement_handlers = list(
+		/datum/movement_handler/mob/death,
+		/datum/movement_handler/mob/borer_in_host,
+		/datum/movement_handler/mob/conscious,
+		/datum/movement_handler/mob/eye,
+		/datum/movement_handler/mob/delay,
+		/datum/movement_handler/mob/stop_effect,
+		/datum/movement_handler/mob/physically_capable,
+		/datum/movement_handler/mob/physically_restrained,
+		/datum/movement_handler/mob/space,
+		/datum/movement_handler/mob/multiz,
+		/datum/movement_handler/mob/movement
+	)
 
 	var/static/list/chemical_types = list(
 		"anti-trauma" =  /decl/material/liquid/brute_meds,
@@ -44,19 +53,27 @@
 	var/has_reproduced                      // Whether or not the borer has reproduced, for objective purposes.
 	var/roundstart                          // Whether or not this borer has been mapped and should not look for a player initially.
 	var/neutered                            // 'borer lite' mode - fewer powers, less hostile to the host.
-	var/mob/living/carbon/human/host        // Human host for the brain worm.
+	var/mob/living/human/host        // Human host for the brain worm.
 	var/mob/living/captive_brain/host_brain // Used for swapping control of the body back and forth.
 
+/datum/movement_handler/mob/borer_in_host/MayMove(mob/mover, is_external)
+	return ismob(mob.loc) ? MOVEMENT_STOP : MOVEMENT_PROCEED
+
+/datum/mob_controller/borer
+	emote_hear = list("chirrups")
+	do_wander = FALSE
+	can_escape_buckles = TRUE
+
 /obj/item/holder/borer
-	origin_tech = "{'biotech':6}"
+	origin_tech = @'{"biotech":6}'
 
 /mob/living/simple_animal/borer/roundstart
 	roundstart = TRUE
 
 /mob/living/simple_animal/borer/symbiote
-	name = "symbiote"
+	name      = "symbiote"
 	real_name = "symbiote"
-	neutered = TRUE
+	neutered  = TRUE
 
 /mob/living/simple_animal/borer/Login()
 	. = ..()
@@ -65,6 +82,8 @@
 		borers.add_antagonist(mind)
 
 /mob/living/simple_animal/borer/Initialize(var/mapload, var/gen=1)
+
+	hud_used = neutered ? /datum/hud/animal/borer/neutered : /datum/hud/animal/borer
 
 	. = ..()
 
@@ -81,63 +100,66 @@
 /mob/living/simple_animal/borer/proc/set_borer_name()
 	truename = "[borer_names[min(generation, borer_names.len)]] [random_id("borer[generation]", 1000, 9999)]"
 
-/mob/living/simple_animal/borer/Life()
+/mob/living/simple_animal/borer/handle_vision()
+	. = ..()
+	set_status_condition(STAT_BLIND,  host ? GET_STATUS(host, STAT_BLIND)  : 0)
+	set_status_condition(STAT_BLURRY, host ? GET_STATUS(host, STAT_BLURRY) : 0)
 
-	sdisabilities = 0
+/mob/living/simple_animal/borer/handle_disabilities()
+	. = ..()
 	if(host)
-		set_status(STAT_BLIND, GET_STATUS(host, STAT_BLIND))
-		set_status(STAT_BLURRY, GET_STATUS(host, STAT_BLURRY))
-		if(host.sdisabilities & BLINDED)
-			sdisabilities |= BLINDED
-		if(host.sdisabilities & DEAFENED)
-			sdisabilities |= DEAFENED
+		if(host.has_genetic_condition(GENE_COND_BLINDED))
+			add_genetic_condition(GENE_COND_BLINDED)
+		else
+			remove_genetic_condition(GENE_COND_BLINDED)
+		if(host.has_genetic_condition(GENE_COND_DEAFENED))
+			add_genetic_condition(GENE_COND_DEAFENED)
+		else
+			remove_genetic_condition(GENE_COND_DEAFENED)
 	else
-		set_status(STAT_BLIND, 0)
-		set_status(STAT_BLURRY, 0)
+		remove_genetic_condition(GENE_COND_BLINDED)
+		remove_genetic_condition(GENE_COND_DEAFENED)
 
+/mob/living/simple_animal/borer/handle_living_non_stasis_processes()
 	. = ..()
 	if(!.)
 		return FALSE
 
-	if(host)
+	if(!host || host.stat)
+		return
 
-		if(!stat && !host.stat)
+	if(prob(host.get_damage(BRAIN)/20))
+		INVOKE_ASYNC(host, TYPE_PROC_REF(/mob, say), "*[pick(list("blink","blink_r","choke","aflap","drool","twitch","twitch_v","gasp"))]")
 
-			if(host.reagents.has_reagent(/decl/material/liquid/nutriment/sugar))
-				if(!docile)
-					if(controlling)
-						to_chat(host, SPAN_NOTICE("You feel the soporific flow of sugar in your host's blood, lulling you into docility."))
-					else
-						to_chat(src, SPAN_NOTICE("You feel the soporific flow of sugar in your host's blood, lulling you into docility."))
-					docile = 1
-			else
-				if(docile)
-					if(controlling)
-						to_chat(host, SPAN_NOTICE("You shake off your lethargy as the sugar leaves your host's blood."))
-					else
-						to_chat(src, SPAN_NOTICE("You shake off your lethargy as the sugar leaves your host's blood."))
-					docile = 0
+	if(stat)
+		return
 
-			if(chemicals < 250 && host.nutrition >= (neutered ? 200 : 50))
-				host.nutrition--
-				chemicals++
-
+	if(host.reagents.has_reagent(/decl/material/liquid/nutriment/sugar))
+		if(!docile)
 			if(controlling)
+				to_chat(host, SPAN_NOTICE("You feel the soporific flow of sugar in your host's blood, lulling you into docility."))
+			else
+				to_chat(src, SPAN_NOTICE("You feel the soporific flow of sugar in your host's blood, lulling you into docility."))
+			docile = TRUE
+	else
+		if(docile)
+			if(controlling)
+				to_chat(host, SPAN_NOTICE("You shake off your lethargy as the sugar leaves your host's blood."))
+			else
+				to_chat(src, SPAN_NOTICE("You shake off your lethargy as the sugar leaves your host's blood."))
+			docile = FALSE
 
-				if(neutered)
-					host.release_control()
-					return
-
-				if(docile)
-					to_chat(host, SPAN_NOTICE("You are feeling far too docile to continue controlling your host..."))
-					host.release_control()
-					return
-
-				if(prob(5))
-					host.adjustBrainLoss(0.1)
-
-				if(prob(host.getBrainLoss()/20))
-					INVOKE_ASYNC(host, /mob/proc/say, "*[pick(list("blink","blink_r","choke","aflap","drool","twitch","twitch_v","gasp"))]")
+	if(chemicals < 250 && host.nutrition >= (neutered ? 200 : 50))
+		host.nutrition--
+		chemicals++
+	if(controlling)
+		if(neutered || docile)
+			if(docile)
+				to_chat(host, SPAN_NOTICE("You are feeling far too docile to continue controlling your host..."))
+			host.release_control()
+			return
+		if(prob(5))
+			host.take_damage(0.1, BRAIN)
 
 /mob/living/simple_animal/borer/Stat()
 	. = ..()
@@ -155,17 +177,17 @@
 
 	if(!host || !controlling) return
 
-	if(istype(host,/mob/living/carbon/human))
-		var/mob/living/carbon/human/H = host
+	if(ishuman(host))
+		var/mob/living/human/H = host
 		var/obj/item/organ/external/head = GET_EXTERNAL_ORGAN(H, BP_HEAD)
 		LAZYREMOVE(head.implants, src)
 
 	controlling = FALSE
 
 	host.remove_language(/decl/language/corticalborer)
-	host.verbs -= /mob/living/carbon/proc/release_control
-	host.verbs -= /mob/living/carbon/proc/punish_host
-	host.verbs -= /mob/living/carbon/proc/spawn_larvae
+	host.verbs -= /mob/living/proc/release_control
+	host.verbs -= /mob/living/proc/punish_host
+	host.verbs -= /mob/living/proc/spawn_larvae
 
 	if(host_brain)
 
@@ -205,20 +227,20 @@
 #define COLOR_BORER_RED "#ff5555"
 /mob/living/simple_animal/borer/proc/set_ability_cooldown(var/amt)
 	set_special_ability_cooldown(amt)
-	var/datum/hud/borer/borer_hud = hud_used
+	var/datum/hud/animal/borer/borer_hud = hud_used
 	if(istype(borer_hud))
 		for(var/obj/thing in borer_hud.borer_hud_elements)
 			thing.color = COLOR_BORER_RED
-	addtimer(CALLBACK(src, /mob/living/simple_animal/borer/proc/reset_ui_callback), amt)
+	addtimer(CALLBACK(src, TYPE_PROC_REF(/mob/living/simple_animal/borer, reset_ui_callback)), amt)
 #undef COLOR_BORER_RED
 
 /mob/living/simple_animal/borer/proc/leave_host()
 
-	var/datum/hud/borer/borer_hud = hud_used
+	var/datum/hud/animal/borer/borer_hud = hud_used
 	if(istype(borer_hud))
 		for(var/obj/thing in borer_hud.borer_hud_elements)
-			thing.alpha =        0
-			thing.invisibility = INVISIBILITY_MAXIMUM
+			thing.alpha = 0
+			thing.set_invisibility(INVISIBILITY_ABSTRACT)
 
 	if(!host) return
 
@@ -233,9 +255,7 @@
 
 	host.reset_view(null)
 	host.machine = null
-
-	var/mob/living/H = host
-	H.status_flags &= ~PASSEMOTES
+	host.status_flags &= ~PASSEMOTES
 	host = null
 	return
 

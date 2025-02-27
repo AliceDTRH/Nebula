@@ -6,9 +6,6 @@
 
 /* Current unused keys, please update when you use one.
  * e
- * j
- * l
- * m
  * n
  * r
  * t
@@ -30,15 +27,24 @@
 	var/colour = "body"                 // CSS style to use for strings in this language.
 	var/key = ""                        // Character used to speak in language
 	var/flags = 0                       // Various language flags.
-	var/list/syllables                  // Used when scrambling text for a non-speaker.
-	var/list/space_chance = 55          // Likelihood of getting a space in the random scramble string
-	var/machine_understands = 1         // Whether machines can parse and understand this language
-	var/shorthand = "???"               // Shorthand that shows up in chat for this language.
-	var/list/partial_understanding      // List of languages that can /somehwat/ understand it, format is: name = chance of understanding a word
-	var/hidden_from_codex               // If it should not show up in Codex
-	var/list/scramble_cache = list()    // Cached syllable strings for masking when heard by a non-speaker
-	var/list/speech_sounds              // List of sounds to randomly play.
-	var/allow_repeated_syllables = TRUE // Control for handling some of the random lang/name gen.
+	/// Syllable list when scrambling text for display to a non-speaker.
+	var/list/syllables
+	/// Likelihood of getting a space in the random scramble string
+	var/space_chance = 55
+	/// Whether machines can parse and understand this language
+	var/machine_understands = TRUE
+	/// Shorthand that shows up in chat for this language.
+	var/shorthand = "???"
+	/// List of languages that can /somehwat/ understand it, format is: typepath = chance of understanding a word
+	var/list/partial_understanding
+	/// If it should not show up in Codex
+	var/hidden_from_codex = FALSE
+	/// Cached syllable strings for masking when heard by a non-speaker
+	var/list/scramble_cache = list()
+	/// List of sounds to randomly play.
+	var/list/speech_sounds
+	/// Control for handling some of the random lang/name gen.
+	var/allow_repeated_syllables = TRUE
 
 /decl/language/proc/can_be_understood_by(var/mob/living/speaker, var/mob/living/listener)
 	if(flags & LANG_FLAG_INNATE)
@@ -56,7 +62,7 @@
 		return result
 
 /decl/language/proc/can_be_spoken_properly_by(var/mob/speaker)
-	return TRUE
+	return SPEECH_RESULT_GOOD
 
 /decl/language/proc/muddle(var/message)
 	return message
@@ -64,14 +70,14 @@
 /decl/language/proc/get_random_name(var/gender, name_count=2, syllable_count=4, syllable_divisor=2)
 	if(!length(syllables))
 		if(gender==FEMALE)
-			return capitalize(pick(global.first_names_female)) + " " + capitalize(pick(global.last_names))
+			return capitalize(pick(global.using_map.first_names_female)) + " " + capitalize(pick(global.using_map.last_names))
 		else
-			return capitalize(pick(global.first_names_male)) + " " + capitalize(pick(global.last_names))
+			return capitalize(pick(global.using_map.first_names_male)) + " " + capitalize(pick(global.using_map.last_names))
 
 	var/possible_syllables = allow_repeated_syllables ? syllables : syllables.Copy()
 	for(var/i = 0;i<name_count;i++)
 		var/new_name = ""
-		for(var/x = rand(FLOOR(syllable_count/syllable_divisor),syllable_count);x>0;x--)
+		for(var/x = rand(floor(syllable_count/syllable_divisor),syllable_count);x>0;x--)
 			if(!length(possible_syllables))
 				break
 			new_name += allow_repeated_syllables ? pick(possible_syllables) : pick_n_take(possible_syllables)
@@ -110,6 +116,11 @@
 	. = capitalize(.)
 	. = trim(.)
 
+/decl/language/proc/get_next_scramble_token()
+	if(length(syllables))
+		return pick(syllables)
+	return "..."
+
 /decl/language/proc/scramble_word(var/input)
 	if(!syllables || !syllables.len)
 		return stars(input)
@@ -126,7 +137,7 @@
 	var/capitalize = 0
 
 	while(length(scrambled_text) < input_size)
-		var/next = pick(syllables)
+		var/next = get_next_scramble_token()
 		if(capitalize)
 			next = capitalize(next)
 			capitalize = 0
@@ -135,7 +146,7 @@
 		if(chance <= 5)
 			scrambled_text += ". "
 			capitalize = 1
-		else if(chance > 5 && chance <= space_chance)
+		else if(chance <= space_chance)
 			scrambled_text += " "
 
 	// Add it to cache, cutting old entries if the list is too long
@@ -285,10 +296,15 @@
 		return TOPIC_HANDLED
 	return ..()
 
-/proc/transfer_languages(var/mob/source, var/mob/target, var/except_flags)
-	for(var/decl/language/L in source.languages)
-		if(L.flags & except_flags)
+/mob/proc/copy_languages_to(mob/target, except_flags)
+	for(var/decl/language/new_lang in languages)
+		if(new_lang.flags & except_flags)
 			continue
-		target.add_language(L.name)
+		target.add_language(new_lang.type)
+
+/mob/living/copy_languages_to(mob/living/target, except_flags)
+	..()
+	if(isliving(target))
+		target.default_language = default_language
 
 #undef SCRAMBLE_CACHE_LEN

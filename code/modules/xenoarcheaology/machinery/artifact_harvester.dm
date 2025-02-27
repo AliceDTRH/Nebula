@@ -31,7 +31,7 @@
 	if(!owned_scanner)
 		owned_scanner = locate(/obj/machinery/artifact_scanpad) in orange(1, src)
 	if(owned_scanner)
-		events_repository.register(/decl/observ/destroyed, owned_scanner, src, /obj/machinery/artifact_analyser/proc/clear_scanner)
+		events_repository.register(/decl/observ/destroyed, owned_scanner, src, TYPE_PROC_REF(/obj/machinery/artifact_analyser, clear_scanner))
 
 /obj/machinery/artifact_harvester/Destroy()
 	clear_scanner()
@@ -53,21 +53,21 @@
 	if(cur_artifact == new_artifact || !new_artifact)
 		return
 	clear_artifact()
-	events_repository.register(/decl/observ/destroyed, new_artifact, src, /obj/machinery/artifact_harvester/proc/clear_artifact)
+	events_repository.register(/decl/observ/destroyed, new_artifact, src, TYPE_PROC_REF(/obj/machinery/artifact_harvester, clear_artifact))
 	cur_artifact = new_artifact
 
-/obj/machinery/artifact_harvester/attackby(var/obj/I, var/mob/user)
-	if(istype(I,/obj/item/anobattery))
-		if(!inserted_battery)
-			if(!user.try_unequip(I, src))
-				return
-			to_chat(user, "<span class='notice'>You insert [I] into [src].</span>")
-			inserted_battery = I
-			updateDialog()
-		else
-			to_chat(user, "<span class='warning'>There is already a battery in [src].</span>")
-	else
-		return..()
+/obj/machinery/artifact_harvester/attackby(var/obj/item/used_item, var/mob/user)
+	if(!istype(used_item, /obj/item/anobattery))
+		return ..()
+	if(inserted_battery)
+		to_chat(user, SPAN_WARNING("There is already a battery in [src]."))
+		return TRUE
+	if(!user.try_unequip(used_item, src))
+		return TRUE
+	to_chat(user, SPAN_NOTICE("You insert [used_item] into [src]."))
+	inserted_battery = used_item
+	updateDialog()
+	return TRUE
 
 /obj/machinery/artifact_harvester/interface_interact(user)
 	ui_interact(user)
@@ -130,7 +130,7 @@
 			inserted_battery.battery_effect.process()
 
 			//if the effect works by touch, activate it on anyone near the console
-			if(inserted_battery.battery_effect.operation_type == EFFECT_TOUCH)
+			if(inserted_battery.battery_effect.operation_type == (XA_EFFECT_TOUCH))
 				for(var/mob/M in hearers(1, src))
 					inserted_battery.battery_effect.DoEffectTouch(M)
 

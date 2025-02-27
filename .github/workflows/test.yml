@@ -14,13 +14,13 @@ on:
   workflow_dispatch:
 
 env:
-  BYOND_MAJOR: "514"
-  BYOND_MINOR: "1575"
-  SPACEMAN_DMM_VERSION: suite-1.7.2
+  BYOND_MAJOR: "515"
+  BYOND_MINOR: "1643"
+  SPACEMAN_DMM_VERSION: suite-1.8
 
 jobs:
   DreamChecker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Setup Cache
@@ -50,8 +50,25 @@ jobs:
           wget https://raw.githubusercontent.com/DiscordHooks/github-actions-discord-webhook/master/send.sh
           chmod +x send.sh
           ./send.sh failure $WEBHOOK_URL
+  OpenDream:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Python setup
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install OpenDream
+        uses: robinraju/release-downloader@v1.9
+        with:
+          repository: "OpenDreamProject/OpenDream"
+          tag: "latest"
+          fileName: "DMCompiler_linux-x64.tar.gz"
+          extract: true
+      - name: Run OpenDream
+        run: ./DMCompiler_linux-x64/DMCompiler nebula.dme --define=UNIT_TEST --suppress-unimplemented --skip-anything-typecheck --version=${BYOND_MAJOR}.${BYOND_MINOR} | bash test/annotate_od.sh
   Code:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Setup Cache
@@ -77,10 +94,10 @@ jobs:
           chmod +x send.sh
           ./send.sh failure $WEBHOOK_URL
   Maps:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        map_path: [example, tradeship, exodus, ministation, away_sites_testing, modpack_testing, planets_testing]
+        map_path: [example, tradeship, exodus, ministation, shaded_hills, away_sites_testing, modpack_testing, planets_testing]
     steps:
       - uses: actions/checkout@v3
       - name: Setup Cache

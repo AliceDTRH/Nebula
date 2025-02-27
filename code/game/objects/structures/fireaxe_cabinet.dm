@@ -6,13 +6,13 @@
 	anchored = TRUE
 	density = FALSE
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':-32}, 'WEST':{'x':32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":-32}, "WEST":{"x":32}}'
 
 	var/damage_threshold = 15
 	var/open
 	var/unlocked
 	var/shattered
-	var/obj/item/twohanded/fireaxe/fireaxe
+	var/obj/item/bladed/axe/fire/fireaxe
 
 /obj/structure/fireaxecabinet/on_update_icon()
 	..()
@@ -40,7 +40,7 @@
 		toggle_open(user)
 	return TRUE
 
-/obj/structure/fireaxecabinet/handle_mouse_drop(atom/over, mob/user)
+/obj/structure/fireaxecabinet/handle_mouse_drop(atom/over, mob/user, params)
 	if(over == user)
 		if(!open)
 			to_chat(user, SPAN_WARNING("\The [src] is closed."))
@@ -58,45 +58,46 @@
 	QDEL_NULL(fireaxe)
 	. = ..()
 
-/obj/structure/fireaxecabinet/dismantle()
+/obj/structure/fireaxecabinet/dismantle_structure(mob/user)
 	if(loc && !dismantled && !QDELETED(fireaxe))
 		fireaxe.dropInto(loc)
 		fireaxe = null
 	. = ..()
 
-/obj/structure/fireaxecabinet/attackby(var/obj/item/O, var/mob/user)
+/obj/structure/fireaxecabinet/attackby(var/obj/item/used_item, var/mob/user)
 
-	if(IS_MULTITOOL(O))
+	if(IS_MULTITOOL(used_item))
 		toggle_lock(user)
-		return
+		return TRUE
 
-	if(istype(O, /obj/item/twohanded/fireaxe))
+	if(istype(used_item, /obj/item/bladed/axe/fire))
 		if(open)
 			if(fireaxe)
 				to_chat(user, "<span class='warning'>There is already \a [fireaxe] inside \the [src].</span>")
-			else if(user.try_unequip(O))
-				O.forceMove(src)
-				fireaxe = O
+			else if(user.try_unequip(used_item))
+				used_item.forceMove(src)
+				fireaxe = used_item
 				to_chat(user, "<span class='notice'>You place \the [fireaxe] into \the [src].</span>")
 				update_icon()
-			return
+			return TRUE
 
-	if(O.force)
+	var/force = used_item.expend_attack_force(user)
+	if(force)
 		user.setClickCooldown(10)
 		attack_animation(user)
 		playsound(user, 'sound/effects/Glasshit.ogg', 50, 1)
-		visible_message("<span class='danger'>[user] [pick(O.attack_verb)] \the [src]!</span>")
-		if(damage_threshold > O.force)
+		visible_message("<span class='danger'>[user] [pick(used_item.attack_verb)] \the [src]!</span>")
+		if(damage_threshold > force)
 			to_chat(user, "<span class='danger'>Your strike is deflected by the reinforced glass!</span>")
-			return
+			return TRUE
 		if(shattered)
-			return
+			return TRUE
 		shattered = 1
 		unlocked = 1
 		open = 1
 		playsound(user, 'sound/effects/Glassbr3.ogg', 100, 1)
 		update_icon()
-		return
+		return TRUE
 
 	return ..()
 

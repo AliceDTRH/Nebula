@@ -6,7 +6,8 @@
 	germ_level = 0
 	icon_state = ICON_STATE_WORLD
 	anomaly_shielding = 0.1
-	material = /decl/material/solid/plastic //todo: latex
+	material = /decl/material/solid/organic/plastic //todo: latex
+	replaced_in_loadout = FALSE
 
 /obj/item/clothing/gloves/latex/nitrile
 	name = "nitrile gloves"

@@ -5,6 +5,8 @@
 	siemens_coefficient = 0.9
 	body_parts_covered = 0
 
+// i'm gonna let these be equipped on top of helmets. don't make me regret this
+// if i do, i'll probably add a 'magnetic' pin type (and also restrict ipcs to only those)
 /obj/item/clothing/head/hairflower
 	name = "hair flower pin"
 	icon = 'icons/clothing/head/hairflower/red.dmi'
@@ -31,7 +33,7 @@
 
 /obj/item/clothing/head/that
 	name = "top-hat"
-	desc = "It's an amish looking hat."
+	desc = "It's an Amish-looking hat."
 	icon = 'icons/clothing/head/tophat.dmi'
 	siemens_coefficient = 0.9
 
@@ -46,6 +48,7 @@
 	icon = 'icons/clothing/head/plague.dmi'
 	permeability_coefficient = 0.01
 	siemens_coefficient = 0.9
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/hasturhood
 	name = "hastur's hood"
@@ -53,6 +56,7 @@
 	icon = 'icons/clothing/head/hastur.dmi'
 	flags_inv = BLOCK_HEAD_HAIR
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/nursehat
 	name = "nurse's hat"
@@ -66,6 +70,7 @@
 	icon = 'icons/clothing/head/cardborg.dmi'
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/cardborg/Initialize()
 	. = ..()
@@ -73,7 +78,7 @@
 
 /obj/item/clothing/head/rabbitears
 	name = "rabbit ears"
-	desc = "Wearing these makes you looks useless, and only good for your sex appeal."
+	desc = "Wearing these makes you look useless, and only good for your sex appeal."
 	icon = 'icons/clothing/head/bunny.dmi'
 	body_parts_covered = 0
 	flags_inv = 0
@@ -98,11 +103,13 @@
 	name = "pirate bandana"
 	desc = "Yarr."
 	icon = 'icons/clothing/head/bandana/pirate.dmi'
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/bandana/green
 	name = "green bandana"
 	desc = "It's a green bandana with some fine nanotech lining."
 	icon = 'icons/clothing/head/bandana/green.dmi'
+
 /obj/item/clothing/head/bandana/orange //themij: Taryn Kifer
 	name = "orange bandana"
 	desc = "An orange piece of cloth, worn on the head."
@@ -155,6 +162,7 @@
 	flags_inv = BLOCK_ALL_HAIR
 	siemens_coefficient = 0.7
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/bearpelt
 	name = "bear pelt hat"
@@ -170,6 +178,7 @@
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE|BLOCK_ALL_HAIR
 	siemens_coefficient = 2.0
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES|SLOT_EARS
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/philosopher_wig
 	name = "natural philosopher's wig"
@@ -181,6 +190,7 @@
 	desc = "A veil which is wrapped to cover the head and chest."
 	icon = 'icons/clothing/head/hijab.dmi'
 	body_parts_covered = SLOT_HEAD|SLOT_EARS
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/kippa
 	name = "kippa"
@@ -191,6 +201,7 @@
 	name = "turban"
 	desc = "A sturdy cloth, worn around the head."
 	icon = 'icons/clothing/head/turban.dmi'
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/cowboy_hat
 	name = "cowboy hat"
@@ -210,7 +221,7 @@
 
 /obj/item/clothing/head/tank
 	name = "padded cap"
-	desc = "A padded skullcup for those prone to bumping their heads against hard surfaces."
+	desc = "A padded skullcap for those prone to bumping their head against hard surfaces."
 	icon = 'icons/clothing/head/tank.dmi'
 	flags_inv = BLOCK_HEAD_HAIR
 	color = "#5f5f5f"
@@ -238,3 +249,23 @@
 	flags_inv = HIDEMASK|HIDEEARS|HIDEEYES|HIDEFACE|BLOCK_ALL_HAIR
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
 	flash_protection = FLASH_PROTECTION_MAJOR
+
+/obj/item/clothing/head/headband
+	name = "headband"
+	desc = "It's a simple headband."
+	icon = 'icons/clothing/head/headband.dmi'
+	material = /decl/material/solid/organic/leather
+	color = /decl/material/solid/organic/leather::color
+	material_alteration = MAT_FLAG_ALTERATION_COLOR | MAT_FLAG_ALTERATION_NAME | MAT_FLAG_ALTERATION_DESC
+	accessory_slot = null // cannot be equipped on top of helmets
+
+/obj/item/clothing/head/hood
+	name = "hood"
+	icon = 'icons/clothing/head/hood_craftable.dmi'
+	body_parts_covered = SLOT_HEAD
+	min_cold_protection_temperature = T0C - 20
+	cold_protection = SLOT_HEAD
+	flags_inv = HIDEEARS | BLOCK_HEAD_HAIR
+	material = /decl/material/solid/organic/cloth
+	material_alteration = MAT_FLAG_ALTERATION_COLOR | MAT_FLAG_ALTERATION_NAME | MAT_FLAG_ALTERATION_DESC
+	accessory_slot = null // cannot be equipped on top of helmets

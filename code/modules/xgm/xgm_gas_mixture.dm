@@ -13,7 +13,7 @@
 	var/group_multiplier = 1
 
 	//List of active tile overlays for this gas_mixture.  Updated by check_tile_graphic()
-	var/list/graphic = list()
+	var/list/graphic
 	//Cache of gas overlay objects
 	var/list/tile_overlay_cache
 	///The last cached color of the gas mixture
@@ -32,8 +32,6 @@
 		update_values()
 
 /datum/gas_mixture/proc/get_gas(gasid)
-	if(!gas.len)
-		return 0 //if the list is empty BYOND treats it as a non-associative list, which runtimes
 	return gas[gasid] * group_multiplier
 
 /datum/gas_mixture/proc/get_total_moles()
@@ -81,16 +79,6 @@
 
 	for(var/i = 1; i < args.len; i += 2)
 		adjust_gas(args[i], args[i+1], update = 0)
-
-	update_values()
-
-
-//Variadic version of adjust_gas_temp().  Takes any number of gas, mole and temperature associations and applies them.
-/datum/gas_mixture/proc/adjust_multi_temp()
-	ASSERT(!(args.len % 3))
-
-	for(var/i = 1; i < args.len; i += 3)
-		adjust_gas_temp(args[i], args[i + 1], args[i + 2], update = 0)
 
 	update_values()
 
@@ -203,7 +191,7 @@
 	which is bit more realistic (natural log), and returns a fairly accurate entropy around room temperatures and pressures.
 */
 /datum/gas_mixture/proc/specific_entropy_gas(var/gasid)
-	if (!(gasid in gas) || gas[gasid] == 0)
+	if (!gas[gasid])
 		return SPECIFIC_ENTROPY_VACUUM	//that gas isn't here
 
 	//group_multiplier gets divided out in volume/gas[gasid] - also, V/(m*T) = R/(partial pressure)
@@ -260,7 +248,7 @@
 /datum/gas_mixture/proc/remove_ratio(ratio, out_group_multiplier = 1)
 	if(ratio <= 0)
 		return null
-	out_group_multiplier = clamp(1, out_group_multiplier, group_multiplier)
+	out_group_multiplier = clamp(out_group_multiplier, 1, group_multiplier)
 
 	ratio = min(ratio, 1)
 
@@ -322,9 +310,9 @@
 //Copies gas and temperature from another gas_mixture.
 /datum/gas_mixture/proc/copy_from(const/datum/gas_mixture/sample)
 	gas = sample.gas.Copy()
-	graphic = sample.graphic.Copy()
 	temperature = sample.temperature
 	update_values()
+	check_tile_graphic()
 	return 1
 
 /datum/gas_mixture/GetCloneArgs()
@@ -375,10 +363,12 @@
 
 //Rechecks the gas_mixture and adjusts the graphic list if needed.
 //Two lists can be passed by reference if you need know specifically which graphics were added and removed.
+// Returns TRUE if the graphics list was mutated.
 /datum/gas_mixture/proc/check_tile_graphic(list/graphic_add = null, list/graphic_remove = null)
-	for(var/obj/effect/gas_overlay/O in graphic)
-		if(gas[O.material.type] <= O.material.gas_overlay_limit)
-			LAZYADD(graphic_remove, O)
+	if(LAZYLEN(graphic))
+		for(var/obj/effect/gas_overlay/O in graphic)
+			if(gas[O.material.type] <= O.material.gas_overlay_limit)
+				LAZYADD(graphic_remove, O)
 	for(var/g in gas)
 		//Overlay isn't applied for this gas, check if it's valid and needs to be added.
 		var/decl/material/mat = GET_DECL(g)
@@ -388,39 +378,21 @@
 			var/tile_overlay = tile_overlay_cache[g]
 			if(!(tile_overlay in graphic))
 				LAZYADD(graphic_add, tile_overlay)
-	. = 0
+	. = FALSE
 	//Apply changes
-	if(graphic_add && graphic_add.len)
-		graphic |= graphic_add
-		. = 1
-	if(graphic_remove && graphic_remove.len)
-		graphic -= graphic_remove
-		. = 1
-	if(graphic.len)
+	if(LAZYLEN(graphic_add))
+		LAZYADD(graphic, graphic_add)
+		. = TRUE
+	if(LAZYLEN(graphic_remove))
+		LAZYREMOVE(graphic, graphic_remove)
+		. = TRUE
+	if(LAZYLEN(graphic))
 		var/pressure_mod = clamp(return_pressure() / ONE_ATMOSPHERE, 0, 2)
 		for(var/obj/effect/gas_overlay/O in graphic)
 			var/concentration_mod = clamp(gas[O.material.type] / total_moles, 0.1, 1)
 			var/new_alpha = min(230, round(pressure_mod * concentration_mod * 180, 5))
 			if(new_alpha != O.alpha)
 				O.update_alpha_animation(new_alpha)
-
-//Simpler version of merge(), adjusts gas amounts directly and doesn't account for temperature or group_multiplier.
-/datum/gas_mixture/proc/add(datum/gas_mixture/right_side)
-	for(var/g in right_side.gas)
-		gas[g] += right_side.gas[g]
-
-	update_values()
-	return 1
-
-
-//Simpler version of remove(), adjusts gas amounts directly and doesn't account for group_multiplier.
-/datum/gas_mixture/proc/subtract(datum/gas_mixture/right_side)
-	for(var/g in right_side.gas)
-		gas[g] -= right_side.gas[g]
-
-	update_values()
-	return 1
-
 
 //Multiply all gas amounts by a factor.
 /datum/gas_mixture/proc/multiply(factor)
@@ -532,6 +504,7 @@
 	return 1
 
 /datum/gas_mixture/proc/get_mass()
+	. = 0
 	for(var/g in gas)
 		var/decl/material/mat = GET_DECL(g)
 		. += gas[g] * mat.molar_mass * group_multiplier
@@ -540,6 +513,7 @@
 	var/M = get_total_moles()
 	if(M)
 		return get_mass()/M
+	return 0
 
 ///Returns a color blended from all materials the gas mixture contains
 /datum/gas_mixture/proc/get_overall_color()

@@ -17,7 +17,7 @@
 	name = "statuette"
 	icon_state = "statuette"
 	icon = 'icons/obj/xenoarchaeology.dmi'
-	material = /decl/material/solid/stone/cult
+	material = /decl/material/solid/stone/basalt
 	var/charges = 0
 	var/list/nearby_mobs = list()
 	var/last_bloodcall = 0
@@ -34,14 +34,13 @@
 
 /obj/item/vampiric/Destroy()
 	STOP_PROCESSING(SSobj, src)
-	global.listening_objects -= src
 	return ..()
 
 /obj/item/vampiric/Process()
 	//see if we've identified anyone nearby
 	if(world.time - last_bloodcall > bloodcall_interval && nearby_mobs.len)
-		var/mob/living/carbon/human/M = pop(nearby_mobs)
-		if(M in view(7,src) && M.health > 20)
+		var/mob/living/human/M = pop(nearby_mobs)
+		if((M in viewers(7,src)) && M.current_health > 20)
 			if(prob(50))
 				bloodcall(M)
 				nearby_mobs.Add(M)
@@ -87,12 +86,12 @@
 		if(wight_check_index > shadow_wights.len)
 			wight_check_index = 1
 
-		var/obj/effect/shadow_wight/W = shadow_wights[wight_check_index]
-		if(isnull(W))
+		var/obj/effect/shadow_wight/wight = shadow_wights[wight_check_index]
+		if(isnull(wight))
 			shadow_wights.Remove(wight_check_index)
-		else if(isnull(W.loc))
+		else if(isnull(wight.loc))
 			shadow_wights.Remove(wight_check_index)
-		else if(get_dist(W, src) > 10)
+		else if(get_dist(wight, src) > 10)
 			shadow_wights.Remove(wight_check_index)
 
 /obj/item/vampiric/hear_talk(mob/M, text)
@@ -100,7 +99,7 @@
 	if(world.time - last_bloodcall >= bloodcall_interval && (M in view(7, src)))
 		bloodcall(M)
 
-/obj/item/vampiric/proc/bloodcall(var/mob/living/carbon/human/M)
+/obj/item/vampiric/proc/bloodcall(var/mob/living/human/M)
 	last_bloodcall = world.time
 	if(istype(M))
 		playsound(src.loc, pick('sound/hallucinations/wail.ogg','sound/hallucinations/veryfar_noise.ogg','sound/hallucinations/far_noise.ogg'), 50, 1, -3)
@@ -168,7 +167,7 @@
 /obj/effect/shadow_wight/Process()
 	if(loc)
 		step_rand(src)
-		var/mob/living/carbon/M = locate() in src.loc
+		var/mob/living/M = locate() in src.loc
 		if(M)
 			playsound(src.loc, pick('sound/hallucinations/behind_you1.ogg',\
 			'sound/hallucinations/behind_you2.ogg',\

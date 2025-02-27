@@ -30,7 +30,7 @@
 
 	if(/datum/nano_module/alarm_monitor/all in silicon_subsystems)
 		for(var/datum/alarm_handler/AH in SSalarm.all_handlers)
-			AH.register_alarm(src, /mob/living/silicon/proc/receive_alarm)
+			AH.register_alarm(src, TYPE_PROC_REF(/mob/living/silicon, receive_alarm))
 			queued_alarms[AH] = list()	// Makes sure alarms remain listed in consistent order
 
 /mob/living/silicon/proc/init_subsystem(var/subsystem_type)
@@ -81,14 +81,6 @@
 	for(var/subsystem_type in silicon_subsystems)
 		var/stat_silicon_subsystem/SSS = silicon_subsystems[subsystem_type]
 		stat(SSS)
-
-/mob/living/silicon/proc/get_subsystem_from_path(subsystem_type)
-	var/stat_silicon_subsystem/SSS = silicon_subsystems[subsystem_type]
-	if(!istype(SSS))
-		return 0
-	if(!istype(SSS.subsystem, subsystem_type))
-		return 0
-	return SSS.subsystem
 
 /stat_silicon_subsystem
 	parent_type = /atom/movable

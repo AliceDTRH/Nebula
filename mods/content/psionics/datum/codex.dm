@@ -1,11 +1,11 @@
 /datum/codex_entry/cuchulain_foundation
 	name = "Cuchulain Foundation"
 	associated_paths = list(
-		/obj/item/storage/briefcase/foundation,
+		/obj/item/briefcase/foundation,
 		/obj/item/gun/projectile/revolver/foundation,
 		/obj/item/card/id/foundation,
 		/obj/item/card/id/foundation_civilian,
-		/obj/item/clothing/suit/storage/toggle/labcoat/foundation,
+		/obj/item/clothing/suit/toggle/labcoat/foundation,
 		/obj/item/chems/drinks/glass2/coffeecup/foundation
 	)
 	lore_text = "The Cuchulain Foundation is a non-profit body based out of Neptune orbit. Their logo is \
@@ -26,7 +26,7 @@
 	name = "Psionics"
 	associated_strings = list("psychic powers")
 	associated_paths = list(
-		/obj/item/book/manual/psionics,
+		/obj/item/book/fluff/psionics,
 		/obj/item/clothing/head/helmet/space/psi_amp,
 		/obj/item/clothing/head/helmet/space/psi_amp/lesser
 	)

@@ -1,8 +1,8 @@
 // Pretty much everything here is stolen from the dna scanner FYI
 /obj/machinery/bodyscanner
-	var/mob/living/carbon/human/occupant
+	var/mob/living/human/occupant
 	var/locked
-	name = "Body Scanner"
+	name = "body scanner"
 	icon = 'icons/obj/Cryogenic2.dmi'
 	icon_state = "body_scanner_0"
 	density = TRUE
@@ -11,7 +11,6 @@
 	active_power_usage = 10000	//10 kW. It's a big all-body scanner.
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
-	stat_immune = 0
 	var/open_sound = 'sound/machines/podopen.ogg'
 	var/close_sound = 'sound/machines/podclose.ogg'
 
@@ -20,10 +19,10 @@
 	for(var/obj/O in get_contained_external_atoms())
 		O.dropInto(loc)
 
-/obj/machinery/bodyscanner/examine(mob/user)
+/obj/machinery/bodyscanner/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (occupant && user.Adjacent(src))
-		occupant.examine(arglist(args))
+		occupant.get_examine_strings(user, distance, infix, suffix)
 
 /obj/machinery/bodyscanner/relaymove(mob/user)
 	..()
@@ -68,12 +67,10 @@
 	if(istype(new_state))
 		updateUsrDialog()
 
-/obj/machinery/bodyscanner/attackby(obj/item/grab/G, user)
-	if(istype(G))
-		var/mob/M = G.get_affecting_mob()
-		if(!M || !user_can_move_target_inside(M, user))
-			return
-		qdel(G)
+/obj/machinery/bodyscanner/grab_attack(obj/item/grab/grab, mob/user)
+	var/mob/living/victim = grab.get_affecting_mob()
+	if(istype(victim) && user_can_move_target_inside(victim, user))
+		qdel(grab)
 		return TRUE
 	return ..()
 
@@ -111,7 +108,7 @@
 		icon_state = "body_scanner_2"
 
 //Like grap-put, but for mouse-drop.
-/obj/machinery/bodyscanner/receive_mouse_drop(var/atom/dropping, var/mob/user)
+/obj/machinery/bodyscanner/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && isliving(dropping))
 		var/mob/living/M = dropping

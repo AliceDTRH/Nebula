@@ -8,7 +8,7 @@
 	slot_flags = SLOT_LOWER_BODY
 	w_class = ITEM_SIZE_SMALL
 	material = /decl/material/solid/metal/aluminium
-	origin_tech = "{'magnets':1,'engineering':1}"
+	origin_tech = @'{"magnets":1,"engineering":1}'
 	action_button_name = "Toggle T-Ray scanner"
 
 	var/scan_range = 3
@@ -39,7 +39,7 @@
 /obj/item/t_scanner/afterattack(atom/target, mob/user, proximity_flag, click_parameters)
 	var/obj/structure/disposalpipe/D = target
 	if(D && istype(D))
-		to_chat(user, "<span class='info'>Pipe segment integrity: [(D.health / 10) * 100]%</span>")
+		to_chat(user, "<span class='info'>Pipe segment integrity: [(D.current_health / 10) * 100]%</span>")
 
 /obj/item/t_scanner/proc/set_active(var/active)
 	on = active
@@ -70,15 +70,15 @@
 	var/list/update_remove = active_scanned - scanned
 
 	//Add new overlays
-	for(var/obj/O in update_add)
-		var/image/overlay = get_overlay(O)
-		active_scanned[O] = overlay
+	for(var/to_show in update_add)
+		var/image/overlay = get_overlay(to_show)
+		active_scanned[to_show] = overlay
 		user_client.images += overlay
 
 	//Remove stale overlays
-	for(var/obj/O in update_remove)
-		user_client.images -= active_scanned[O]
-		active_scanned -= O
+	for(var/to_remove in update_remove)
+		user_client.images -= active_scanned[to_remove]
+		active_scanned -= to_remove
 
 //creates a new overlay for a scanned object
 /obj/item/t_scanner/proc/get_overlay(var/atom/movable/scanned)
@@ -101,9 +101,9 @@
 
 		if(ismob(scanned))
 			if(ishuman(scanned))
-				var/mob/living/carbon/human/H = scanned
-				if(H.get_bodytype().appearance_flags & HAS_SKIN_COLOR)
-					I.color = H.skin_colour
+				var/mob/living/human/H = scanned
+				if(H.get_bodytype()?.appearance_flags & HAS_SKIN_COLOR)
+					I.color = H.get_skin_colour()
 					I.icon = 'icons/mob/mob.dmi'
 					I.icon_state = "phaseout"
 			var/mob/M = scanned
@@ -120,6 +120,15 @@
 	if(overlay_cache.len > OVERLAY_CACHE_LEN)
 		overlay_cache.Cut(1, overlay_cache.len-OVERLAY_CACHE_LEN-1)
 
+/obj/item/t_scanner/proc/can_scan_mob(mob/victim)
+	if(isobserver(victim))
+		return FALSE
+	if(victim.is_cloaked())
+		return TRUE
+	if(victim.alpha < 255)
+		return TRUE
+	return FALSE
+
 /obj/item/t_scanner/proc/get_scanned_objects(var/scan_dist)
 	. = list()
 
@@ -128,20 +137,14 @@
 
 	for(var/turf/T in range(scan_range, center))
 		for(var/mob/M in T.contents)
-			if(ishuman(M))
-				var/mob/living/carbon/human/H = M
-				if(H.is_cloaked())
-					. += M
-			else if(M.alpha < 255)
-				. += M
-			else if(round_is_spooky() && isobserver(M))
+			if(can_scan_mob(M))
 				. += M
 
 		if(!!T.is_plating())
 			continue
 
 		for(var/obj/O in T.contents)
-			if(O.level != 1)
+			if(O.level != LEVEL_BELOW_PLATING)
 				continue
 			if(!O.invisibility)
 				continue //if it's already visible don't need an overlay for it

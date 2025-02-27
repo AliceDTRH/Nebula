@@ -4,7 +4,7 @@
  *   For the most part I think any test can be created that doesn't require a client in a mob or require a game mode other then extended
  *
  *   The easiest way to make effective tests is to create a "template" if you intend to run the same test over and over and make your actual
- *   tests be a "child object" of those templates.  Be sure and name your templates with the word "template" somewhere in var/name.
+ *   tests be a "child object" of those templates.  Be sure to set abstract_type on your template type.
  *
  *   The goal is to have all sorts of tests that run and to run them as quickly as possible.
  *
@@ -51,8 +51,8 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 // Templates aren't intended to be ran but just serve as a way to create child objects of it with inheritable tests for quick test creation.
 
 /datum/unit_test
+	abstract_type = /datum/unit_test
 	var/name = "template - should not be ran."
-	var/template        // Treat the unit test as a template if its type is the same as the value of this var
 	var/disabled = 0    // If we want to keep a unit test in the codebase but not run it for some reason.
 	var/async = 0       // If the check can be left to do it's own thing, you must define a check_result() proc if you use this.
 	var/reported = 0	// If it's reported a success or failure.  Any tests that have not are assumed to be failures.
@@ -109,7 +109,11 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 	var/cleanup_failed = FALSE
 
 	if(!async && check_cleanup) // Async tests run at the same time, so cleaning up after any one completes risks breaking other tests
-		var/ignored_types = list(/atom/movable/lighting_overlay, /obj/abstract/landmark/test)
+		var/static/list/ignored_types = list(
+			/atom/movable/lighting_overlay,
+			/obj/effect/decal/cleanable/dirt,
+			/obj/abstract/landmark/test
+		)
 		var/z_levels = list()
 		var/turf/safe = get_safe_turf()
 		var/turf/space = get_space_turf()
@@ -117,7 +121,7 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 		z_levels |= space.z
 
 		for(var/z_level in z_levels)
-			for(var/T in block(locate(1, 1, z_level), locate(world.maxx, world.maxy, z_level)))
+			for(var/T in Z_ALL_TURFS(z_level))
 				for(var/atom in T)
 					if(is_type_in_list(atom, ignored_types))
 						continue
@@ -132,7 +136,7 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 /datum/unit_test/proc/get_safe_turf()
 	check_cleanup = TRUE
 	if(!safe_landmark)
-		for(var/landmark in global.landmarks_list)
+		for(var/landmark in global.all_landmarks)
 			if(istype(landmark, /obj/abstract/landmark/test/safe_turf))
 				safe_landmark = landmark
 				break
@@ -141,7 +145,7 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 /datum/unit_test/proc/get_space_turf()
 	check_cleanup = TRUE
 	if(!space_landmark)
-		for(var/landmark in global.landmarks_list)
+		for(var/landmark in global.all_landmarks)
 			if(istype(landmark, /obj/abstract/landmark/test/space_turf))
 				space_landmark = landmark
 				break
@@ -151,21 +155,12 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 /datum/unit_test/proc/subsystems_to_await()
 	return list()
 
-/proc/load_unit_test_changes()
-/*
-	//This takes about 60 seconds to run during unit testing and is only used for the ZAS vacume check on The Asteroid.
-	if(config.roundstart_level_generation != 1)
-		log_unit_test("Overiding Configuration option for Asteroid Generation to ENABLED")
-		config.roundstart_level_generation = 1	// The default map requires it, the example config doesn't have this enabled.
- */
-
 /proc/get_test_datums()
 	. = list()
-	for(var/test in subtypesof(/datum/unit_test))
-		var/datum/unit_test/d = test
-		if(test == initial(d.template))
+	for(var/datum/unit_test/test as anything in subtypesof(/datum/unit_test))
+		if(TYPE_IS_ABSTRACT(test))
 			continue
-		. += d
+		. += test
 
 /proc/do_unit_test(datum/unit_test/test, end_time, skip_disabled_tests = TRUE)
 	if(test.disabled && skip_disabled_tests)
@@ -216,8 +211,8 @@ var/global/ascii_reset = "[ascii_esc]\[0m"
 	if(!check_rights(R_DEBUG))
 		return
 
-	log_and_message_admins("has started the unit test '[initial(unit_test_type.name)]'")
 	var/datum/unit_test/test = new unit_test_type
+	log_and_message_admins("has started the unit test '[test.name]'")
 	var/end_unit_tests = world.time + MAX_UNIT_TEST_RUN_TIME
 	do_unit_test(test, end_unit_tests, FALSE)
 	if(test.async)

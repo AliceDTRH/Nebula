@@ -18,19 +18,28 @@
 	var/procname = null
 	var/atom/movable/target = null
 	var/check_flags = 0
-	var/active = 0
+	var/active = FALSE
 	var/obj/screen/action_button/button = null
 	var/button_icon = 'icons/obj/action_buttons/actions.dmi'
 	var/button_icon_state = "default"
+	/// The icon to use for the background icon state. Defaults to button_icon if unset.
+	var/background_icon = 'icons/obj/action_buttons/actions.dmi'
 	var/background_icon_state = "bg_default"
 	var/mob/living/owner
 
 /datum/action/New(var/Target)
 	target = Target
+	background_icon ||= button_icon
 
 /datum/action/Destroy()
 	if(owner)
 		Remove(owner)
+	QDEL_NULL(button)
+	if(target)
+		var/obj/item/target_item = target
+		if(istype(target_item) && target_item.action == src)
+			target_item.action = null
+		target = null
 	return ..()
 
 /datum/action/proc/SetTarget(var/atom/Target)
@@ -75,16 +84,13 @@
 				Deactivate()
 		if(AB_GENERIC)
 			if(target && procname)
-				call(target,procname)(usr)
+				call(target,procname)(owner)
 	return
 
 /datum/action/proc/Activate()
 	return
 
 /datum/action/proc/Deactivate()
-	return
-
-/datum/action/proc/ProcessAction()
 	return
 
 /datum/action/proc/CheckRemoval(mob/living/user) // 1 if action is no longer valid for this mob and should be removed
@@ -103,7 +109,7 @@
 		if(HAS_STATUS(owner, STAT_STUN))
 			return 0
 	if(check_flags & AB_CHECK_LYING)
-		if(owner.lying)
+		if(owner.current_posture.prone)
 			return 0
 	if(check_flags & AB_CHECK_ALIVE)
 		if(owner.stat)
@@ -118,83 +124,6 @@
 
 /datum/action/proc/UpdateDesc()
 	return desc
-
-/obj/screen/action_button
-	var/datum/action/owner
-	screen_loc = "LEFT,TOP"
-
-/obj/screen/action_button/Click(location,control,params)
-	if(owner && usr && usr.next_move < world.time)
-		owner.Trigger()
-		return TRUE
-	return FALSE
-
-/obj/screen/action_button/proc/UpdateIcon()
-	if(!owner)
-		return
-	icon = owner.button_icon
-	icon_state = owner.background_icon_state
-
-	overlays.Cut()
-	var/image/img
-	if(owner.action_type == AB_ITEM && owner.target)
-		var/obj/item/I = owner.target
-		img = image(I.icon, src , I.icon_state)
-	else if(owner.button_icon && owner.button_icon_state)
-		img = image(owner.button_icon,src,owner.button_icon_state)
-	img.pixel_x = 0
-	img.pixel_y = 0
-	overlays += img
-
-	if(!owner.IsAvailable())
-		color = rgb(128,0,0,128)
-	else
-		color = rgb(255,255,255,255)
-
-/obj/screen/action_button/MouseEntered(location, control, params)
-	openToolTip(user = usr, tip_src = src, params = params, title = name, content = desc)
-	..()
-
-/obj/screen/action_button/MouseDown()
-	closeToolTip(usr)
-	..()
-
-/obj/screen/action_button/MouseExited()
-	closeToolTip(usr)
-	..()
-
-//Hide/Show Action Buttons ... Button
-/obj/screen/action_button/hide_toggle
-	name = "Hide Buttons"
-	icon = 'icons/obj/action_buttons/actions.dmi'
-	icon_state = "bg_default"
-	var/hidden = 0
-
-/obj/screen/action_button/hide_toggle/Click()
-	usr.hud_used.action_buttons_hidden = !usr.hud_used.action_buttons_hidden
-
-	hidden = usr.hud_used.action_buttons_hidden
-	if(hidden)
-		name = "Show Buttons"
-	else
-		name = "Hide Buttons"
-	UpdateIcon()
-	usr.update_action_buttons()
-
-
-/obj/screen/action_button/hide_toggle/proc/InitialiseIcon(var/mob/living/user)
-	if(isalien(user))
-		icon_state = "bg_alien"
-	else
-		icon_state = "bg_default"
-	UpdateIcon()
-	return
-
-/obj/screen/action_button/hide_toggle/UpdateIcon()
-	overlays.Cut()
-	var/image/img = image(icon,src,hidden?"show":"hide")
-	overlays += img
-	return
 
 //This is the proc used to update all the action buttons. Properly defined in /mob/living/
 /mob/proc/update_action_buttons()
@@ -212,16 +141,6 @@
 	var/coord_row = "[-1 - row]"
 	var/coord_row_offset = AB_NORTH_OFFSET
 	return "LEFT[coord_col]:[coord_col_offset],TOP[coord_row]:[coord_row_offset]"
-
-/datum/hud/proc/SetButtonCoords(var/obj/screen/button,var/number)
-	var/row = round((number-1)/AB_MAX_COLUMNS)
-	var/col = ((number - 1)%(AB_MAX_COLUMNS)) + 1
-	var/x_offset = 32*(col-1) + AB_WEST_OFFSET + 2*col
-	var/y_offset = -32*(row+1) + AB_NORTH_OFFSET
-
-	var/matrix/M = matrix()
-	M.Translate(x_offset,y_offset)
-	button.transform = M
 
 //Presets for item actions
 /datum/action/item_action

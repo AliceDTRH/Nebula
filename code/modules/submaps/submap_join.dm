@@ -54,7 +54,7 @@
 	if(!check_general_join_blockers(joining, job))
 		return
 
-	log_debug("Player: [joining] is now offsite rank: [job.title] ([name]), JCP:[job.current_positions], JPL:[job.total_positions]")
+	log_debug("Player: [joining] is now offsite job: [job.title] ([name]), JCP:[job.current_positions], JPL:[job.total_positions]")
 	joining.faction = name
 	job.current_positions++
 
@@ -65,7 +65,7 @@
 		if(istype(other_mob))
 			character = other_mob
 
-		var/mob/living/carbon/human/user_human
+		var/mob/living/human/user_human
 		if(ishuman(character))
 			user_human = character
 			if(job.branch && mil_branches)
@@ -74,12 +74,12 @@
 
 			// We need to make sure to use the abstract instance here; it's not the same as the one we were passed.
 			character.skillset.obtain_from_client(SSjobs.get_by_path(job.type), character.client)
-			job.equip(character, "")
+			job.equip_job(character)
 			job.apply_fingerprints(character)
 			var/list/spawn_in_storage = SSjobs.equip_custom_loadout(character, job)
 			if(spawn_in_storage)
-				for(var/decl/loadout_option/G in spawn_in_storage)
-					G.spawn_in_storage_or_drop(user_human, user_human.client.prefs.Gear()[G.name])
+				for(var/decl/loadout_option/gear in spawn_in_storage)
+					gear.spawn_in_storage_or_drop(user_human, user_human.client.prefs.Gear()[gear.uid])
 			SScustomitems.equip_custom_items(user_human)
 
 		character.job = job.title
@@ -97,12 +97,12 @@
 		if(istype(ojob) && ojob.info)
 			to_chat(character, ojob.info)
 
-		if(user_human && user_human.disabilities & NEARSIGHTED)
+		if(user_human && user_human.has_genetic_condition(GENE_COND_NEARSIGHTED)) // is this even necessary with the new aspects system?
 			var/equipped = user_human.equip_to_slot_or_del(new /obj/item/clothing/glasses/prescription(user_human), slot_glasses_str)
 			if(equipped)
-				var/obj/item/clothing/glasses/G = user_human.get_equipped_item(slot_glasses_str)
-				if(istype(G))
-					G.prescription = 7
+				var/obj/item/clothing/glasses/glasses = user_human.get_equipped_item(slot_glasses_str)
+				if(istype(glasses))
+					glasses.prescription = 7
 
 		BITSET(character.hud_updateflag, ID_HUD)
 		BITSET(character.hud_updateflag, IMPLOYAL_HUD)
@@ -111,9 +111,9 @@
 		SSticker.mode.handle_offsite_latejoin(character)
 		global.universe.OnPlayerLatejoin(character)
 		log_and_message_admins("has joined the round as offsite role [character.mind.assigned_role].", character)
-		callHook("submap_join", list(job, character))
+		RAISE_EVENT(/decl/observ/submap_join, src, character, job)
 		if(character.cannot_stand()) equip_wheelchair(character)
-		job.post_equip_rank(character, job.title)
+		job.post_equip_job_title(character, job.title)
 		qdel(joining)
 
 	return character

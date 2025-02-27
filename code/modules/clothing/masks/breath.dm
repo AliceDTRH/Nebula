@@ -12,8 +12,8 @@
 	down_body_parts_covered = null
 	down_item_flags = ITEM_FLAG_THICKMATERIAL
 	pull_mask = 1
-	origin_tech = "{'materials':1}"
-	material = /decl/material/solid/plastic
+	origin_tech = @'{"materials":1}'
+	material = /decl/material/solid/organic/plastic
 
 /obj/item/clothing/mask/breath/medical
 	desc = "A close-fitting sterile mask that can be manually connected to an air supply for treatment."
@@ -22,12 +22,12 @@
 	permeability_coefficient = 0.01
 
 /obj/item/clothing/mask/breath/emergency
-	desc = "A close-fitting mask that is used by the wallmounted emergency oxygen pump."
+	desc = "A close-fitting mask that is used by the wall-mounted emergency oxygen pump."
 	name = "emergency mask"
 	permeability_coefficient = 0.50
 
 /obj/item/clothing/mask/breath/scba
-	desc = "A close-fitting self contained breathing apparatus mask. Can be connected to an air supply."
+	desc = "A close-fitting self-contained breathing apparatus mask. Can be connected to an air supply."
 	name = "\improper SCBA mask"
 	icon = 'icons/clothing/mask/breath_scuba.dmi'
 	item_flags = ITEM_FLAG_AIRTIGHT|ITEM_FLAG_FLEXIBLEMATERIAL

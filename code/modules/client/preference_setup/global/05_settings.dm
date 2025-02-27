@@ -11,11 +11,11 @@
 	pref.slot_names =        R.read("slot_names")
 	pref.preference_values = R.read("preference_values")
 
-/datum/category_item/player_setup_item/player_global/settings/save_preferences(datum/pref_record_writer/W)
-	W.write("lastchangelog",     pref.lastchangelog)
-	W.write("default_slot",      pref.default_slot)
-	W.write("slot_names",        pref.slot_names)
-	W.write("preference_values", pref.preference_values)
+/datum/category_item/player_setup_item/player_global/settings/save_preferences(datum/pref_record_writer/writer)
+	writer.write("lastchangelog",     pref.lastchangelog)
+	writer.write("default_slot",      pref.default_slot)
+	writer.write("slot_names",        pref.slot_names)
+	writer.write("preference_values", pref.preference_values)
 
 /datum/category_item/player_setup_item/player_global/settings/sanitize_preferences()
 	// Ensure our preferences are lists.
@@ -42,7 +42,7 @@
 			pref.preference_values -= key
 
 	pref.lastchangelog	= sanitize_text(pref.lastchangelog, initial(pref.lastchangelog))
-	pref.default_slot	= sanitize_integer(pref.default_slot, 1, config.character_slots, initial(pref.default_slot))
+	pref.default_slot	= sanitize_integer(pref.default_slot, 1, get_config_value(/decl/config/num/character_slots), initial(pref.default_slot))
 
 /datum/category_item/player_setup_item/player_global/settings/content(var/mob/user)
 	. = list()
@@ -61,7 +61,7 @@
 		var/selected_option = pref_mob.get_preference_value(client_pref.key)
 		for(var/option in client_pref.options)
 			var/is_selected = selected_option == option
-			. += "<td><a class='[is_selected ? "linkOn" : ""]' href='?src=\ref[src];pref=[client_pref.key];value=[option]'><b>[option]</b></a>"
+			. += "<td><a class='[is_selected ? "linkOn" : ""]' href='byond://?src=\ref[src];pref=[client_pref.key];value=[option]'><b>[option]</b></a>"
 
 		. += "</tr>"
 

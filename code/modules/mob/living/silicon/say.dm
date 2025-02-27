@@ -1,34 +1,27 @@
-/mob/living/silicon/say(var/message, var/sanitize = 1)
-	return ..(sanitize ? sanitize(message) : message)
+/mob/living/silicon/get_radios(var/message_mode)
+	. = ..()
+	if(message_mode && silicon_radio)
+		LAZYDISTINCTADD(., silicon_radio)
 
-/mob/living/silicon/handle_message_mode(message_mode, message, verb, speaking, used_radios, alt_name)
-	log_say("[key_name(src)] : [message]")
+/mob/living/silicon/robot/get_radios(var/message_mode)
+	. = ..()
+	if((silicon_radio in .) && !is_component_functioning("radio"))
+		to_chat(src, SPAN_WARNING("Your radio isn't functional at this time."))
+		LAZYREMOVE(., silicon_radio)
 
-/mob/living/silicon/robot/handle_message_mode(message_mode, message, verb, speaking, used_radios, alt_name)
-	if(message_mode)
-		if(!is_component_functioning("radio"))
-			to_chat(src, SPAN_WARNING("Your radio isn't functional at this time."))
-		else
-			used_radios += silicon_radio
-		. = TRUE
+/mob/living/silicon/ai/handle_mob_specific_speech(message, message_mode, verb = "says", decl/language/speaking)
+	if(message_mode == MESSAGE_MODE_DEPARTMENT)
+		holopad_talk(message, verb, speaking)
+		return TRUE
 	return ..()
 
-/mob/living/silicon/ai/handle_message_mode(message_mode, message, verb, speaking, used_radios, alt_name)
-	if(message_mode)
-		if(message_mode == MESSAGE_MODE_DEPARTMENT)
-			holopad_talk(message, verb, speaking)
-		else if (ai_radio.disabledAi || !has_power() || stat)
+/mob/living/silicon/ai/get_radios(var/message_mode)
+	. = ..()
+	if(ai_radio)
+		if(ai_radio.disabledAi || !has_power() || stat)
 			to_chat(src, SPAN_DANGER("System Error - Transceiver Disabled."))
 		else
-			used_radios += ai_radio
-		. = TRUE
-	..()
-
-/mob/living/silicon/pai/handle_message_mode(message_mode, message, verb, speaking, used_radios, alt_name)
-	if(message_mode)
-		used_radios += silicon_radio
-		. = TRUE
-	..()
+			LAZYDISTINCTADD(., ai_radio)
 
 /mob/living/silicon/say_quote(var/text)
 	var/ending = copytext(text, length(text))
@@ -43,7 +36,7 @@
 #define IS_PAI 3
 
 /mob/living/silicon/say_understands(mob/speaker, decl/language/speaking)
-	return (!speaking && (iscarbon(speaker) || issilicon(speaker) || isbrain(speaker))) || ..()
+	return (!speaking && (ishuman(speaker) || issilicon(speaker) || isbrain(speaker))) || ..()
 
 //For holopads only. Usable by AI.
 /mob/living/silicon/ai/proc/holopad_talk(var/message, verb, decl/language/speaking)
@@ -75,7 +68,7 @@
 			var/list/hearturfs = list()
 
 			for(var/I in hear)
-				if(istype(I, /mob/))
+				if(ismob(I))
 					var/mob/M = I
 					listening += M
 					hearturfs += M.locs[1]
@@ -89,10 +82,10 @@
 
 			for(var/mob/M in global.player_list)
 				if(M.stat == DEAD && M.get_preference_value(/datum/client_preference/ghost_ears) == PREF_ALL_SPEECH)
-					M.hear_say(message,verb,speaking,null,null, src)
+					M.hear_say(message,verb,speaking, null, src)
 					continue
 				if(M.loc && (M.locs[1] in hearturfs))
-					M.hear_say(message,verb,speaking,null,null, src)
+					M.hear_say(message,verb,speaking, null, src)
 
 
 	else

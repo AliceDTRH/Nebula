@@ -11,6 +11,13 @@
 		"senescent" =      45
 	)
 
+/decl/butchery_data/humanoid/serpentid
+	skin_material     = /decl/material/solid/organic/skin/insect
+
+	bone_material     = null
+	bone_amount       = null
+	bone_type         = null
+
 /decl/species/serpentid
 	name = SPECIES_SERPENTID
 	name_plural = "Serpentids"
@@ -22,9 +29,7 @@
 
 	hidden_from_codex = TRUE
 	silent_steps = TRUE
-	age_descriptor = /datum/appearance_descriptor/age/serpentid
-	skin_material = /decl/material/solid/skin/insect
-	bone_material = null
+	butchery_data = /decl/butchery_data/humanoid/serpentid
 	speech_sounds = list('sound/voice/bug.ogg')
 	speech_chance = 2
 	warning_low_pressure = 50
@@ -39,25 +44,15 @@
 	)
 
 	rarity_value = 4
-	hud_type = /datum/hud_data/serpentid
+	species_hud = /datum/hud_data/serpentid
 	total_health = 200
 	brute_mod = 0.9
 	burn_mod =  1.35
 
-	natural_armour_values = list(
-		ARMOR_MELEE = ARMOR_MELEE_KNIVES,
-		ARMOR_BULLET = ARMOR_BALLISTIC_MINOR,
-		ARMOR_BOMB = ARMOR_BOMB_PADDED,
-		ARMOR_BIO = ARMOR_BIO_SHIELDED,
-		ARMOR_RAD = 0.5*ARMOR_RAD_MINOR
-		)
 	gluttonous = GLUT_SMALLER
 	strength = STR_HIGH
 	breath_pressure = 25
 	blood_volume = 840
-	heat_level_1 = 410 //Default 360 - Higher is better
-	heat_level_2 = 440 //Default 400
-	heat_level_3 = 800 //Default 1000
 	species_flags = SPECIES_FLAG_NO_SLIP | SPECIES_FLAG_NO_BLOCK | SPECIES_FLAG_NO_MINOR_CUT | SPECIES_FLAG_NEED_DIRECT_ABSORB
 	spawn_flags = SPECIES_CAN_JOIN | SPECIES_IS_WHITELISTED
 	bump_flag = HEAVY
@@ -65,47 +60,26 @@
 	swap_flags = ALLMOBS
 	move_trail = /obj/effect/decal/cleanable/blood/tracks/snake
 
-	unarmed_attacks = list(/decl/natural_attack/serpentid)
-	appearance_descriptors = list(
-		/datum/appearance_descriptor/height =      1.75,
-		/datum/appearance_descriptor/body_length = 1
-		)
 	pain_emotes_with_pain_level = list(
 			list(/decl/emote/audible/bug_hiss) = 40
 	)
 	var/list/skin_overlays = list()
 
-/decl/species/serpentid/can_overcome_gravity(var/mob/living/carbon/human/H)
+#define SERPENTID_FLIGHT_PRESSURE_THRESHOLD 80
+/decl/species/serpentid/can_overcome_gravity(var/mob/living/human/H)
 	var/datum/gas_mixture/mixture = H.loc.return_air()
-
-	if(mixture)
-		var/pressure = mixture.return_pressure()
-		if(pressure > 50)
-			var/turf/below = GetBelow(H)
-			var/turf/T = H.loc
-			if(!T.CanZPass(H, DOWN) || !below.CanZPass(H, DOWN))
-				return TRUE
-
+	var/pressure = mixture?.return_pressure()
+	if(pressure >= SERPENTID_FLIGHT_PRESSURE_THRESHOLD)
+		return TRUE
 	return FALSE
+#undef SERPENTID_FLIGHT_PRESSURE_THRESHOLD
 
-/decl/species/serpentid/handle_environment_special(var/mob/living/carbon/human/H)
-	if(!H.on_fire && H.fire_stacks < 2)
-		H.fire_stacks += 0.2
+/decl/species/serpentid/handle_environment_special(var/mob/living/human/H)
+	if(!H.is_on_fire() && H.get_fire_intensity() < 2)
+		H.adjust_fire_intensity(0.2)
 	return
 
-/decl/species/serpentid/can_fall(var/mob/living/carbon/human/H)
-	var/datum/gas_mixture/mixture = H.loc.return_air()
-	var/turf/T = GetBelow(H.loc)
-	for(var/obj/O in T)
-		if(istype(O, /obj/structure/stairs))
-			return TRUE
-	if(mixture)
-		var/pressure = mixture.return_pressure()
-		if(pressure > 80)
-			return FALSE
-	return TRUE
-
-/decl/species/serpentid/handle_fall_special(var/mob/living/carbon/human/H, var/turf/landing)
+/decl/species/serpentid/handle_fall_special(var/mob/living/human/H, var/turf/landing)
 
 	var/datum/gas_mixture/mixture = H.loc.return_air()
 	var/turf/T = GetBelow(H.loc)
@@ -125,25 +99,16 @@
 
 	return FALSE
 
-/decl/species/serpentid/can_shred(var/mob/living/carbon/human/H, var/ignore_intent, var/ignore_antag)
-	if(!H.get_equipped_item(slot_handcuffed_str) || H.buckled)
-		return ..(H, ignore_intent, TRUE)
-	else
-		return 0
-
-/decl/species/serpentid/handle_movement_delay_special(var/mob/living/carbon/human/H)
+/decl/species/serpentid/handle_movement_delay_special(var/mob/living/human/victim)
 	var/tally = 0
-
-	H.remove_cloaking_source(src)
-
-	var/obj/item/organ/internal/B = H.get_organ(BP_BRAIN)
-	if(istype(B,/obj/item/organ/internal/brain/insectoid/serpentid))
-		var/obj/item/organ/internal/brain/insectoid/serpentid/N = B
-		tally += N.lowblood_tally * 2
+	victim.remove_mob_modifier(/decl/mob_modifier/cloaked, source = src)
+	var/obj/item/organ/internal/brain/insectoid/serpentid/bugbrain = victim.get_organ(BP_BRAIN, /obj/item/organ/internal/brain/insectoid/serpentid)
+	if(bugbrain)
+		tally += bugbrain.lowblood_tally * 2
 	return tally
 
 // todo: make this on bodytype
-/decl/species/serpentid/update_skin(var/mob/living/carbon/human/H)
+/decl/species/serpentid/update_skin(var/mob/living/human/H)
 
 	if(H.stat)
 		H.skin_state = SKIN_NORMAL
@@ -179,8 +144,8 @@
 			return(threat_image)
 
 
-/decl/species/serpentid/disarm_attackhand(var/mob/living/carbon/human/attacker, var/mob/living/carbon/human/target)
-	if(attacker.pulling_punches || target.lying || attacker == target)
+/decl/species/serpentid/disarm_attackhand(var/mob/living/human/attacker, var/mob/living/human/target)
+	if(attacker.pulling_punches || target.current_posture.prone || attacker == target)
 		return ..(attacker, target)
 	if(world.time < attacker.last_attack + 20)
 		to_chat(attacker, SPAN_NOTICE("You can't attack again so soon."))

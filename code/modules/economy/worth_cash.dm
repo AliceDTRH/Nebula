@@ -6,21 +6,38 @@
 	opacity = FALSE
 	density = FALSE
 	anchored = FALSE
-	force = 1
-	throwforce = 1
 	throw_speed = 1
 	throw_range = 2
 	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/cardboard //#TODO: Replace with paper
+	material = /decl/material/solid/organic/plastic
 	var/currency
 	var/absolute_worth = 0
 	var/can_flip = TRUE // Cooldown tracker for single-coin flips.
 	var/static/overlay_cap = 50 // Max overlays to show in this pile.
 
-/obj/item/cash/Initialize(ml, material_key)
+/obj/item/cash/Initialize(ml, material_key, starting_amount)
+
+	if(!isnull(starting_amount))
+		absolute_worth = starting_amount
+
 	. = ..()
+
 	if(!ispath(currency, /decl/currency))
 		currency = global.using_map.default_currency
+
+	if(!ispath(currency, /decl/currency))
+		return INITIALIZE_HINT_QDEL
+
+	if(isturf(loc))
+		for(var/obj/item/cash/other in loc)
+			if(other == src)
+				continue
+			if(other.currency != currency)
+				continue
+			other.absolute_worth += absolute_worth
+			other.update_from_worth()
+			return INITIALIZE_HINT_QDEL
+
 	if(absolute_worth > 0)
 		update_from_worth()
 
@@ -40,24 +57,26 @@
 
 /obj/item/cash/proc/get_worth()
 	var/decl/currency/cur = GET_DECL(currency)
-	. = FLOOR(absolute_worth / cur.absolute_value)
+	. = floor(absolute_worth / cur.absolute_value)
 
-/obj/item/cash/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/cash))
-		var/obj/item/cash/cash = W
+/obj/item/cash/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/cash))
+		var/obj/item/cash/cash = used_item
 		if(cash.currency != currency)
 			to_chat(user, SPAN_WARNING("You can't mix two different currencies, it would be uncivilized."))
-			return
-		if(user.try_unequip(W))
+			return TRUE
+		if(user.try_unequip(used_item))
 			adjust_worth(cash.absolute_worth)
 			var/decl/currency/cur = GET_DECL(currency)
 			to_chat(user, SPAN_NOTICE("You add [cash.get_worth()] [cur.name] to the pile."))
 			to_chat(user, SPAN_NOTICE("It holds [get_worth()] [cur.name] now."))
-			qdel(W)
+			qdel(used_item)
 		return TRUE
-	else if(istype(W, /obj/item/gun/launcher/money))
-		var/obj/item/gun/launcher/money/L = W
+	else if(istype(used_item, /obj/item/gun/launcher/money))
+		var/obj/item/gun/launcher/money/L = used_item
 		L.absorb_cash(src, user)
+		return TRUE
+	return ..()
 
 /obj/item/cash/on_update_icon()
 	. = ..()
@@ -122,13 +141,13 @@
 	if(QDELETED(src) || get_worth() <= 1 || user.incapacitated() || loc != user)
 		return TRUE
 
-	var/amount = input(usr, "How many [cur.name] do you want to take? (0 to [get_worth() - 1])", "Take Money", 20) as num
-	amount = round(clamp(amount, 0, FLOOR(get_worth() - 1)))
+	var/amount = input(user, "How many [cur.name] do you want to take? (0 to [get_worth() - 1])", "Take Money", 20) as num
+	amount = round(clamp(amount, 0, floor(get_worth() - 1)))
 
 	if(!amount || QDELETED(src) || get_worth() <= 1 || user.incapacitated() || loc != user)
 		return TRUE
 
-	amount = FLOOR(amount * cur.absolute_value)
+	amount = floor(amount * cur.absolute_value)
 	adjust_worth(-(amount))
 	var/obj/item/cash/cash = new(get_turf(src))
 	cash.set_currency(currency)
@@ -152,6 +171,7 @@
 
 /obj/item/cash/c200
 	absolute_worth = 200
+	w_class = ITEM_SIZE_SMALL // so that the money freezer doesn't overflow bc this is a pile instead of single bill
 
 /obj/item/cash/c500
 	absolute_worth = 500
@@ -174,7 +194,7 @@
 	icon_state = ICON_STATE_WORLD
 	desc = "A digital stick that holds an amount of money."
 	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(/decl/material/solid/metal/copper = MATTER_AMOUNT_TRACE, /decl/material/solid/silicon = MATTER_AMOUNT_TRACE)
 	var/max_worth = 5000
 	var/loaded_worth = 0
@@ -191,6 +211,11 @@
 		currency = global.using_map.default_currency
 		update_name_desc()
 	set_extension(src, lock_type)
+
+	if(grade && grade != "peasant")
+		var/image/I = image(icon, "[icon_state]-[grade]")
+		I.appearance_flags |= RESET_COLOR
+		add_overlay(I, TRUE)
 	update_icon()
 
 /obj/item/charge_stick/proc/update_name_desc()
@@ -206,32 +231,33 @@
 	loaded_worth += amt
 	if(loaded_worth < 0)
 		loaded_worth = 0
+	update_icon()
 
-/obj/item/charge_stick/examine(mob/user, distance)
+/obj/item/charge_stick/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..(user)
 	if(distance <= 2 || user == loc)
 		var/datum/extension/lockable/lock = get_extension(src, /datum/extension/lockable)
 		if(lock.locked)
-			to_chat(user, SPAN_WARNING("\The [src] is locked."))
+			. += SPAN_WARNING("\The [src] is locked.")
 		else
-			to_chat(user, SPAN_NOTICE("<b>Id:</b> [id]."))
 			var/decl/currency/cur = GET_DECL(currency)
-			to_chat(user, SPAN_NOTICE("<b>[capitalize(cur.name)]</b> remaining: [FLOOR(loaded_worth / cur.absolute_value)]."))
+			. += SPAN_NOTICE("<b>Id:</b> [id].")
+			. += SPAN_NOTICE("<b>[capitalize(cur.name)]</b> remaining: [floor(loaded_worth / cur.absolute_value)].")
 
 /obj/item/charge_stick/get_base_value()
 	. = holographic ? 0 : loaded_worth
 
-/obj/item/charge_stick/attackby(var/obj/item/W, var/mob/user)
+/obj/item/charge_stick/attackby(var/obj/item/used_item, var/mob/user)
 	var/datum/extension/lockable/lock = get_extension(src, /datum/extension/lockable)
 
-	if(istype(W, /obj/item/charge_stick))
-		var/obj/item/charge_stick/sender = W
-		var/datum/extension/lockable/W_lock = get_extension(W, /datum/extension/lockable)
+	if(istype(used_item, /obj/item/charge_stick))
+		var/obj/item/charge_stick/sender = used_item
+		var/datum/extension/lockable/W_lock = get_extension(used_item, /datum/extension/lockable)
 		if(lock.locked)
 			to_chat(user, SPAN_WARNING("Cannot transfer funds to a locked [src]."))
 			return TRUE
 		if(W_lock.locked)
-			to_chat(user, SPAN_WARNING("Cannot transfer funds from a locked [W]."))
+			to_chat(user, SPAN_WARNING("Cannot transfer funds from a locked [used_item]."))
 			return TRUE
 		if(sender.currency != currency)
 			to_chat(user, SPAN_WARNING("[html_icon(src)] [src] chirps, \"Mismatched currency detected. Unable to transfer.\""))
@@ -250,7 +276,7 @@
 		to_chat(user, SPAN_NOTICE("[html_icon(src)] [src] chirps, \"Completed transfer of [amount] [cur.name].\""))
 		return TRUE
 
-	if(lock.attackby(W, user))
+	if(lock.attackby(used_item, user))
 		return TRUE
 	return ..()
 
@@ -268,13 +294,52 @@
 	var/datum/extension/lockable/lock = get_extension(src, /datum/extension/lockable)
 	return lock.locked
 
+/**
+	Given a number, returns a representation fit for a 3-digit display.
+
+	Assumes that besides the digits themselves, display provides
+	decimal point on the highest digit, plus (for overflow) and minus signs.
+	Returns lists indexed by (power of ten)+1, that is, with [1] showing ones,
+	[2] tens, [3] hundreds.
+	Valid values are `-99` to `99<M>`, with `++<M>` and `---` for over and underflow,
+	where <M> is the maximal provided decimal postfix (k, M, B, T, etc).
+*/
+/proc/number_to_3digits(value, var/list/postfixes = list("k", "M"))
+	var/list/digits[3]
+	var/lim = 1000
+	if (value < 0)  // negatives
+		digits[3] = "-"
+		value *= -1
+		lim = 100
+	else
+		for(var/s in postfixes)
+			if (value < lim)
+				break
+			value /= 1000
+			digits[1] = s
+			lim = 100
+	if (value >= lim) // over/underflow
+		if (!digits[3])
+			digits[3] = "+"
+		if (!digits[1])
+			digits[1] = digits[3]
+		digits[2] = digits[3]
+	else
+		if ((lim == 100) && !digits[3]) // suffix on
+			if (value < 1) // .
+				digits[3] = "."
+				value *= 100 // .X => 0X0
+			else // just suffix
+				value *= 10  // XX => XX0
+		if (!digits[1])
+			digits[1] = value % 10
+		digits[2] = (value / 10) % 10
+		if (!digits[3])
+			digits[3] = (value / 100) % 10
+	return digits
+
 /obj/item/charge_stick/on_update_icon()
 	. = ..()
-
-	if(grade && grade != "peasant")
-		var/image/I = image(icon, "[icon_state]-[grade]")
-		I.appearance_flags |= RESET_COLOR
-		overlays += I
 
 	if(get_world_inventory_state() == ICON_STATE_WORLD)
 		return
@@ -283,18 +348,13 @@
 	if(lock.locked)
 		return
 
-	if(loaded_worth > 999999)
-		overlays += image(icon, "9__")
-		overlays += image(icon, "_9_")
-		overlays += image(icon, "__9")
-		return
+	var/decl/currency/cur = GET_DECL(currency)
+	var/displayed_worth = loaded_worth / cur.absolute_value // Denominated in stick currency
+	var/list/digits = number_to_3digits(displayed_worth)
+	add_overlay("__[digits[1]]")
+	add_overlay("_[digits[2]]_")
+	add_overlay("[digits[3]]__")
 
-	var/h_thou = loaded_worth / 100000
-	var/t_thou = (loaded_worth - (FLOOR(h_thou) * 100000)) / 10000
-	var/thou = (loaded_worth - (FLOOR(h_thou) * 100000) - (FLOOR(t_thou) * 10000)) / 1000
-	overlays += image(icon, "[FLOOR(h_thou)]__")
-	overlays += image(icon, "_[FLOOR(t_thou)]_")
-	overlays += image(icon, "__[FLOOR(thou)]")
 
 /obj/item/charge_stick/copper
 	grade = "copper"

@@ -12,7 +12,7 @@ SUBSYSTEM_DEF(vote)
 	var/list/old_votes           //Stores completed votes for reference.
 	var/queued_auto_vote         //Used if a vote queues another vote to happen after it.
 
-	var/list/voting = list()     //Clients recieving UI updates.
+	var/list/voting = list()     //Clients receiving UI updates.
 	var/list/vote_prototypes     //To run checks on whether they are available.
 
 /datum/controller/subsystem/vote/Initialize()
@@ -64,17 +64,20 @@ SUBSYSTEM_DEF(vote)
 /datum/controller/subsystem/vote/proc/initiate_vote(vote_type, mob/creator, automatic = 0)
 	set waitfor = FALSE
 	if(active_vote)
+		to_chat(creator, SPAN_WARNING("There is already a vote in progress."))
 		return FALSE
 	if(!automatic && (!istype(creator) || !creator.client))
 		return FALSE
 
 	if(last_started_time != null && !(is_admin(creator) || automatic))
-		var/next_allowed_time = (last_started_time + config.vote_delay)
+		var/next_allowed_time = (last_started_time + get_config_value(/decl/config/num/vote_delay))
 		if(next_allowed_time > world.time)
+			to_chat(creator, SPAN_WARNING("Another vote cannot be run so soon."))
 			return FALSE
 
 	var/datum/vote/new_vote = new vote_type
 	if(!new_vote.setup(creator, automatic))
+		to_chat(creator, SPAN_WARNING("The selected vote could not be set up or run."))
 		return FALSE
 
 	active_vote = new_vote
@@ -92,12 +95,12 @@ SUBSYSTEM_DEF(vote)
 	if(active_vote)
 		. += active_vote.interface(C.mob)
 		if(admin)
-			. += "(<a href='?src=\ref[src];cancel=1'>Cancel Vote</a>) "
+			. += "(<a href='byond://?src=\ref[src];cancel=1'>Cancel Vote</a>) "
 	else
 		. += "<h2>Start a vote:</h2><hr><ul>"
 		for(var/vote_type in vote_prototypes)
 			var/datum/vote/vote_datum = vote_prototypes[vote_type]
-			. += "<li><a href='?src=\ref[src];vote=\ref[vote_datum.type]'>"
+			. += "<li><a href='byond://?src=\ref[src];vote=\ref[vote_datum.type]'>"
 			if(vote_datum.can_run(C.mob))
 				. += "[capitalize(vote_datum.name)]"
 			else
@@ -105,11 +108,11 @@ SUBSYSTEM_DEF(vote)
 			. += "</a>"
 			var/toggle = vote_datum.check_toggle()
 			if(admin && toggle)
-				. += "\t(<a href='?src=\ref[src];toggle=1;vote=\ref[vote_datum.type]'>toggle; currently [toggle]</a>)"
+				. += "\t(<a href='byond://?src=\ref[src];toggle=1;vote=\ref[vote_datum.type]'>toggle; currently [toggle]</a>)"
 			. += "</li>"
 		. += "</ul><hr>"
 
-	. += "<a href='?src=\ref[src];close=1' style='position:absolute;right:50px'>Close</a></body></html>"
+	. += "<a href='byond://?src=\ref[src];close=1' style='position:absolute;right:50px'>Close</a></body></html>"
 	return JOINTEXT(.)
 
 /datum/controller/subsystem/vote/proc/show_panel(mob/user, force_open)
@@ -176,7 +179,7 @@ SUBSYSTEM_DEF(vote)
 
 // Helper proc for determining whether addantag vote can be called.
 /datum/controller/subsystem/vote/proc/is_addantag_allowed(mob/creator, automatic)
-	if(!config.allow_extra_antags)
+	if(!get_config_value(/decl/config/toggle/allow_extra_antags))
 		return 0
 	// Gamemode has to be determined before we can add antagonists, so we can respect gamemode's add antag vote settings.
 	if((GAME_STATE <= RUNLEVEL_SETUP) || !SSticker.mode)

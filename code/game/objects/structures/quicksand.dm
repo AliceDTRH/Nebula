@@ -6,7 +6,7 @@
 	icon_state = "open"
 	density = FALSE
 	anchored = TRUE
-	can_buckle = 1
+	can_buckle = TRUE
 	buckle_dir = SOUTH
 	var/exposed = 0
 	var/busy
@@ -14,6 +14,8 @@
 /obj/effect/quicksand/Initialize()
 	. = ..()
 	var/turf/T = get_turf(src)
+	if(!T)
+		return INITIALIZE_HINT_QDEL
 	appearance = T.appearance
 
 /obj/effect/quicksand/user_unbuckle_mob(mob/user)
@@ -77,18 +79,20 @@
 	exposed = 1
 	update_icon()
 
-/obj/effect/quicksand/attackby(obj/item/W, mob/user)
-	if(!exposed && W.force)
+/obj/effect/quicksand/attackby(obj/item/used_item, mob/user)
+	if(!exposed && used_item.expend_attack_force(user))
 		expose()
+		return TRUE
 	else
-		..()
+		return ..()
 
-/obj/effect/quicksand/Crossed(var/atom/movable/AM)
-	if(isliving(AM))
-		var/mob/living/L = AM
-		if(L.throwing || L.can_overcome_gravity())
-			return
-		buckle_mob(L)
-		if(!exposed)
-			expose()
-		to_chat(L, SPAN_DANGER("You fall into \the [src]!"))
+/obj/effect/quicksand/Crossed(atom/movable/AM)
+	if(!isliving(AM))
+		return
+	var/mob/living/L = AM
+	if(L.throwing || L.can_overcome_gravity())
+		return
+	buckle_mob(L)
+	if(!exposed)
+		expose()
+	to_chat(L, SPAN_DANGER("You fall into \the [src]!"))

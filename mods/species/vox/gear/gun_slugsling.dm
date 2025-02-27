@@ -1,11 +1,10 @@
 /obj/item/slugegg
 	name = "slugegg"
 	desc = "A pulsing, disgusting door to new life."
-	force = 1
-	throwforce = 6
 	icon = 'mods/species/vox/icons/gear/slugegg.dmi'
 	icon_state = "slugegg"
-	material = /decl/material/solid/skin/insect
+	material = /decl/material/solid/organic/skin/insect
+	_base_attack_force = 1
 	var/break_on_impact = 1 //There are two modes to the eggs.
 							//One breaks the egg on hit,
 
@@ -22,11 +21,9 @@
 /obj/item/slugegg/HasProximity(var/atom/movable/AM)
 	. = ..()
 	if(. && isliving(AM))
-		if(ishuman(AM))
-			var/mob/living/carbon/human/H = AM
-			if(H.get_bodytype_category() == BODYTYPE_VOX)
-				return FALSE
 		var/mob/living/L = AM
+		if(L.get_bodytype()?.bodytype_flag & BODY_EQUIP_FLAG_VOX)
+			return FALSE
 		if(L.faction == SPECIES_VOX)
 			return FALSE
 		squish()

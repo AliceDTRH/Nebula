@@ -24,7 +24,7 @@ var/global/list/possible_say_verbs = list(
 	icon = 'icons/mob/robots/pai/pai_drone.dmi'
 	icon_state = ICON_STATE_WORLD
 	mob_sort_value = 3
-	hud_type = /datum/hud/pai
+	hud_used = /datum/hud/pai
 	emote_type = 2		// pAIs emotes are heard, not seen, so they can be seen through a container (eg. person)
 	pass_flags = PASS_FLAG_TABLE
 	mob_size = MOB_SIZE_SMALL
@@ -34,6 +34,7 @@ var/global/list/possible_say_verbs = list(
 	holder_type = /obj/item/holder
 	idcard = /obj/item/card/id
 	silicon_radio = null // pAIs get their radio from the card they belong to.
+	max_health = 100
 
 	os_type =	/datum/extension/interactive/os/silicon/small
 	starting_stock_parts = list(
@@ -58,8 +59,6 @@ var/global/list/possible_say_verbs = list(
 	var/pai_law0 = "Serve your master."
 	var/pai_laws				// String for additional operating instructions our master might give us
 
-	var/silence_time			// Timestamp when we were silenced (normally via EMP burst), set to null after silence has faded
-
 // Various software-specific vars
 
 	var/secHUD = 0			// Toggles whether the Security HUD is active or not
@@ -81,32 +80,40 @@ var/global/list/possible_say_verbs = list(
 
 	chassis = global.possible_chassis[1]
 
-	set_extension(src, /datum/extension/base_icon_state, icon_state)
 	status_flags |= NO_ANTAG
-	card = loc
+	if(!card)
+		if(istype(loc, /obj/item/paicard))
+			card = loc
+		else
+			card = new /obj/item/paicard(src)
+	if(istype(card))
+		if(!card.radio)
+			card.radio = new /obj/item/radio(card)
+		silicon_radio = card.radio
+		card.setPersonality(src)
+	else
+		return INITIALIZE_HINT_QDEL
 
 	//As a human made device, we'll understand sol common without the need of the translator
 	add_language(/decl/language/human/common, 1)
-
 	verbs -= /mob/living/verb/ghost
 
 	. = ..()
 
-	if(card)
-		if(!card.radio)
-			card.radio = new /obj/item/radio(card)
-		silicon_radio = card.radio
+	software = default_pai_software.Copy()
 
 /mob/living/silicon/pai/Destroy()
-	card = null
+	if(card)
+		if(card.pai == src)
+			card.removePersonality()
+		card = null
 	silicon_radio = null // Because this radio actually belongs to another instance we simply null
 	. = ..()
 
 // this function shows the information about being silenced as a pAI in the Status panel
 /mob/living/silicon/pai/proc/show_silenced()
-	if(silence_time)
-		var/timeleft = round((silence_time - world.timeofday)/10 ,1)
-		stat(null, "Communications system reboot in -[(timeleft / 60) % 60]:[add_zero(num2text(timeleft % 60), 2)]")
+	var/timeleft = round((HAS_STATUS(src, STAT_SILENCE) * SSmobs.wait) / 10, 1)
+	stat(null, "Communications system reboot in -[(timeleft / 60) % 60]:[add_zero(num2text(timeleft % 60), 2)]")
 
 /mob/living/silicon/pai/Stat()
 	. = ..()
@@ -129,13 +136,13 @@ var/global/list/possible_say_verbs = list(
 		// 33% chance to change prime directive (based on severity)
 		// 33% chance of no additional effect
 
-	silence_time = world.timeofday + 120 * 10		// Silence for 2 minutes
+	SET_STATUS_MAX(src, STAT_SILENCE, 2 MINUTES)
 	to_chat(src, SPAN_DANGER("<b>Communication circuit overload. Shutting down and reloading communication circuits - speech and messaging functionality will be unavailable until the reboot is complete.</b>"))
 	if(prob(20))
 		visible_message( \
 			message = SPAN_DANGER("A shower of sparks spray from [src]'s inner workings!"), \
 			blind_message = SPAN_DANGER("You hear and smell the ozone hiss of electrical sparks being expelled violently."))
-		return death(0)
+		return death()
 
 	switch(pick(1,2,3))
 		if(1)
@@ -177,13 +184,13 @@ var/global/list/possible_say_verbs = list(
 	if(istype(card.loc,/obj/item/rig_module) || istype(card.loc,/obj/item/integrated_circuit/manipulation/ai/))
 		to_chat(src, "There is no room to unfold inside \the [card.loc]. You're good and stuck.")
 		return 0
-	else if(istype(card.loc,/mob))
+	else if(ismob(card.loc))
 		var/mob/holder = card.loc
 		if(ishuman(holder))
-			var/mob/living/carbon/human/H = holder
+			var/mob/living/human/H = holder
 			for(var/obj/item/organ/external/affecting in H.get_external_organs())
 				if(card in affecting.implants)
-					affecting.take_external_damage(rand(30,50))
+					affecting.take_damage(rand(30,50))
 					LAZYREMOVE(affecting.implants, card)
 					H.visible_message("<span class='danger'>\The [src] explodes out of \the [H]'s [affecting.name] in a shower of gore!</span>")
 					break
@@ -204,20 +211,29 @@ var/global/list/possible_say_verbs = list(
 	set name = "Collapse Chassis"
 	fold()
 
+/mob/living/silicon/pai/get_available_postures()
+
+	if(loc == card)
+		var/static/list/card_postures = list(/decl/posture/standing)
+		return card_postures
+
+	var/static/list/available_postures = list(
+		/decl/posture/standing,
+		/decl/posture/lying,
+		/decl/posture/lying/deliberate,
+	)
+	return available_postures
+
 //from mob -> card
 /mob/living/silicon/pai/proc/fold()
 	if(incapacitated(INCAPACITATION_KNOCKOUT))
 		return
 	if(loc == card)
 		return
-
 	if(is_on_special_ability_cooldown())
 		return
 	set_special_ability_cooldown(10 SECONDS)
-
-	// Move us into the card and move the card to the ground.
-	resting = 0
-
+	set_posture(/decl/posture/standing)
 	// If we are being held, handle removing our holder from their inv.
 	var/obj/item/holder/H = loc
 	if(istype(H))
@@ -225,54 +241,62 @@ var/global/list/possible_say_verbs = list(
 		if(istype(M))
 			M.drop_from_inventory(H, get_turf(src))
 		dropInto(loc)
-
 	card.dropInto(card.loc)
 	forceMove(card)
-
 	if (src && client)
 		client.perspective = EYE_PERSPECTIVE
 		client.eye = card
-	set_icon_state("[chassis]")
 	is_in_card = TRUE
 	var/turf/T = get_turf(src)
 	if(istype(T))
 		T.visible_message("<b>[src]</b> neatly folds inwards, compacting down to a rectangular card.")
 
-/mob/living/silicon/pai/lay_down()
+/mob/living/silicon/pai/lay_down(block_posture as null)
 	// Pass lying down or getting up to our pet human, if we're in a rig.
-	if(istype(src.loc,/obj/item/paicard))
-		resting = 0
+	if(istype(loc, /obj/item/paicard))
+		set_posture(/decl/posture/standing)
 		var/obj/item/rig/rig = src.get_rig()
 		if(rig)
 			rig.force_rest(src)
+		return
+	. = ..()
+	if(current_posture.prone)
+		to_chat(src, SPAN_NOTICE("You are now resting."))
 	else
-		resting = !resting
-		icon_state = resting ? "[chassis]_rest" : "[chassis]"
-		to_chat(src, SPAN_NOTICE("You are now [resting ? "resting" : "getting up"]"))
+		to_chat(src, SPAN_NOTICE("You are now getting up."))
+	update_icon()
+
+/mob/living/silicon/pai/on_update_icon()
+	. = ..()
+	icon_state = ICON_STATE_WORLD
+	if(stat == DEAD)
+		icon_state = "[icon_state]-dead"
+	else if(current_posture?.prone)
+		icon_state = "[icon_state]-rest"
 
 //Overriding this will stop a number of headaches down the track.
-/mob/living/silicon/pai/attackby(obj/item/W, mob/user)
-	var/obj/item/card/id/card = W.GetIdCard()
-	if(card && user.a_intent == I_HELP)
+/mob/living/silicon/pai/attackby(obj/item/used_item, mob/user)
+	var/obj/item/card/id/card = used_item.GetIdCard()
+	if(card && user.check_intent(I_FLAG_HELP))
 		var/list/new_access = card.GetAccess()
 		idcard.access = new_access
-		visible_message("<span class='notice'>[user] slides [W] across [src].</span>")
+		visible_message("<span class='notice'>[user] slides [used_item] across [src].</span>")
 		to_chat(src, SPAN_NOTICE("Your access has been updated!"))
 		return FALSE // don't continue processing click callstack.
-	if(try_stock_parts_install(W, user))
-		return
-	if(try_stock_parts_removal(W, user))
-		return
-	if(W.force)
-		visible_message(SPAN_DANGER("[user] attacks [src] with [W]!"))
-		adjustBruteLoss(W.force)
-		updatehealth()
+	if(try_stock_parts_install(used_item, user))
+		return TRUE
+	if(try_stock_parts_removal(used_item, user))
+		return TRUE
+	var/force = used_item.expend_attack_force(user)
+	if(force)
+		visible_message(SPAN_DANGER("[user] attacks [src] with [used_item]!"))
+		take_damage(force)
 	else
-		visible_message(SPAN_WARNING("[user] bonks [src] harmlessly with [W]."))
+		visible_message(SPAN_WARNING("[user] bonks [src] harmlessly with [used_item]."))
 
 	spawn(1)
 		if(stat != DEAD) fold()
-	return
+	return TRUE
 
 /mob/living/silicon/pai/default_interaction(mob/user)
 	. = ..()

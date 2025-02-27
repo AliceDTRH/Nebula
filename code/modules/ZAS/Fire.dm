@@ -10,10 +10,6 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 
 /turf/var/obj/fire/fire = null
 
-//Some legacy definitions so fires can be started.
-/atom/proc/temperature_expose(datum/gas_mixture/air, exposed_temperature, exposed_volume)
-	return null
-
 /atom/movable/proc/is_burnable()
 	return FALSE
 
@@ -21,18 +17,14 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 	return simulated
 
 /turf/proc/hotspot_expose(exposed_temperature, exposed_volume, soh = 0)
-	if(fire_protection > world.time-300)
-		return 0
-	if(locate(/obj/fire) in src)
+	if((locate(/obj/fire) in src) || !simulated)
 		return 1
 
 	var/datum/gas_mixture/air_contents = return_air()
 	if(!air_contents || exposed_temperature < FLAMMABLE_GAS_MINIMUM_BURN_TEMPERATURE)
 		return 0
 
-	var/obj/effect/fluid/F = locate() in src
-	if(F)
-		F.vaporize_fuel(air_contents)
+	vaporize_fuel(air_contents)
 
 	var/igniting = 0
 	if(air_contents.check_combustibility())
@@ -127,7 +119,7 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 	// prioritize nearby fuel overlays first
 	for(var/direction in global.cardinal)
 		var/turf/enemy_tile = get_step(my_tile, direction)
-		if(istype(enemy_tile) && (locate(/obj/effect/fluid) in enemy_tile))
+		if(istype(enemy_tile) && enemy_tile.reagents)
 			enemy_tile.hotspot_expose(air_contents.temperature, air_contents.volume)
 
 	//spread
@@ -141,13 +133,7 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 
 				//if(!enemy_tile.zone.fire_tiles.len) TODO - optimize
 				var/datum/gas_mixture/acs = enemy_tile.return_air()
-				if(!acs || !acs.check_combustibility(enemy_tile.return_fluid()))
-					continue
-
-				//If extinguisher mist passed over the turf it's trying to spread to, don't spread and
-				//reduce firelevel.
-				if(enemy_tile.fire_protection > world.time-30)
-					firelevel -= 1.5
+				if(!acs || !acs.check_combustibility())
 					continue
 
 				//Spread the fire.
@@ -186,11 +172,6 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 		T.fire = null
 	SSair.active_hotspots.Remove(src)
 	. = ..()
-
-/turf
-	var/fire_protection = 0 //Protects newly extinguished tiles from being overrun again.
-/turf/proc/apply_fire_protection()
-	fire_protection = world.time
 
 //Returns the firelevel
 /datum/gas_mixture/proc/react(var/zone/zone, force_burn, no_check = 0)
@@ -254,8 +235,7 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 		var/datum/gas_mixture/burned_fuel = remove_by_flag(XGM_GAS_FUEL, used_fuel)
 		for(var/g in burned_fuel.gas)
 			var/decl/material/mat = GET_DECL(g)
-			if(mat.burn_product)
-				adjust_gas(mat.burn_product, burned_fuel.gas[g])
+			mat.add_burn_product(src, burned_fuel.gas[g])
 
 		//calculate the energy produced by the reaction and then set the new temperature of the mix
 		temperature = (starting_energy + vsc.fire_fuel_energy_release * used_fuel) / heat_capacity()
@@ -344,7 +324,7 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 	return mx
 
 
-/mob/living/carbon/human/FireBurn(var/firelevel, var/last_temperature, var/pressure)
+/mob/living/human/FireBurn(var/firelevel, var/last_temperature, var/pressure)
 	//Burns mobs due to fire. Respects heat transfer coefficients on various body parts.
 	//Due to TG reworking how fireprotection works, this is kinda less meaningful.
 
@@ -372,7 +352,7 @@ If it gains pressure too slowly, it may leak or just rupture instead of explodin
 				legs_exposure = 0
 			if(C.body_parts_covered & SLOT_ARMS)
 				arms_exposure = 0
-	//minimize this for low-pressure enviroments
+	//minimize this for low-pressure environments
 	var/mx = 5 * firelevel/vsc.fire_firelevel_multiplier * min(pressure / ONE_ATMOSPHERE, 1)
 
 	//Always check these damage procs first if fire damage isn't working. They're probably what's wrong.

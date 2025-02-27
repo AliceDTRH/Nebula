@@ -4,10 +4,10 @@
 /obj/structure/ore_box
 	name                   = "ore box"
 	desc                   = "A heavy box used for storing ore."
-	icon                   = 'icons/obj/mining.dmi'
-	icon_state             = "orebox0"
+	icon                   = 'icons/obj/structures/ore_box.dmi'
+	icon_state             = ICON_STATE_WORLD
 	density                = TRUE
-	material               = /decl/material/solid/wood
+	material               = /decl/material/solid/organic/wood/oak
 	atom_flags             = ATOM_FLAG_CLIMBABLE
 	tool_interaction_flags = (TOOL_INTERACTION_ANCHOR | TOOL_INTERACTION_DECONSTRUCT)
 	///Maximum amount of ores of all types that can be stored in the box.
@@ -26,23 +26,22 @@
 	to_chat(user, SPAN_NOTICE("You grab a random ore pile from \the [src]."))
 	return TRUE
 
-/obj/structure/ore_box/attackby(obj/item/W, mob/user)
-	if (istype(W, /obj/item/stack/material/ore))
-		return insert_ore(W, user)
-
-	else if (istype(W, /obj/item/storage))
-		var/obj/item/storage/S = W
-		S.hide_from(usr)
-		for(var/obj/item/stack/material/ore/O in S.contents)
+/obj/structure/ore_box/attackby(obj/item/used_item, mob/user)
+	if (istype(used_item, /obj/item/stack/material/ore))
+		return insert_ore(used_item, user)
+	if(used_item.storage)
+		var/added_ore = FALSE
+		used_item.storage.hide_from(user)
+		for(var/obj/item/stack/material/ore/O in used_item.storage.get_contents())
 			if(total_ores >= maximum_ores)
 				break
-			S.remove_from_storage(O, src, TRUE) //This will move the item to this item's contents
+			used_item.storage.remove_from_storage(user, O, src, TRUE)
 			insert_ore(O)
-
-		S.finish_bulk_removal()
-		to_chat(user, SPAN_NOTICE("You empty \the [W] into \the [src]."))
-		return TRUE
-
+			added_ore = TRUE
+		if(added_ore)
+			used_item.storage.finish_bulk_removal()
+			to_chat(user, SPAN_NOTICE("You empty \the [used_item] into \the [src]."))
+			return TRUE
 	return ..()
 
 ///Insert many ores into the box
@@ -51,7 +50,7 @@
 	for(var/obj/item/stack/material/ore/O in ores)
 		if(total_ores >= maximum_ores)
 			if(user)
-				to_chat(user, SPAN_WARNING("You insert only what you can.."))
+				to_chat(user, SPAN_WARNING("You insert only what you can."))
 			break
 		inserted += O.amount
 		insert_ore(O)
@@ -117,23 +116,30 @@
 	total_ores = 0
 	return TRUE
 
-/obj/structure/ore_box/examine(mob/user, distance)
+/obj/structure/ore_box/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance > 1) //Can only check the contents of ore boxes if you can physically reach them.
 		return
 
 	add_fingerprint(user)
 	if(total_ores <= 0)
-		to_chat(user, "It is empty.")
+		. += "It is empty."
 		return
-	to_chat(user, "It holds:")
+	. += "It holds:"
 	for(var/ore in stored_ore)
-		to_chat(user, "- [stored_ore[ore]] [ore]")
+		. += "- [stored_ore[ore]] [ore]"
 
 /obj/structure/ore_box/explosion_act(severity)
 	. = ..()
 	if(. && !QDELETED(src) && (severity == 1 || prob(50)))
 		physically_destroyed()
+
+/obj/structure/ore_box/receive_mouse_drop(atom/dropping, mob/user, params)
+	. = ..()
+	if(!. && istype(dropping, /obj/machinery/mining_drill))
+		var/obj/machinery/mining_drill/D = dropping
+		D.unload_into_box(src, user)
+
 
 /obj/structure/ore_box/get_alt_interactions(mob/user)
 	. = ..()
@@ -142,9 +148,11 @@
 /decl/interaction_handler/empty/ore_box
 	name = "Empty Box"
 	expected_target_type = /obj/structure/ore_box
+	examine_desc = "empty $TARGET_THEM$"
 
 /decl/interaction_handler/empty/ore_box/is_possible(obj/structure/ore_box/target, mob/user, obj/item/prop)
 	return ..() && target.total_ores > 0
 
-/decl/interaction_handler/empty/ore_box/invoked(obj/structure/ore_box/target, mob/user)
-	target.empty_box(user)
+/decl/interaction_handler/empty/ore_box/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/structure/ore_box/box = target
+	box.empty_box(user)

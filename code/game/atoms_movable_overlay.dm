@@ -23,8 +23,8 @@
 		events_repository.register(/decl/observ/moved, master, src, follow_proc)
 		SetInitLoc()
 
-	events_repository.register(/decl/observ/destroyed, master, src, /datum/proc/qdel_self)
-	events_repository.register(/decl/observ/dir_set, master, src, /atom/proc/recursive_dir_set)
+	events_repository.register(/decl/observ/destroyed, master, src, TYPE_PROC_REF(/datum, qdel_self))
+	events_repository.register(/decl/observ/dir_set, master, src, TYPE_PROC_REF(/atom, recursive_dir_set))
 
 	. = ..()
 
@@ -39,9 +39,10 @@
 	master = null
 	. = ..()
 
-/atom/movable/overlay/attackby(obj/item/I, mob/user)
+/atom/movable/overlay/attackby(obj/item/used_item, mob/user)
 	if (master)
-		return master.attackby(I, user)
+		return master.attackby(used_item, user)
+	return TRUE
 
 /atom/movable/overlay/attack_hand(mob/user)
 	SHOULD_CALL_PARENT(FALSE)

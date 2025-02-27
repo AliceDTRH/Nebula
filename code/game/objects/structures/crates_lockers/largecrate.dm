@@ -4,8 +4,8 @@
 	icon = 'icons/obj/shipping_crates.dmi'
 	icon_state = "densecrate"
 	density = TRUE
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE
-	material = /decl/material/solid/wood
+	atom_flags = ATOM_FLAG_CLIMBABLE
+	material = /decl/material/solid/organic/wood/oak
 
 /obj/structure/largecrate/Initialize()
 	. = ..()
@@ -15,13 +15,13 @@
 		I.forceMove(src)
 
 /obj/structure/largecrate/attack_hand(mob/user)
-	if(user.a_intent == I_HURT)
+	if(user.check_intent(I_FLAG_HARM))
 		return ..()
 	to_chat(user, SPAN_WARNING("You need a crowbar to pry this open!"))
 	return TRUE
 
-/obj/structure/largecrate/attackby(obj/item/W, mob/user)
-	if(IS_CROWBAR(W))
+/obj/structure/largecrate/attackby(obj/item/used_item, mob/user)
+	if(IS_CROWBAR(used_item))
 		user.visible_message(
 			SPAN_NOTICE("\The [user] pries \the [src] open."),
 			SPAN_NOTICE("You pry open \the [src]."),
@@ -42,7 +42,7 @@
 		name = "[name] ([critter.name])"
 
 /obj/structure/largecrate/animal/cat
-	animal_type = /mob/living/simple_animal/cat
+	animal_type = /mob/living/simple_animal/passive/cat
 
 /obj/structure/largecrate/animal/cow
 	animal_type = /mob/living/simple_animal/cow

@@ -24,7 +24,7 @@
 	construct_state = /decl/machine_construction/wall_frame/panel_closed/simple
 	frame_type = /obj/item/frame/button
 	required_interaction_dexterity = DEXTERITY_SIMPLE_MACHINES
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':30}, 'EAST':{'x':-24}, 'WEST':{'x':24}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":30}, "EAST":{"x":-24}, "WEST":{"x":24}}'
 
 	var/active = FALSE
 	var/operating = FALSE
@@ -40,15 +40,14 @@
 	. = ..()
 	update_icon()
 
-/obj/machinery/button/attackby(obj/item/W, mob/user)
-	if(!(. = component_attackby(W, user)))
+/obj/machinery/button/attackby(obj/item/used_item, mob/user)
+	if(!(. = component_attackby(used_item, user)))
 		return attack_hand_with_interaction_checks(user)
 
 /obj/machinery/button/interface_interact(user)
 	if(!CanInteract(user, DefaultTopicState()))
 		return FALSE
-	if(istype(user, /mob/living/carbon))
-		playsound(src, "button", 60)
+	playsound(src, "button", 60)
 	activate(user)
 	return TRUE
 

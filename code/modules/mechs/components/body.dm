@@ -1,10 +1,8 @@
-/obj/item/storage/mech
-	w_class = ITEM_SIZE_NO_CONTAINER
-	max_w_class = ITEM_SIZE_LARGE
-	storage_slots = 4
-	use_sound = 'sound/effects/storage/toolbox.ogg'
-	anchored = TRUE
+/obj/item/mech_storage
+	storage    = /datum/storage/mech
+	anchored   = TRUE
 	max_health = ITEM_HEALTH_NO_DAMAGE
+	obj_flags  = OBJ_FLAG_NO_STORAGE
 
 /obj/item/mech_component/chassis/Adjacent(var/atom/neighbor, var/recurse = 1) //For interaction purposes we consider body to be adjacent to whatever holder mob is adjacent
 	var/mob/living/exosuit/E = loc
@@ -12,7 +10,7 @@
 		. = E.Adjacent(neighbor, recurse)
 	return . || ..()
 
-/obj/item/storage/mech/Adjacent(var/atom/neighbor, var/recurse = 1) //in order to properly retrieve items
+/obj/item/mech_storage/Adjacent(var/atom/neighbor, var/recurse = 1) //in order to properly retrieve items
 	var/obj/item/mech_component/chassis/C = loc
 	if(istype(C))
 		. = C.Adjacent(neighbor, recurse-1)
@@ -30,7 +28,7 @@
 	var/obj/item/robot_parts/robot_component/diagnosis_unit/diagnostics
 	var/obj/item/robot_parts/robot_component/armour/exosuit/m_armour
 	var/obj/machinery/portable_atmospherics/canister/air_supply
-	var/obj/item/storage/mech/storage_compartment
+	var/obj/item/mech_storage/storage_compartment
 	var/datum/gas_mixture/cockpit
 	var/transparent_cabin = FALSE
 	var/hide_pilot =        FALSE
@@ -52,6 +50,21 @@
 				"[WEST]"  = list("x" = 8, "y" = 0)
 			)
 		)
+	if(pilot_coverage >= 100) //Open cockpits dont get to have air
+		cockpit = new
+		cockpit.volume = 200
+		if(loc)
+			var/datum/gas_mixture/air = loc.return_air()
+			if(air)
+				//Essentially at this point its like we created a vacuum, but realistically making a bottle doesnt actually increase volume of a room and neither should a mech
+				for(var/g in air.gas)
+					cockpit.gas[g] = (air.gas[g] / air.volume) * cockpit.volume
+
+				cockpit.temperature = air.temperature
+				cockpit.update_values()
+
+		air_supply = new /obj/machinery/portable_atmospherics/canister/air(src)
+	storage_compartment = new(src)
 
 /obj/item/mech_component/chassis/Destroy()
 	QDEL_NULL(cell)
@@ -69,30 +82,13 @@
 	storage_compartment = locate() in src
 
 /obj/item/mech_component/chassis/show_missing_parts(var/mob/user)
+	. = list()
 	if(!cell)
-		to_chat(user, SPAN_WARNING("It is missing a power cell."))
+		. += SPAN_WARNING("It is missing a power cell.")
 	if(!diagnostics)
-		to_chat(user, SPAN_WARNING("It is missing a diagnostics unit."))
+		. += SPAN_WARNING("It is missing a diagnostics unit.")
 	if(!m_armour)
-		to_chat(user, SPAN_WARNING("It is missing exosuit armour plating."))
-
-/obj/item/mech_component/chassis/Initialize()
-	. = ..()
-	if(pilot_coverage >= 100) //Open cockpits dont get to have air
-		cockpit = new
-		cockpit.volume = 200
-		if(loc)
-			var/datum/gas_mixture/air = loc.return_air()
-			if(air)
-				//Essentially at this point its like we created a vacuum, but realistically making a bottle doesnt actually increase volume of a room and neither should a mech
-				for(var/g in air.gas)
-					cockpit.gas[g] = (air.gas[g] / air.volume) * cockpit.volume
-
-				cockpit.temperature = air.temperature
-				cockpit.update_values()
-
-		air_supply = new /obj/machinery/portable_atmospherics/canister/air(src)
-	storage_compartment = new(src)
+		. += SPAN_WARNING("It is missing exosuit armour plating.")
 
 /obj/item/mech_component/chassis/proc/update_air(var/take_from_supply)
 
@@ -142,27 +138,35 @@
 	cell = new /obj/item/cell/exosuit(src)
 	cell.charge = cell.maxcharge
 
-/obj/item/mech_component/chassis/attackby(var/obj/item/thing, var/mob/user)
-	if(istype(thing,/obj/item/robot_parts/robot_component/diagnosis_unit))
+/obj/item/mech_component/chassis/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item,/obj/item/robot_parts/robot_component/diagnosis_unit))
 		if(diagnostics)
 			to_chat(user, SPAN_WARNING("\The [src] already has a diagnostic system installed."))
-			return
-		if(install_component(thing, user)) diagnostics = thing
-	else if(istype(thing, /obj/item/cell))
+			return TRUE
+		if(install_component(used_item, user))
+			diagnostics = used_item
+			return TRUE
+		return FALSE
+	else if(istype(used_item, /obj/item/cell))
 		if(cell)
 			to_chat(user, SPAN_WARNING("\The [src] already has a cell installed."))
-			return
-		if(install_component(thing,user)) cell = thing
-	else if(istype(thing, /obj/item/robot_parts/robot_component/armour/exosuit))
+			return TRUE
+		if(install_component(used_item,user))
+			cell = used_item
+			return TRUE
+		return FALSE
+	else if(istype(used_item, /obj/item/robot_parts/robot_component/armour/exosuit))
 		if(m_armour)
 			to_chat(user, SPAN_WARNING("\The [src] already has armour installed."))
-			return
-		if(install_component(thing, user))
-			m_armour = thing
+			return TRUE
+		if(install_component(used_item, user))
+			m_armour = used_item
+			return TRUE
+		return FALSE
 	else
 		return ..()
 
-/obj/item/mech_component/chassis/receive_mouse_drop(atom/dropping, mob/user)
+/obj/item/mech_component/chassis/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && istype(dropping, /obj/machinery/portable_atmospherics/canister))
 		var/obj/machinery/portable_atmospherics/canister/C = dropping
@@ -172,7 +176,7 @@
 		if(!C.anchored && do_after(user, 5, src))
 			if(C.anchored)
 				return
-			to_chat(user, SPAN_NOTICE("You install the canister in the [src]."))
+			to_chat(user, SPAN_NOTICE("You install the canister in \the [src]."))
 			if(air_supply)
 				air_supply.dropInto(get_turf(src))
 				air_supply = null
@@ -180,9 +184,9 @@
 			update_components()
 		return TRUE
 
-/obj/item/mech_component/chassis/handle_mouse_drop(atom/over, mob/user)
+/obj/item/mech_component/chassis/handle_mouse_drop(atom/over, mob/user, params)
 	if(storage_compartment)
-		return storage_compartment.handle_mouse_drop(over, user)
+		return storage_compartment.handle_mouse_drop(over, user, params)
 	. = ..()
 
 /obj/item/mech_component/chassis/return_diagnostics(mob/user)

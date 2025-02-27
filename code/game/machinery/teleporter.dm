@@ -42,21 +42,20 @@
 		// Lose memory
 		locked = null
 
-/obj/machinery/computer/teleporter/examine(mob/user)
+/obj/machinery/computer/teleporter/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(locked)
 		var/turf/T = get_turf(locked)
-		to_chat(user, SPAN_NOTICE("The console is locked on to \[[T.loc.name]\]."))
+		. += SPAN_NOTICE("The console is locked on to \[[T.loc.name]\].")
 
+/obj/machinery/computer/teleporter/attackby(var/obj/used_item, var/mob/user)
 
-/obj/machinery/computer/teleporter/attackby(var/obj/I, var/mob/user)
-
-	var/obj/item/card/data/C = I
+	var/obj/item/card/data/C = used_item
 	if(!istype(C) || (stat & (NOPOWER|BROKEN)) || C.function != "teleporter")
 		return ..()
 
 	var/obj/L = null
-	for(var/obj/abstract/landmark/sloc in global.landmarks_list)
+	for(var/obj/abstract/landmark/sloc in global.all_landmarks)
 		if(sloc.name != C.data || (locate(/mob/living) in sloc.loc))
 			continue
 		L = sloc
@@ -65,14 +64,14 @@
 	if(!L)
 		L = locate("landmark*[C.data]") // use old stype
 
-	if(istype(L, /obj/abstract/landmark) && isturf(L.loc) && user.try_unequip(I))
-		to_chat(usr, "You insert the coordinates into the machine.")
-		to_chat(usr, "A message flashes across the screen reminding the traveller that the nuclear authentication disk is to remain on the [station_name()] at all times.")
-		qdel(I)
+	if(istype(L, /obj/abstract/landmark) && isturf(L.loc) && user.try_unequip(used_item))
+		to_chat(user, "You insert the coordinates into the machine.")
+		to_chat(user, "A message flashes across the screen reminding the traveller that the nuclear authentication disk is to remain on the [station_name()] at all times.")
+		qdel(used_item)
 		audible_message(SPAN_NOTICE("Locked in."))
 		src.locked = L
 		one_time_use = 1
-		add_fingerprint(usr)
+		add_fingerprint(user)
 	return TRUE
 
 /obj/machinery/computer/teleporter/interface_interact(var/mob/user)
@@ -84,10 +83,10 @@
 	var/list/areaindex = list()
 
 	. = TRUE
-	for(var/obj/item/radio/beacon/R in global.radio_beacons)
-		if(!R.functioning)
+	for(var/obj/item/radio/beacon/radio in global.radio_beacons)
+		if(!radio.functioning)
 			continue
-		var/turf/T = get_turf(R)
+		var/turf/T = get_turf(radio)
 		if (!T)
 			continue
 		if(!isPlayerLevel(T.z))
@@ -97,13 +96,13 @@
 			tmpname = "[tmpname] ([++areaindex[tmpname]])"
 		else
 			areaindex[tmpname] = 1
-		L[tmpname] = R
+		L[tmpname] = radio
 
-	for (var/obj/item/implant/tracking/I in global.tracking_implants)
-		if (!I.implanted || !ismob(I.loc))
+	for (var/obj/item/implant/tracking/used_item in global.tracking_implants)
+		if (!used_item.implanted || !ismob(used_item.loc))
 			continue
 		else
-			var/mob/M = I.loc
+			var/mob/M = used_item.loc
 			if (M.stat == DEAD)
 				if (M.timeofdeath + 6000 < world.time)
 					continue
@@ -117,7 +116,7 @@
 				tmpname = "[tmpname] ([++areaindex[tmpname]])"
 			else
 				areaindex[tmpname] = 1
-			L[tmpname] = I
+			L[tmpname] = used_item
 
 	var/desc = input("Please select a location to lock in.", "Locking Computer") in L|null
 	if(!desc)
@@ -134,7 +133,7 @@
 	set src in oview(1)
 	set desc = "ID Tag:"
 
-	if(stat & (NOPOWER|BROKEN) || !istype(usr,/mob/living))
+	if(stat & (NOPOWER|BROKEN) || !isliving(usr))
 		return
 	if (t)
 		src.id = t
@@ -146,28 +145,20 @@
 
 /obj/machinery/computer/teleporter/proc/clear_target()
 	if(src.locked)
-		events_repository.unregister(/decl/observ/destroyed, locked, src, .proc/target_lost)
+		events_repository.unregister(/decl/observ/destroyed, locked, src, PROC_REF(target_lost))
 	src.locked = null
 	if(station && station.engaged)
 		station.disengage()
 
-/obj/machinery/computer/teleporter/proc/set_target(var/obj/O)
-	src.locked = O
-	events_repository.register(/decl/observ/destroyed, locked, src, .proc/target_lost)
+/obj/machinery/computer/teleporter/proc/set_target(var/obj/target)
+	src.locked = target
+	events_repository.register(/decl/observ/destroyed, locked, src, PROC_REF(target_lost))
 
 /obj/machinery/computer/teleporter/Destroy()
 	clear_target()
 	station = null
 	hub = null
 	return ..()
-
-/proc/find_loc(obj/R)
-	if (!R)	return null
-	var/turf/T = R.loc
-	while(!isturf(T))
-		T = T.loc
-		if(!T || istype(T, /area))	return null
-	return T
 
 /obj/machinery/teleport
 	name = "teleport"
@@ -257,7 +248,7 @@
 	else
 		z_flags &= ~ZMM_MANGLE_PLANES
 
-/obj/machinery/teleport/station/attackby(var/obj/item/W, var/mob/user)
+/obj/machinery/teleport/station/attackby(var/obj/item/used_item, var/mob/user)
 	return attack_hand_with_interaction_checks(user) || ..()
 
 /obj/machinery/teleport/station/interface_interact(var/mob/user)

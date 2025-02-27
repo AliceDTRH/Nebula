@@ -198,26 +198,26 @@
 /obj/machinery/atmospherics/unary/fission_core/proc/check_active()
 	return neutron_flux >= ACTIVE_THRESHOLD
 
-/obj/machinery/atmospherics/unary/fission_core/attackby(var/obj/item/W, var/mob/user)
-	if(IS_MULTITOOL(W))
+/obj/machinery/atmospherics/unary/fission_core/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_MULTITOOL(used_item))
 		var/datum/extension/local_network_member/fission = get_extension(src, /datum/extension/local_network_member)
 		fission.get_new_tag(user)
-		return
+		return TRUE
 
 	// Cannot deconstruct etc. the core while it is active.
 	if(check_active())
 		to_chat(user, SPAN_WARNING("You cannot do that while \the [src] is active!"))
-		return
+		return TRUE
 
-	if(istype(W, /obj/item/fuel_assembly))
+	if(istype(used_item, /obj/item/fuel_assembly))
 		if(length(fuel_rods) >= MAX_RODS)
 			to_chat(user, SPAN_WARNING("\The [src] is full!"))
-			return
-		if(!user.try_unequip(W, src))
-			return
-		fuel_rods[W] = FALSE // Rod is not exposed to begin with.
-		visible_message(SPAN_NOTICE("\The [user] inserts \a [W] into \the [src]."), SPAN_NOTICE("You insert \a [W] into \the [src]."))
-		return
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		fuel_rods[used_item] = FALSE // Rod is not exposed to begin with.
+		user.visible_message(SPAN_NOTICE("\The [user] inserts \a [used_item] into \the [src]."), SPAN_NOTICE("You insert \a [used_item] into \the [src]."))
+		return TRUE
 	. = ..()
 
 /obj/machinery/atmospherics/unary/fission_core/proc/jump_start()

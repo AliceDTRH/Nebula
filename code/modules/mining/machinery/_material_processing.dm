@@ -90,7 +90,7 @@
 /obj/machinery/material_processing/Destroy()
 	input_turf = null
 	output_turf = null
-	events_repository.unregister(/decl/observ/moved, src, src, .proc/on_moved)
+	events_repository.unregister(/decl/observ/moved, src, src, PROC_REF(on_moved))
 	. = ..()
 
 /obj/machinery/material_processing/Initialize()
@@ -99,13 +99,23 @@
 	SET_OUTPUT(output_turf)
 	. = ..()
 	queue_icon_update()
-	events_repository.register(/decl/observ/moved, src, src, .proc/on_moved)
+	events_repository.register(/decl/observ/moved, src, src, PROC_REF(on_moved))
+	events_repository.register(/decl/observ/dir_set, src, src, PROC_REF(on_dir_set))
 
 /obj/machinery/material_processing/proc/on_moved(atom/moving, atom/old_loc, atom/new_loc)
+	var/turf/our_turf = get_turf(src)
 	if(istype(input_turf, /turf))
-		input_turf = get_step(get_turf(src), get_dir(get_turf(old_loc), input_turf))
+		input_turf = get_step(our_turf, get_dir(get_turf(old_loc), input_turf))
 	if(istype(output_turf, /turf))
-		output_turf = get_step(get_turf(src), get_dir(get_turf(old_loc), output_turf))
+		output_turf = get_step(our_turf, get_dir(get_turf(old_loc), output_turf))
+
+/obj/machinery/material_processing/proc/on_dir_set(atom/dir_changer, old_dir, new_dir)
+	var/angle_offset = dir2angle(old_dir) - dir2angle(new_dir)
+	var/turf/our_turf = get_turf(src)
+	if(istype(input_turf, /turf))
+		input_turf = get_step(our_turf, SAFE_TURN(get_dir(our_turf, input_turf), angle_offset))
+	if(istype(output_turf, /turf))
+		output_turf = get_step(our_turf, SAFE_TURN(get_dir(our_turf, output_turf), angle_offset))
 
 /obj/machinery/material_processing/OnTopic(var/user, var/list/href_list)
 	if(href_list["toggle_power"])

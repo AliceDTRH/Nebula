@@ -30,8 +30,6 @@ var/global/const/CAMERA_WIRE_FOCUS = 1
 var/global/const/CAMERA_WIRE_POWER = 2
 var/global/const/CAMERA_WIRE_LIGHT = 4
 var/global/const/CAMERA_WIRE_ALARM = 8
-var/global/const/CAMERA_WIRE_NOTHING1 = 16
-var/global/const/CAMERA_WIRE_NOTHING2 = 32
 
 /datum/wires/camera/UpdateCut(var/index, var/mended)
 	var/obj/machinery/camera/C = holder
@@ -44,7 +42,7 @@ var/global/const/CAMERA_WIRE_NOTHING2 = 32
 
 		if(CAMERA_WIRE_POWER)
 			C.cut_power = !mended
-			C.set_status(mended, usr)
+			C.set_camera_status(mended, usr)
 
 		if(CAMERA_WIRE_LIGHT)
 			C.light_disabled = !mended

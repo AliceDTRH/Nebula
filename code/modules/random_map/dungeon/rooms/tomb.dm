@@ -22,13 +22,13 @@
 				var/type = pickweight(corpses)
 				var/mob/M
 				if(istext(type))
-					M = new /mob/living/carbon/human()
-					var/mob/living/carbon/human/H = M
+					M = new /mob/living/human()
+					var/mob/living/human/H = M
 					H.set_species(type)
-					H.make_husked()
+					H.add_genetic_condition(GENE_COND_HUSK)
 				else
 					M = new type()
-				M.death(0)
+				M.death()
 				M.forceMove(C1)
 				item_spawns += M
 		check = locate(truex + (direction ? width - 2 : 0), truey + (direction ? 0 : height - 2), zorigin)
@@ -38,12 +38,12 @@
 				var/type = pickweight(corpses)
 				var/mob/M
 				if(istext(type))
-					M = new /mob/living/carbon/human()
-					var/mob/living/carbon/human/H = M
+					M = new /mob/living/human()
+					var/mob/living/human/H = M
 					H.set_species(type)
-					H.make_husked()
+					H.add_genetic_condition(GENE_COND_HUSK)
 				else
 					M = new type()
-				M.death(0)
+				M.death()
 				M.forceMove(C2)
 				item_spawns += M

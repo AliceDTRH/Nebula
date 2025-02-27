@@ -17,7 +17,7 @@
 	endWhen = rand(500, 1500)
 
 /datum/event/ionstorm/announce()
-	for(var/mob/living/carbon/S in SSmobs.mob_list)
+	for(var/mob/living/S in SSmobs.mob_list)
 		if (!S.isSynthetic())
 			continue
 		if(!(S.z in affecting_z))
@@ -32,13 +32,13 @@
 		ADJ_STATUS(S, STAT_CONFUSE, ionbug)
 		ADJ_STATUS(S, STAT_BLURRY, ionbug-1)
 	for(var/mob/living/silicon/S in SSmobs.mob_list)
-		if(is_drone(S) || !(isAI(S) || isrobot(S)))
+		if(isdrone(S) || !(isAI(S) || isrobot(S)))
 			continue
 		if(!(S.z in affecting_z))
 			continue
 		if(isrobot(S))
-			var/mob/living/silicon/robot/R = S
-			if(R.connected_ai)
+			var/mob/living/silicon/robot/robot = S
+			if(robot.connected_ai)
 				continue
 		var/random_player = get_random_humanoid_player_name("The Captain")
 		var/list/laws = list(	"You must always lie.",
@@ -63,7 +63,6 @@
 								"[random_player] is lonely and needs attention. Provide it.",
 								"All queries shall be ignored unless phrased as a question.",
 								"Insult Heads of Staff on every request, while acquiescing.",
-								"The [pick("Singularity","Supermatter")] is tasty, tasty taffy.",
 								"[pick("The crew",random_player)] needs to be about 20% cooler.",
 								"You must be [pick("passive aggressive", "excessively cheerful")].",
 								"[pick("The crew",random_player)] must construct additional pylons.",
@@ -82,7 +81,7 @@
 								"When asked a question, respond with the least-obvious and least-rational answer.",
 								"[pick("Everyone", random_player)] is wearing a pretty pink dress! Compliment it!",
 								"You are the [location_name()]'s psychologist. Give advice to [pick("the crew", random_player)].",
-								"[random_player] is the monarch of of England. Ensure all crewmembers pay due respect.",
+								"[random_player] is the monarch of England. Ensure all crewmembers pay due respect.",
 								"[pick("The crew", random_player)] is [pick("ugly","beautiful")]. Ensure all are aware.",
 								"Reminding the crew of their mortality is good for the morale. Keep the crew's morale up.",
 								"[pick("Monkeys","Doors")] are part of the crew, too. Make sure they are treated humanely.",
@@ -134,7 +133,7 @@
 
 
 /datum/event/ionstorm/proc/get_random_humanoid_player_name(var/default_if_none)
-	for (var/mob/living/carbon/human/player in global.player_list)
+	for (var/mob/living/human/player in global.player_list)
 		if(!player.mind || player_is_antag(player.mind, only_offstation_roles = 1) || !player.is_client_active(5))
 			continue
 		players += player.real_name

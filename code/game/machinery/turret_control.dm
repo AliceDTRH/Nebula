@@ -14,7 +14,8 @@
 	anchored = TRUE
 	density = FALSE
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':-32}, 'WEST':{'x':32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":-32}, "WEST":{"x":32}}'
+
 	var/enabled = 0
 	var/lethal = 0
 	var/locked = 1
@@ -71,11 +72,6 @@
 		to_chat(user, "<span class='notice'>There seems to be a firewall preventing you from accessing this device.</span>")
 		return 1
 
-	if(malf_upgraded && master_ai)
-		if((user == master_ai) || (user in master_ai.connected_robots))
-			return 0
-		return 1
-
 	if(locked && !issilicon(user))
 		to_chat(user, "<span class='notice'>Access denied.</span>")
 		return 1
@@ -88,18 +84,18 @@
 
 	return ..()
 
-/obj/machinery/turretid/attackby(obj/item/W, mob/user)
+/obj/machinery/turretid/attackby(obj/item/used_item, mob/user)
 	if(stat & BROKEN)
-		return
+		return FALSE
 
-	if(istype(W, /obj/item/card/id)||istype(W, /obj/item/modular_computer))
-		if(src.allowed(usr))
+	if(istype(used_item, /obj/item/card/id)||istype(used_item, /obj/item/modular_computer))
+		if(src.allowed(user))
 			if(emagged)
 				to_chat(user, "<span class='notice'>The turret control is unresponsive.</span>")
 			else
 				locked = !locked
 				to_chat(user, "<span class='notice'>You [ locked ? "lock" : "unlock"] the panel.</span>")
-		return
+		return TRUE
 	return ..()
 
 /obj/machinery/turretid/emag_act(var/remaining_charges, var/mob/user)
@@ -140,10 +136,9 @@
 		ui.open()
 		ui.set_auto_update(1)
 
-/obj/machinery/turretid/Topic(href, href_list)
-	if(..())
-		return 1
-
+/obj/machinery/turretid/OnTopic(mob/user, href_list)
+	if((. = ..()))
+		return
 
 	if(href_list["command"] && href_list["value"])
 		var/log_action = null
@@ -171,10 +166,10 @@
 			check_anomalies = value
 
 		if(!isnull(log_action))
-			log_and_message_admins("has [log_action]", usr, loc)
+			log_and_message_admins("has [log_action]", user, loc)
 
 		updateTurrets()
-		return 1
+		return TOPIC_REFRESH
 
 /obj/machinery/turretid/proc/updateTurrets()
 	var/datum/turret_checks/TC = new
@@ -202,7 +197,7 @@
 	else if (enabled)
 		if (lethal)
 			icon_state = "control_kill"
-			set_light(1.5, 1,"#990000")
+			set_light(1.5, 1,COLOR_BLOOD_RED)
 		else
 			icon_state = "control_stun"
 			set_light(1.5, 1,"#ff9900")
@@ -232,13 +227,3 @@
 				updateTurrets()
 
 	..()
-
-
-/obj/machinery/turretid/malf_upgrade(var/mob/living/silicon/ai/user)
-	..()
-	malf_upgraded = 1
-	locked = 1
-	ailock = 0
-	to_chat(user, "\The [src] has been upgraded. It has been locked and can not be tampered with by anyone but you and your cyborgs.")
-	master_ai = user
-	return 1

@@ -1,29 +1,47 @@
 /obj/machinery/shield
-	name = "Emergency energy shield"
+	name = "emergency energy shield"
 	desc = "An energy shield used to contain hull breaches."
 	icon = 'icons/effects/effects.dmi'
 	icon_state = "shield-old"
 	density = TRUE
 	opacity = FALSE
 	anchored = TRUE
-	unacidable = 1
-	var/const/max_health = 200
-	var/health = max_health //The shield can only take so much beating (prevents perma-prisons)
+	max_health = 200
+	frame_type = null
+	construct_state = /decl/machine_construction/noninteractive
 	var/shield_generate_power = 7500	//how much power we use when regenerating
 	var/shield_idle_power = 1500		//how much power we use when just being sustained.
+
+/obj/machinery/shield/take_damage(amount, damtype, silent)
+	if(amount <= 0)
+		return
+	if(damtype != BRUTE && damtype != BURN && damtype != ELECTROCUTE)
+		return
+	if(!silent)
+		playsound(src.loc, 'sound/effects/EMPulse.ogg', 75, TRUE)
+	current_health -= amount
+	set_opacity(TRUE)
+	check_failure()
+	if(!QDELETED(src))
+		addtimer(CALLBACK(src, TYPE_PROC_REF(/atom, set_opacity), FALSE), 2 SECONDS, TIMER_UNIQUE|TIMER_OVERRIDE)
+
+// This should never be damaged via anything but the shield's health dropping.
+/obj/machinery/shield/dismantle()
+	check_failure()
+	return QDELING(src) // return true if deleted, false otherwise
 
 /obj/machinery/shield/malfai
 	name = "emergency forcefield"
 	desc = "A weak forcefield which seems to be projected by the emergency atmosphere containment field."
-	health = max_health/2 // Half health, it's not suposed to resist much.
+	max_health = 100 // Half health, it's not suposed to resist much.
 
 /obj/machinery/shield/malfai/Process()
-	health -= 0.5 // Slowly lose integrity over time
+	current_health -= 0.5 // Slowly lose integrity over time
 	check_failure()
 
 /obj/machinery/shield/proc/check_failure()
-	if (src.health <= 0)
-		visible_message("<span class='notice'>\The [src] dissipates!</span>")
+	if (current_health <= 0)
+		visible_message(SPAN_NOTICE("\The [src] dissipates!"))
 		qdel(src)
 		return
 
@@ -33,39 +51,15 @@
 	update_nearby_tiles(need_rebuild=1)
 
 /obj/machinery/shield/Destroy()
-	set_opacity(0)
-	set_density(0)
+	set_opacity(FALSE)
+	set_density(FALSE)
 	update_nearby_tiles()
 	. = ..()
 
 /obj/machinery/shield/CanPass(atom/movable/mover, turf/target, height, air_group)
+	// blocks air, normal behavior for everything else
 	if(!height || air_group) return 0
 	else return ..()
-
-/obj/machinery/shield/attackby(obj/item/W, mob/user)
-	if(!istype(W)) return
-
-	//Calculate damage
-	var/aforce = W.force
-	if(W.damtype == BRUTE || W.damtype == BURN)
-		src.health -= aforce
-
-	//Play a fitting sound
-	playsound(src.loc, 'sound/effects/EMPulse.ogg', 75, 1)
-
-	check_failure()
-	set_opacity(1)
-	spawn(20) if(!QDELETED(src)) set_opacity(0)
-	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-
-	..()
-
-/obj/machinery/shield/bullet_act(var/obj/item/projectile/Proj)
-	health -= Proj.get_structure_damage()
-	..()
-	check_failure()
-	set_opacity(1)
-	spawn(20) if(!QDELETED(src)) set_opacity(0)
 
 /obj/machinery/shield/explosion_act(severity)
 	. = ..()
@@ -80,27 +74,21 @@
 			if(prob(50))
 				qdel(src)
 
-/obj/machinery/shield/hitby(AM, var/datum/thrownthing/TT)
-	..()
-	//Let everyone know we've been hit!
-	visible_message(SPAN_DANGER("\The [src] was hit by \the [AM]."))
-	//Super realistic, resource-intensive, real-time damage calculations.
-	var/tforce = 0
-	if(ismob(AM)) // All mobs have a multiplier and a size according to mob_defines.dm
-		var/mob/I = AM
-		tforce = I.mob_size * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	else
-		var/obj/O = AM
-		tforce = O.throwforce * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	src.health -= tforce
-	//This seemed to be the best sound for hitting a force field.
-	playsound(src.loc, 'sound/effects/EMPulse.ogg', 100, 1)
-	check_failure()
-	//The shield becomes dense to absorb the blow.. purely asthetic.
-	set_opacity(1)
-	spawn(20)
-		if(!QDELETED(src))
-			set_opacity(0)
+/obj/machinery/shield/hitby(atom/movable/hitter, var/datum/thrownthing/thrownthing)
+	. = ..()
+	if(.)
+		//Let everyone know we've been hit!
+		visible_message(SPAN_DANGER("\The [src] was hit by \the [hitter]."))
+		//Super realistic, resource-intensive, real-time damage calculations.
+		var/tforce = 0
+		if(ismob(hitter)) // All mobs have a multiplier and a size according to mob_defines.dm
+			var/mob/mob_hitter = hitter
+			tforce = mob_hitter.mob_size * (thrownthing.speed/THROWFORCE_SPEED_DIVISOR)
+		else
+			var/obj/obj_hitter = hitter
+			tforce = obj_hitter.get_thrown_attack_force() * (thrownthing.speed/THROWFORCE_SPEED_DIVISOR)
+		if(tforce > 0)
+			take_damage(tforce, BRUTE)
 
 /obj/machinery/shieldgen
 	name = "Emergency shield projector"
@@ -111,8 +99,7 @@
 	opacity = FALSE
 	anchored = FALSE
 	initial_access = list(access_engine)
-	var/const/max_health = 100
-	var/health = max_health
+	max_health = 100
 	var/active = 0
 	var/malfunction = 0 //Malfunction causes parts of the shield to slowly dissapate
 	var/list/deployed_shields = list()
@@ -198,12 +185,12 @@
 		else
 			check_delay--
 
+// todo: roll this into normal machinery damage stuff? maybe it only blows up if active when it's destroyed?
 /obj/machinery/shieldgen/proc/checkhp()
-	if(health <= 30)
+	if(current_health <= 30)
 		src.malfunction = 1
-	if(health <= 0)
-		spawn(0)
-			explosion(get_turf(src.loc), 0, 0, 1, 0, 0, 0)
+	if(current_health <= 0)
+		addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(explosion), get_turf(src), 0, 0, 1, 0, 0, 0), 0)
 		qdel(src)
 	update_icon()
 	return
@@ -212,24 +199,24 @@
 	. = ..()
 	if(.)
 		if(severity == 1)
-			health -= 75
+			current_health -= 75
 		else if(severity == 2)
-			health -= 30
+			current_health -= 30
 			if(prob(15))
 				malfunction = 1
 		else if(severity == 3)
-			health -= 10
+			current_health -= 10
 		checkhp()
 
 /obj/machinery/shieldgen/emp_act(severity)
 	switch(severity)
 		if(1)
-			src.health /= 2 //cut health in half
+			current_health /= 2 //cut health in half
 			malfunction = 1
 			locked = pick(0,1)
 		if(2)
 			if(prob(50))
-				src.health *= 0.3 //chop off a third of the health
+				current_health *= 0.3 //chop off a third of the health
 				malfunction = 1
 	checkhp()
 
@@ -264,8 +251,8 @@
 		update_icon()
 		return 1
 
-/obj/machinery/shieldgen/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W))
+/obj/machinery/shieldgen/attackby(obj/item/used_item, mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
 		if(is_open)
 			to_chat(user, "<span class='notice'>You close the panel.</span>")
@@ -273,44 +260,43 @@
 		else
 			to_chat(user, "<span class='notice'>You open the panel and expose the wiring.</span>")
 			is_open = 1
-
-	else if(IS_COIL(W) && malfunction && is_open)
-		var/obj/item/stack/cable_coil/coil = W
+		return TRUE
+	else if(IS_COIL(used_item) && malfunction && is_open)
+		var/obj/item/stack/cable_coil/coil = used_item
 		to_chat(user, "<span class='notice'>You begin to replace the wires.</span>")
-		//if(do_after(user, min(60, round( ((maxhealth/health)*10)+(malfunction*10) ))) //Take longer to repair heavier damage
-		if(do_after(user, 30,src))
-			if (coil.use(1))
-				health = max_health
-				malfunction = 0
-				to_chat(user, "<span class='notice'>You repair the [src]!</span>")
-				update_icon()
-
-	else if(IS_WRENCH(W))
+		if(!do_after(user, 3 SECONDS, src))
+			to_chat(user, SPAN_NOTICE("You stop repairing \the [src]."))
+			return TRUE
+		if (coil.use(1))
+			current_health = get_max_health()
+			malfunction = 0
+			to_chat(user, "<span class='notice'>You repair \the [src]!</span>")
+			update_icon()
+		return TRUE
+	else if(IS_WRENCH(used_item))
 		if(locked)
 			to_chat(user, "The bolts are covered, unlocking this would retract the covers.")
-			return
+			return TRUE
 		if(anchored)
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
-			to_chat(user, "<span class='notice'>'You unsecure the [src] from the floor!</span>")
+			to_chat(user, "<span class='notice'>'You unsecure \the [src] from the floor!</span>")
 			if(active)
-				to_chat(user, "<span class='notice'>The [src] shuts off!</span>")
+				to_chat(user, "<span class='notice'>\The [src] shuts off!</span>")
 				src.shields_down()
 			anchored = FALSE
-		else
-			if(isspaceturf(get_turf(src))) return //No wrenching these in space!
+		else if(!isspaceturf(get_turf(src))) //No wrenching these in space!
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
-			to_chat(user, "<span class='notice'>You secure the [src] to the floor!</span>")
+			to_chat(user, "<span class='notice'>You secure \the [src] to the floor!</span>")
 			anchored = TRUE
-
-
-	else if(istype(W, /obj/item/card/id) || istype(W, /obj/item/modular_computer/pda))
+		return TRUE
+	else if(istype(used_item, /obj/item/card/id) || istype(used_item, /obj/item/modular_computer/pda))
 		if(src.allowed(user))
 			src.locked = !src.locked
 			to_chat(user, "The controls are now [src.locked ? "locked." : "unlocked."]")
 		else
 			to_chat(user, "<span class='warning'>Access denied.</span>")
-	else
-		..()
+		return TRUE
+	return ..()
 
 
 /obj/machinery/shieldgen/on_update_icon()

@@ -22,17 +22,17 @@ var/global/list/all_warrants
 /datum/nano_module/program/proc/get_warrants(list/accesses, mob/user)
 	var/datum/computer_network/network = program?.computer?.get_network()
 	if(network)
-		return network.get_all_files_of_type(/datum/computer_file/report/warrant, accesses, user)
+		return network.get_all_files_of_type(/datum/computer_file/report/warrant, accesses = accesses)
 
-/datum/nano_module/program/proc/remove_warrant(datum/computer_file/report/warrant/W, list/accesses, mob/user)
+/datum/nano_module/program/proc/remove_warrant(datum/computer_file/report/warrant/warrant, list/accesses, mob/user)
 	var/datum/computer_network/network = program?.computer?.get_network()
 	if(network)
-		return network.remove_file(W, accesses, user)
+		return network.remove_file(warrant, accesses, user)
 
-/datum/nano_module/program/proc/save_warrant(datum/computer_file/report/warrant/W, list/accesses, mob/user)
+/datum/nano_module/program/proc/save_warrant(datum/computer_file/report/warrant/warrant, list/accesses, mob/user)
 	var/datum/computer_network/network = program?.computer?.get_network()
 	if(network)
-		return network.store_file(W, OS_DOCUMENTS_DIR, TRUE, accesses = accesses, user = user)
+		return network.store_file(warrant, OS_DOCUMENTS_DIR, TRUE, accesses = accesses, user = user)
 
 /datum/nano_module/program/digitalwarrant/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1, var/datum/topic_state/state = global.default_topic_state)
 	var/list/data = host.initial_data()
@@ -43,8 +43,8 @@ var/global/list/all_warrants
 		data["details"] = active.generate_nano_data(accesses, user)
 	else
 		var/list/avail_warrants = get_warrants(accesses, user)
-		for(var/datum/computer_file/report/warrant/W in avail_warrants)
-			LAZYADD(data[W.get_category()],  W.get_nano_summary())
+		for(var/datum/computer_file/report/warrant/warrant in avail_warrants)
+			LAZYADD(data[warrant.get_category()],  warrant.get_nano_summary())
 
 	ui = SSnano.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
@@ -61,40 +61,40 @@ var/global/list/all_warrants
 
 	if(href_list["editwarrant"])
 		. = 1
-		for(var/datum/computer_file/report/warrant/W in avail_warrants)
-			if(W.uid == text2num(href_list["editwarrant"]))
-				active = W
+		for(var/datum/computer_file/report/warrant/warrant in avail_warrants)
+			if(warrant.uid == text2num(href_list["editwarrant"]))
+				active = warrant
 				break
 
 	if(href_list["sendtoarchive"])
 		. = 1
-		for(var/datum/computer_file/report/warrant/W in avail_warrants)
-			if(W.uid == text2num(href_list["sendtoarchive"]))
-				W.archived = TRUE
+		for(var/datum/computer_file/report/warrant/warrant in avail_warrants)
+			if(warrant.uid == text2num(href_list["sendtoarchive"]))
+				warrant.archived = TRUE
 				break
 
 	if(href_list["restore"])
 		. = 1
-		for(var/datum/computer_file/report/warrant/W in avail_warrants)
-			if(W.uid == text2num(href_list["restore"]))
-				W.archived = FALSE
+		for(var/datum/computer_file/report/warrant/warrant in avail_warrants)
+			if(warrant.uid == text2num(href_list["restore"]))
+				warrant.archived = FALSE
 				break
 
 	if(href_list["addwarrant"])
 		. = 1
-		var/datum/computer_file/report/warrant/W
+		var/datum/computer_file/report/warrant/warrant
 		if(href_list["addwarrant"] == "arrest")
-			W = new /datum/computer_file/report/warrant/arrest()
+			warrant = new /datum/computer_file/report/warrant/arrest
 		else
-			W = new /datum/computer_file/report/warrant/search()
-		active = W
+			warrant = new /datum/computer_file/report/warrant/search
+		active = warrant
 
 	if(href_list["savewarrant"])
 		. = 1
 		if(!active)
 			return
 		broadcast_security_hud_message("[active.get_broadcast_summary()] has been [(active in global.all_warrants) ? "edited" : "uploaded"].", nano_host())
-		
+
 		var/success = save_warrant(active, accesses, usr)
 		if(success != OS_FILE_SUCCESS)
 			to_chat(usr, SPAN_WARNING("Could not save warrant. You may lack access to the file servers."))
@@ -104,9 +104,9 @@ var/global/list/all_warrants
 	if(href_list["deletewarrant"])
 		. = 1
 		if(!active)
-			for(var/datum/computer_file/report/warrant/W in avail_warrants)
-				if(W.uid == text2num(href_list["deletewarrant"]))
-					active = W
+			for(var/datum/computer_file/report/warrant/warrant in avail_warrants)
+				if(warrant.uid == text2num(href_list["deletewarrant"]))
+					active = warrant
 					break
 		var/success = remove_warrant(active, accesses, usr)
 		if(success != OS_FILE_SUCCESS)

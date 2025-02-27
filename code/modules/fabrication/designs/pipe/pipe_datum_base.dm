@@ -18,6 +18,12 @@
 	)
 	max_amount = 10
 
+/datum/fabricator_recipe/pipe/New()
+	. = ..()
+	if(isnull(desc) && ispath(constructed_path))
+		var/obj/constructed_obj = constructed_path
+		desc = initial(constructed_obj.desc)
+
 /datum/fabricator_recipe/pipe/get_resources()
 	resources = list()
 	var/list/building_cost = atom_info_repository.get_matter_for(constructed_path)
@@ -47,7 +53,7 @@
 		. += new_item
 
 /datum/fabricator_recipe/pipe/disposal_dispenser/build(var/turf/location, var/datum/fabricator_build_order/order)
-	. = ..()
+	. = list()
 	for(var/i = 1, i <= order.multiplier, i++)
 		var/obj/structure/disposalconstruct/new_item = new path(location)
 		new_item.SetName(name)

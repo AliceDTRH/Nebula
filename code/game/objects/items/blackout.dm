@@ -9,10 +9,13 @@
 
 /obj/item/blackout
 	name = "blackout pulser"
-	desc = "A complicated eletronic device of unknown purpose"
+	desc = "A complicated electronic device of unknown purpose."
 	icon = 'icons/obj/items/blackout.dmi'
 	icon_state = "device_blackout-off"
 	max_health = ITEM_HEALTH_NO_DAMAGE
+	origin_tech = "{'magnets':2,'esoteric':2}"
+	material = /decl/material/solid/metal/aluminium
+	matter = list(/decl/material/solid/metal/uranium = MATTER_AMOUNT_TRACE)
 	var/severity = 2
 	var/shots = 1
 	var/last_use = 0

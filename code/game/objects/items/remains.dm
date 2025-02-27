@@ -4,7 +4,7 @@
 	icon = 'icons/effects/blood.dmi'
 	icon_state = "remains"
 	anchored = FALSE
-	material = /decl/material/solid/bone
+	material = /decl/material/solid/organic/bone
 
 /obj/item/remains/human
 	desc = "They look like human remains. They have a strange aura about them."
@@ -38,9 +38,9 @@
 /obj/item/remains/attack_hand(mob/user)
 	SHOULD_CALL_PARENT(FALSE)
 	to_chat(user, SPAN_NOTICE("\The [src] sinks together into a pile of ash."))
-	var/turf/simulated/floor/F = get_turf(src)
-	if (istype(F))
-		new /obj/effect/decal/cleanable/ash(F)
+	var/turf/floor = get_turf(src)
+	if(floor?.is_floor() && floor.simulated)
+		new /obj/effect/decal/cleanable/ash(floor)
 	qdel(src)
 	return TRUE
 

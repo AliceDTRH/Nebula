@@ -25,7 +25,7 @@
 		return
 
 	codex_on_cooldown = TRUE
-	addtimer(CALLBACK(src, .proc/reset_codex_cooldown), 1 SECOND)
+	addtimer(CALLBACK(src, PROC_REF(reset_codex_cooldown)), 1 SECOND)
 
 	var/list/all_entries = SScodex.retrieve_entries_for_string(searching)
 	if(mob && mob.mind && !player_is_antag(mob.mind))
@@ -50,7 +50,7 @@
 			codex_data += "<table width = 100%>"
 			for(var/i = 1 to min(all_entries.len, max_codex_entries_shown))
 				var/datum/codex_entry/entry = all_entries[i]
-				codex_data += "<tr><td>[entry.name]</td><td><a href='?src=\ref[SScodex];show_examined_info=\ref[entry];show_to=\ref[mob]'>View</a></td></tr>"
+				codex_data += "<tr><td>[entry.name]</td><td><a href='byond://?src=\ref[SScodex];show_examined_info=\ref[entry];show_to=\ref[mob]'>View</a></td></tr>"
 			codex_data += "</table>"
 			var/datum/browser/popup = new(mob, "codex-search", "Codex Search")
 			popup.set_content(jointext(codex_data, null))
@@ -71,7 +71,7 @@
 		to_chat(src, SPAN_WARNING("You cannot perform codex actions currently."))
 		return
 	codex_on_cooldown = TRUE
-	addtimer(CALLBACK(src, .proc/reset_codex_cooldown), 1 SECOND)
+	addtimer(CALLBACK(src, PROC_REF(reset_codex_cooldown)), 1 SECOND)
 
 	to_chat(mob, SPAN_NOTICE("The codex forwards you an index file."))
 
@@ -87,13 +87,16 @@
 		if(!antag_check && entry.antag_text && !entry.mechanics_text && !entry.lore_text)
 			continue
 
+		if(entry.unsearchable) // We act as if this entry doesn't exist unless directly opened by an item.
+			continue
+
 		var/first_letter = uppertext(copytext(thing, 1, 2))
 		if(first_letter != last_first_letter)
 			last_first_letter = first_letter
 			codex_data += "<tr><td colspan = 2><hr></td></tr>"
 			codex_data += "<tr><td colspan = 2>[last_first_letter]</td></tr>"
 			codex_data += "<tr><td colspan = 2><hr></td></tr>"
-		codex_data += "<tr><td>[thing]</td><td><a href='?src=\ref[SScodex];show_examined_info=\ref[SScodex.index_file[thing]];show_to=\ref[mob]'>View</a></td></tr>"
+		codex_data += "<tr><td>[thing]</td><td><a href='byond://?src=\ref[SScodex];show_examined_info=\ref[SScodex.index_file[thing]];show_to=\ref[mob]'>View</a></td></tr>"
 	codex_data += "</table>"
 	popup.set_content(jointext(codex_data, null))
 	popup.open()
@@ -114,7 +117,7 @@
 		return
 
 	codex_on_cooldown = TRUE
-	addtimer(CALLBACK(src, .proc/reset_codex_cooldown), 1 SECOND)
+	addtimer(CALLBACK(src, PROC_REF(reset_codex_cooldown)), 1 SECOND)
 
 	var/datum/codex_entry/entry = SScodex.get_codex_entry("nexus")
 	SScodex.present_codex_entry(mob, entry)

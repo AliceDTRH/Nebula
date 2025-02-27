@@ -30,7 +30,7 @@
 		ARMOR_BIO = ARMOR_BIO_SHIELDED,
 		ARMOR_RAD = ARMOR_RAD_RESISTANT
 		)
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/toolbox,/obj/item/storage/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/toolbox,/obj/item/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
 
 /obj/item/clothing/suit/space/void/engineering/Initialize()
 	. = ..()
@@ -68,7 +68,16 @@
 		ARMOR_RAD = ARMOR_RAD_MINOR
 		)
 	max_pressure_protection = ENG_VOIDSUIT_MAX_PRESSURE
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/stack/flag,/obj/item/suit_cooling_unit,/obj/item/storage/ore,/obj/item/t_scanner,/obj/item/pickaxe, /obj/item/rcd)
+	allowed = list(
+		/obj/item/flashlight,
+		/obj/item/tank,
+		/obj/item/stack/flag,
+		/obj/item/suit_cooling_unit,
+		/obj/item/ore,
+		/obj/item/t_scanner,
+		/obj/item/tool,
+		/obj/item/rcd
+	)
 
 /obj/item/clothing/suit/space/void/mining/prepared
 	helmet = /obj/item/clothing/head/helmet/space/void/mining
@@ -90,7 +99,7 @@
 	name = "medical voidsuit"
 	desc = "A sterile voidsuit with minor radiation shielding and a suite of self-cleaning technology. Standard issue in most orbital medical facilities."
 	icon = 'icons/clothing/spacesuit/void/medical/suit.dmi'
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/firstaid,/obj/item/scanner/health,/obj/item/scanner/breath,/obj/item/stack/medical)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/firstaid,/obj/item/scanner/health,/obj/item/scanner/breath,/obj/item/stack/medical)
 	armor = list(
 		ARMOR_MELEE = ARMOR_MELEE_KNIVES,
 		ARMOR_LASER = ARMOR_LASER_MINOR,
@@ -139,7 +148,7 @@
 
 //Atmospherics
 /obj/item/clothing/head/helmet/space/void/atmos
-	desc = "A flame-retardant voidsuit helmet with a self-repairing visor and light anti-radiation shielding."
+	desc = "A flame-resistant voidsuit helmet with a self-repairing visor and light anti-radiation shielding."
 	name = "atmospherics voidsuit helmet"
 	icon = 'icons/clothing/spacesuit/void/atmos/helmet.dmi'
 	armor = list(
@@ -171,8 +180,8 @@
 		/obj/item/flashlight,
 		/obj/item/tank,
 		/obj/item/suit_cooling_unit,
-		/obj/item/storage/toolbox,
-		/obj/item/storage/briefcase/inflatable,
+		/obj/item/toolbox,
+		/obj/item/briefcase/inflatable,
 		/obj/item/t_scanner,
 		/obj/item/rcd
 	)
@@ -265,7 +274,7 @@
 	name = "streamlined medical voidsuit"
 	desc = "A more recent and stylish model of Vey-Med voidsuit, with a minor upgrade to radiation shielding."
 	icon = 'icons/clothing/spacesuit/void/medical_alt/suit.dmi'
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/firstaid,/obj/item/scanner/health,/obj/item/scanner/breath,/obj/item/stack/medical)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/firstaid,/obj/item/scanner/health,/obj/item/scanner/breath,/obj/item/stack/medical)
 	armor = list(
 		ARMOR_MELEE = ARMOR_MELEE_KNIVES,
 		ARMOR_LASER = ARMOR_LASER_MINOR,
@@ -314,7 +323,7 @@
 
 //Atmospherics
 /obj/item/clothing/head/helmet/space/void/atmos/alt
-	name = "heavy duty atmospherics voidsuit helmet"
+	name = "heavy-duty atmospherics voidsuit helmet"
 	desc = "A voidsuit helmet plated with an expensive heat and radiation resistant ceramic."
 	icon = 'icons/clothing/spacesuit/void/atmos_alt/helmet.dmi'
 	armor = list(
@@ -327,7 +336,7 @@
 		)
 
 /obj/item/clothing/suit/space/void/atmos/alt
-	name = "heavy duty atmos voidsuit"
+	name = "heavy-duty atmos voidsuit"
 	desc = "An expensive voidsuit, rated to withstand extreme heat and even minor radiation without exceeding room temperature within."
 	icon = 'icons/clothing/spacesuit/void/atmos_alt/suit.dmi'
 	armor = list(
@@ -371,17 +380,17 @@
 		ARMOR_BIO = ARMOR_BIO_SHIELDED,
 		ARMOR_RAD = ARMOR_RAD_RESISTANT
 		)
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/toolbox,/obj/item/storage/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/toolbox,/obj/item/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
 
 /obj/item/clothing/suit/space/void/engineering/salvage/prepared
 	helmet = /obj/item/clothing/head/helmet/space/void/engineering/salvage
 	boots = /obj/item/clothing/shoes/magboots
 
 //Pilot
-/obj/item/clothing/head/helmet/space/void/pilot
-	desc = "An atmos resistant helmet for space and planet exploration."
-	name = "pilot voidsuit helmet"
-	icon = 'icons/clothing/spacesuit/void/pilot/helmet.dmi'
+/obj/item/clothing/head/helmet/space/void/expedition
+	desc = "An atmos-resistant helmet for space and planet exploration."
+	name = "expedition voidsuit helmet"
+	icon = 'icons/clothing/spacesuit/void/expedition/helmet.dmi'
 	armor = list(
 		ARMOR_MELEE = ARMOR_MELEE_KNIVES,
 		ARMOR_BULLET = ARMOR_BALLISTIC_MINOR,
@@ -390,10 +399,10 @@
 		ARMOR_RAD = ARMOR_RAD_SMALL
 		)
 
-/obj/item/clothing/suit/space/void/pilot
-	desc = "An atmos resistant voidsuit for space and planet exploration."
-	name = "pilot voidsuit"
-	icon = 'icons/clothing/spacesuit/void/pilot/suit.dmi'
+/obj/item/clothing/suit/space/void/expedition
+	desc = "An atmos-resistant voidsuit for space and planet exploration."
+	name = "expedition voidsuit"
+	icon = 'icons/clothing/spacesuit/void/expedition/suit.dmi'
 	armor = list(
 		ARMOR_MELEE = ARMOR_MELEE_KNIVES,
 		ARMOR_BULLET = ARMOR_BALLISTIC_MINOR,
@@ -401,9 +410,9 @@
 		ARMOR_BIO = ARMOR_BIO_SHIELDED,
 		ARMOR_RAD = ARMOR_RAD_SMALL
 		)
-	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/storage/toolbox,/obj/item/storage/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
+	allowed = list(/obj/item/flashlight,/obj/item/tank,/obj/item/suit_cooling_unit,/obj/item/toolbox,/obj/item/briefcase/inflatable,/obj/item/t_scanner,/obj/item/rcd)
 
-/obj/item/clothing/suit/space/void/pilot/prepared
-	helmet = /obj/item/clothing/head/helmet/space/void/pilot
+/obj/item/clothing/suit/space/void/expedition/prepared
+	helmet = /obj/item/clothing/head/helmet/space/void/expedition
 	boots = /obj/item/clothing/shoes/magboots
 

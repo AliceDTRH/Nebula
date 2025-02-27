@@ -8,7 +8,11 @@
 	base_icon_state = "bioprinter"
 	base_type = /obj/machinery/fabricator/bioprinter
 	fabricator_class = FABRICATOR_CLASS_MEAT
-	var/datum/dna/loaded_dna //DNA for biological organs
+	ignore_input_contents_length = TRUE // mostly eats organs, let people quickly dump a torso in there without doing surgery.
+	var/datum/mob_snapshot/loaded_dna //DNA for biological organs
+
+/obj/machinery/fabricator/bioprinter/can_ingest(var/obj/item/thing)
+	. = istype(thing, /obj/item/organ) || istype(thing, /obj/item/food/butchery) || istype(thing?.material, /decl/material/solid/organic/meat) || ..()
 
 /obj/machinery/fabricator/bioprinter/get_nano_template()
 	return "fabricator_bioprinter.tmpl"
@@ -22,28 +26,29 @@
 /obj/machinery/fabricator/bioprinter/do_build(datum/fabricator_build_order/order)
 	. = ..()
 	//Fetch params as they were when the order was passed
-	var/datum/dna/D = order.get_data("dna")
+	var/datum/mob_snapshot/D = order.get_data("dna")
 	for(var/obj/item/organ/O in .)
 		if(D)
-			O.set_dna(D)
+			O.copy_from_mob_snapshot(D)
 		O.status |= ORGAN_CUT_AWAY
 
-/obj/machinery/fabricator/bioprinter/attackby(obj/item/W, mob/user)
-	if(istype(W,/obj/item/chems/syringe))
-		var/obj/item/chems/syringe/S = W
+/obj/machinery/fabricator/bioprinter/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item,/obj/item/chems/syringe))
+		var/obj/item/chems/syringe/S = used_item
 		if(REAGENT_VOLUME(S.reagents, /decl/material/liquid/blood))
 			var/sample = REAGENT_DATA(S.reagents, /decl/material/liquid/blood)
 			if(islist(sample))
-				var/weakref/R = sample["donor"]
-				var/mob/living/carbon/human/H = R.resolve()
-				if(H && istype(H) && H.species && H.dna)
-					loaded_dna = H.dna.Clone()
-					to_chat(user, SPAN_INFO("You inject the blood sample into \the [src]."))
-					S.reagents.remove_any(BIOPRINTER_BLOOD_SAMPLE_SIZE) 
-					//Tell nano to do its job
-					SSnano.update_uis(src)
-					return TRUE
-		to_chat(user, SPAN_WARNING("\The [src] displays an error: no viable blood sample could be obtained from \the [W]."))
+				var/weakref/R = sample[DATA_BLOOD_DONOR]
+				var/mob/living/human/H = R.resolve()
+				if(H && istype(H) && H.species)
+					loaded_dna = H.get_mob_snapshot(check_dna = TRUE)
+					if(loaded_dna)
+						to_chat(user, SPAN_INFO("You inject the blood sample into \the [src]."))
+						S.remove_any_reagents(BIOPRINTER_BLOOD_SAMPLE_SIZE)
+						//Tell nano to do its job
+						SSnano.update_uis(src)
+						return TRUE
+		to_chat(user, SPAN_WARNING("\The [src] displays an error: no viable blood sample could be obtained from \the [used_item]."))
 		return TRUE
 	. = ..()
 
@@ -62,9 +67,9 @@
 	return list(
 		"real_name" = loaded_dna.real_name,
 		"UE"        = loaded_dna.unique_enzymes,
-		"species"   = loaded_dna.species,
-		"btype"     = loaded_dna.b_type,
-	) 
+		"species"   = loaded_dna.root_species.name,
+		"btype"     = loaded_dna.blood_type,
+	)
 
 /obj/machinery/fabricator/bioprinter/ui_draw_config(mob/user, ui_key)
 	return TRUE //Always draw it for us

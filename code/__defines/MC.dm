@@ -24,10 +24,10 @@
 if (Datum.is_processing) {\
 	if(Datum.is_processing != #Processor)\
 	{\
-		PRINT_STACK_TRACE("Failed to start processing. [log_info_line(Datum)] is already being processed by [Datum.is_processing] but queue attempt occured on [#Processor]."); \
+		PRINT_STACK_TRACE("Failed to start processing. [log_info_line(Datum)] is already being processed by [Datum.is_processing] but queue attempt occurred on [#Processor]."); \
 	}\
 } else {\
-	Datum.is_processing = #Processor;\
+	Datum.is_processing = Processor._internal_name;\
 	Processor.processing += Datum;\
 }
 
@@ -36,7 +36,7 @@ if(Datum.is_processing) {\
 	if(Processor.processing.Remove(Datum)) {\
 		Datum.is_processing = null;\
 	} else {\
-		PRINT_STACK_TRACE("Failed to stop processing. [log_info_line(Datum)] is being processed by [Datum.is_processing] but de-queue attempt occured on [#Processor]."); \
+		PRINT_STACK_TRACE("Failed to stop processing. [log_info_line(Datum)] is being processed by [Datum.is_processing] but de-queue attempt occurred on [#Processor]."); \
 	}\
 }
 
@@ -96,6 +96,15 @@ if(Datum.is_processing) {\
 #define TIMER_NO_HASH_WAIT BITFLAG(4) // For unique timers: don't distinguish timers by wait.
 #define TIMER_LOOP         BITFLAG(5) // Repeat the timer until it's deleted or the parent is destroyed.
 
+// TIMER_OVERRIDE is impossible to support because we don't track that for DPC queued calls, and adding a third list for that would be a lot of overhead for no real benefit
+// TIMER_STOPPABLE can't work because it uses timer IDs instead of hashes, and DPC queued calls don't have IDs.
+// TIMER_LOOP doesn't work because it needs to be a timer that can re-insert in the list, and a zero-wait looping timer should really be a ticker subsystem instead.
+// Update these defines if any of those change.
+/// These are the flags forbidden when putting zero-wait timers on SSdpc instead of SStimer.
+#define DPC_FORBID_FLAGS   TIMER_UNIQUE | TIMER_OVERRIDE | TIMER_STOPPABLE | TIMER_LOOP
+/// These are the flags forbidden when putting zero-wait TIMER_UNIQUE timers on SSdpc instead of SStimer.
+#define UDPC_FORBID_FLAGS  TIMER_OVERRIDE | TIMER_STOPPABLE | TIMER_LOOP
+
 #define TIMER_ID_NULL -1
 
 /**
@@ -125,6 +134,9 @@ if(Datum.is_processing) {\
 	NEW_SS_GLOBAL(SS##X);\
 	PreInit();\
 }\
+/datum/controller/subsystem/##X{\
+	_internal_name = "SS" + #X;\
+}\
 /datum/controller/subsystem/##X
 
 #define PROCESSING_SUBSYSTEM_DEF(X) var/global/datum/controller/subsystem/processing/##X/SS##X;\
@@ -137,4 +149,5 @@ if(Datum.is_processing) {\
 		processing = SS##X.processing; \
 	}\
 }\
+/datum/controller/subsystem/processing/##X/_internal_name = "SS" + #X;\
 /datum/controller/subsystem/processing/##X

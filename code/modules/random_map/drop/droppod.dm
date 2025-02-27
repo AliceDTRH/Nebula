@@ -11,11 +11,11 @@
 	limit_y = 3
 	preserve_map = 0
 
-	wall_type = /turf/simulated/wall/titanium
-	floor_type = /turf/simulated/floor/reinforced
+	wall_type = /turf/wall/titanium
+	floor_type = /turf/floor/reinforced
 	var/list/supplied_drop_types = list()
 	var/door_type = /obj/structure/droppod_door
-	var/drop_type = /mob/living/simple_animal/hostile/retaliate/parrot
+	var/drop_type = /mob/living/simple_animal/hostile/parrot
 	var/auto_open_doors
 
 	var/placement_explosion_dev =   1
@@ -41,13 +41,13 @@
 /datum/random_map/droppod/generate_map()
 
 	// No point calculating these 200 times.
-	var/x_midpoint = CEILING(limit_x / 2)
-	var/y_midpoint = CEILING(limit_y / 2)
+	var/x_midpoint = ceil(limit_x / 2)
+	var/y_midpoint = ceil(limit_y / 2)
 
 	// Draw walls/floors/doors.
 	for(var/x = 1, x <= limit_x, x++)
 		for(var/y = 1, y <= limit_y, y++)
-			var/current_cell = get_map_cell(x,y)
+			var/current_cell = TRANSLATE_COORD(x,y)
 			if(!current_cell)
 				continue
 
@@ -73,14 +73,14 @@
 					map[current_cell] = SD_FLOOR_TILE
 
 	// Draw the drop contents.
-	var/current_cell = get_map_cell(x_midpoint,y_midpoint)
+	var/current_cell = TRANSLATE_COORD(x_midpoint,y_midpoint)
 	if(current_cell)
 		map[current_cell] = SD_SUPPLY_TILE
 	return 1
 
 /datum/random_map/droppod/apply_to_map()
 	if(placement_explosion_dev || placement_explosion_heavy || placement_explosion_light || placement_explosion_flash)
-		var/turf/T = locate((origin_x + CEILING(limit_x / 2)-1), (origin_y + CEILING(limit_y / 2)-1), origin_z)
+		var/turf/T = locate((origin_x + ceil(limit_x / 2)-1), (origin_y + ceil(limit_y / 2)-1), origin_z)
 		if(istype(T))
 			explosion(T, placement_explosion_dev, placement_explosion_heavy, placement_explosion_light, placement_explosion_flash)
 			sleep(15) // Let the explosion finish proccing before we ChangeTurf(), otherwise it might destroy our spawned objects.
@@ -97,8 +97,8 @@
 
 // Pods are circular. Get the direction this object is facing from the center of the pod.
 /datum/random_map/droppod/get_spawn_dir(var/x, var/y)
-	var/x_midpoint = CEILING(limit_x / 2)
-	var/y_midpoint = CEILING(limit_y / 2)
+	var/x_midpoint = ceil(limit_x / 2)
+	var/y_midpoint = ceil(limit_y / 2)
 	if(x == x_midpoint && y == y_midpoint)
 		return null
 	var/turf/target = locate(origin_x+x-1, origin_y+y-1, origin_z)
@@ -124,7 +124,7 @@
 		get_spawned_drop(T)
 
 /datum/random_map/droppod/proc/get_spawned_drop(var/turf/T)
-	var/obj/structure/bed/chair/C = new(T)
+	var/obj/structure/chair/C = new(T)
 	C.set_light(3, 1, l_color = "#cc0000")
 	var/mob/living/drop
 	// This proc expects a list of mobs to be passed to the spawner.
@@ -136,7 +136,6 @@
 			drop = pick(supplied_drop_types)
 			supplied_drop_types -= drop
 			if(istype(drop))
-				drop.tag = null
 				if(drop.buckled)
 					drop.buckled = null
 				drop.forceMove(T)
@@ -168,7 +167,6 @@
 			return
 		for(var/i=0;i<spawn_count;i++)
 			var/mob/living/M = new spawn_path()
-			M.tag = "awaiting drop"
 			spawned_mobs |= M
 	else
 		var/list/candidates = list()
@@ -187,15 +185,14 @@
 
 		// Spawn the mob in nullspace for now.
 		spawned_mob = new spawn_path()
-		spawned_mob.tag = "awaiting drop"
 
 		// Equip them, if they are human and it is desirable.
-		if(istype(spawned_mob, /mob/living/carbon/human))
+		if(ishuman(spawned_mob))
 			var/list/all_antag_types = decls_repository.get_decls_of_subtype(/decl/special_role)
 			var/antag_type = input("Select an equipment template to use or cancel for nude.", null) as null|anything in all_antag_types
 			if(antag_type)
 				var/decl/special_role/A = all_antag_types[antag_type]
-				A.equip(spawned_mob)
+				A.equip_role(spawned_mob)
 
 	if(alert("Are you SURE you wish to deploy this drop pod? It will cause a sizable explosion and gib anyone underneath it.",,"No","Yes") == "No")
 		if(spawned_mob)
@@ -203,7 +200,6 @@
 		if(spawned_mobs.len)
 			for(var/mob/living/M in spawned_mobs)
 				spawned_mobs -= M
-				M.tag = null
 				qdel(M)
 			spawned_mobs.Cut()
 		return

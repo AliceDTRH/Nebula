@@ -9,8 +9,8 @@
 	if(confirm != "Yes")
 		return
 
-	for(var/obj/item/W in M.get_contained_external_atoms())
-		M.drop_from_inventory(W)
+	for(var/obj/item/thing in M.get_contained_external_atoms())
+		M.drop_from_inventory(thing)
 
 	log_admin("[key_name(usr)] made [key_name(M)] drop everything!")
 	message_admins("[key_name_admin(usr)] made [key_name_admin(M)] drop everything!", 1)
@@ -83,7 +83,7 @@
 		return
 
 	if (style == "unsafe")
-		if (!config.allow_unsafe_narrates)
+		if (!get_config_value(/decl/config/toggle/allow_unsafe_narrates))
 			to_chat(user, SPAN_WARNING("Unsafe narrates are not permitted by the server configuration."))
 			return
 
@@ -195,7 +195,7 @@
 	M.visible_message(result[1], result[1], narrate = TRUE)
 	log_and_message_admins(" - VisibleNarrate [result[2]]/[result[3]] on [A]: [result[4]]")
 
-// Visible narrate, it's as if it's a audible message
+// Visible narrate, it's as if it's an audible message
 /client/proc/cmd_admin_audible_narrate(var/atom/A)
 	set category = "Special Verbs"
 	set name = "Audible Narrate"
@@ -269,30 +269,11 @@
 	to_chat(M, "<span class = 'alert'>You have been [muteunmute] from [mute_string].</span>")
 	SSstatistics.add_field_details("admin_verb","MUTE") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
-/client/proc/cmd_admin_add_random_ai_law()
-	set category = "Fun"
-	set name = "Add Random AI Law"
-	if(!holder)
-		to_chat(src, "Only administrators may use this command.")
-		return
-	var/confirm = alert(src, "You sure?", "Confirm", "Yes", "No")
-	if(confirm != "Yes") return
-	log_admin("[key_name(src)] has added a random AI law.")
-	message_admins("[key_name_admin(src)] has added a random AI law.", 1)
-
-	var/show_log = alert(src, "Show ion message?", "Message", "Yes", "No")
-	if(show_log == "Yes")
-		command_announcement.Announce("Ion storm detected near the [station_name()]. Please check all AI-controlled equipment for errors.", "Anomaly Alert", new_sound = 'sound/AI/ionstorm.ogg')
-
-	IonStorm(0)
-	SSstatistics.add_field_details("admin_verb","ION") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-
 /*
 Allow admins to set players to be able to respawn/bypass 30 min wait, without the admin having to edit variables directly
 Ccomp's first proc.
 */
-
-/client/proc/get_ghosts(var/notify = 0,var/what = 2)
+/proc/get_ghosts(var/notify, var/what = 2)
 	// what = 1, return ghosts ass list.
 	// what = 2, return mob list
 
@@ -305,16 +286,14 @@ Ccomp's first proc.
 		any = 1                                                 //if no ghosts show up, any will just be 0
 	if(!any)
 		if(notify)
-			to_chat(src, "There doesn't appear to be any ghosts for you to select.")
+			to_chat(notify, "There doesn't appear to be any ghosts for you to select.")
 		return
-
 	for(var/mob/M in mobs)
 		var/name = M.name
 		ghosts[name] = M                                        //get the name of the mob for the popup list
-	if(what==1)
+	if(what == 1)
 		return ghosts
-	else
-		return mobs
+	return mobs
 
 /client/proc/get_ghosts_by_key()
 	. = list()
@@ -336,22 +315,24 @@ Ccomp's first proc.
 		to_chat(src, "<span class='warning'>[selection] no longer has an associated ghost.</span>")
 		return
 
-	if(G.has_enabled_antagHUD == 1 && config.antag_hud_restricted)
+	if(G.has_enabled_antagHUD == 1 && get_config_value(/decl/config/toggle/antag_hud_restricted))
 		var/response = alert(src, "[selection] has enabled antagHUD. Are you sure you wish to allow them to respawn?","Ghost has used AntagHUD","No","Yes")
 		if(response == "No") return
 	else
 		var/response = alert(src, "Are you sure you wish to allow [selection] to respawn?","Allow respawn","No","Yes")
 		if(response == "No") return
 
-	G.timeofdeath=-19999						/* time of death is checked in /mob/verb/abandon_mob() which is the Respawn verb.
-									   timeofdeath is used for bodies on autopsy but since we're messing with a ghost I'm pretty sure
-									   there won't be an autopsy.
-									*/
+	/*
+	  time of death is checked in /mob/verb/abandon_mob() which is the Respawn verb.
+	  timeofdeath is used for bodies on autopsy but since we're messing with a ghost I'm pretty sure
+	  there won't be an autopsy.
+	*/
+	G.timeofdeath          = -(INFINITY)
 	G.has_enabled_antagHUD = 2
-	G.can_reenter_corpse = CORPSE_CAN_REENTER_AND_RESPAWN
+	G.can_reenter_corpse  |= CORPSE_CAN_RESPAWN
 
 	G.show_message("<span class=notice><b>You may now respawn.  You should roleplay as if you learned nothing about the round during your time with the dead.</b></span>", 1)
-	log_and_message_admins("has allowed [key_name(G)] to bypass the [config.respawn_delay] minute respawn limit.")
+	log_and_message_admins("has allowed [key_name(G)] to bypass the [get_config_value(/decl/config/num/respawn_delay)] minute respawn limit.")
 
 /client/proc/toggle_antagHUD_use()
 	set category = "Server"
@@ -360,33 +341,12 @@ Ccomp's first proc.
 
 	if(!holder)
 		to_chat(src, "Only administrators may use this command.")
-	var/action=""
-	if(config.antag_hud_allowed)
-		for(var/mob/observer/ghost/g in get_ghosts())
-			if(!g.client.holder)						//Remove the verb from non-admin ghosts
-				g.verbs -= /mob/observer/ghost/verb/toggle_antagHUD
-			if(g.antagHUD)
-				g.antagHUD = 0						// Disable it on those that have it enabled
-				g.has_enabled_antagHUD = 2				// We'll allow them to respawn
-				to_chat(g, "<span class='danger'>The Administrator has disabled AntagHUD</span>")
-		config.antag_hud_allowed = 0
-		to_chat(src, "<span class='danger'>AntagHUD usage has been disabled</span>")
-		action = "disabled"
-	else
-		for(var/mob/observer/ghost/g in get_ghosts())
-			if(!g.client.holder)						// Add the verb back for all non-admin ghosts
-				g.verbs += /mob/observer/ghost/verb/toggle_antagHUD
-				to_chat(g, "<span class='notice'><B>The Administrator has enabled AntagHUD </B></span>")// Notify all observers they can now use AntagHUD
-
-		config.antag_hud_allowed = 1
+	var/action = "disabled"
+	if(toggle_config_value(/decl/config/toggle/antag_hud_allowed))
 		action = "enabled"
-		to_chat(src, "<span class='notice'><B>AntagHUD usage has been enabled</B></span>")
-
-
+	to_chat(src, "<span class='notice'><B>AntagHUD usage has been [action]</B></span>")
 	log_admin("[key_name(usr)] has [action] antagHUD usage for observers")
 	message_admins("Admin [key_name_admin(usr)] has [action] antagHUD usage for observers", 1)
-
-
 
 /client/proc/toggle_antagHUD_restrictions()
 	set category = "Server"
@@ -395,22 +355,19 @@ Ccomp's first proc.
 	if(!holder)
 		to_chat(src, "Only administrators may use this command.")
 	var/action=""
-	if(config.antag_hud_restricted)
-		for(var/mob/observer/ghost/g in get_ghosts())
-			to_chat(g, "<span class='notice'><B>The administrator has lifted restrictions on joining the round if you use AntagHUD</B></span>")
-		action = "lifted restrictions"
-		config.antag_hud_restricted = 0
-		to_chat(src, "<span class='notice'><B>AntagHUD restrictions have been lifted</B></span>")
-	else
-		for(var/mob/observer/ghost/g in get_ghosts())
+	if(toggle_config_value(/decl/config/toggle/antag_hud_restricted))
+		for(var/mob/observer/ghost/g in get_ghosts(src))
 			to_chat(g, "<span class='danger'>The administrator has placed restrictions on joining the round if you use AntagHUD</span>")
 			to_chat(g, "<span class='danger'>Your AntagHUD has been disabled, you may choose to re-enabled it but will be under restrictions</span>")
 			g.antagHUD = 0
 			g.has_enabled_antagHUD = 0
 		action = "placed restrictions"
-		config.antag_hud_restricted = 1
 		to_chat(src, "<span class='danger'>AntagHUD restrictions have been enabled</span>")
-
+	else
+		for(var/mob/observer/ghost/g in get_ghosts(src))
+			to_chat(g, "<span class='notice'><B>The administrator has lifted restrictions on joining the round if you use AntagHUD</B></span>")
+		action = "lifted restrictions"
+		to_chat(src, "<span class='notice'><B>AntagHUD restrictions have been lifted</B></span>")
 	log_admin("[key_name(usr)] has [action] on joining the round if they use AntagHUD")
 	message_admins("Admin [key_name_admin(usr)] has [action] on joining the round if they use AntagHUD", 1)
 
@@ -440,8 +397,7 @@ Traitors and the like can also be revived with the previous role mostly intact.
 		to_chat(usr, SPAN_WARNING("There is no active key like that in the game or the person is not currently a ghost."))
 		return
 
-	var/mob/living/carbon/human/new_character = new(pick(global.latejoin_locations))//The mob being spawned.
-
+	var/mob/living/human/new_character = new(get_random_spawn_turf(SPAWN_FLAG_JOBS_CAN_SPAWN)) //The mob being spawned.
 	var/datum/computer_file/report/crew_record/record_found			//Referenced to later to either randomize or not randomize the character.
 	if(G_found.mind && !G_found.mind.active)
 		record_found = get_crewmember_record(G_found.real_name)
@@ -460,9 +416,9 @@ Traitors and the like can also be revived with the previous role mostly intact.
 
 	if(!new_character.real_name)
 		if(new_character.gender == MALE)
-			new_character.real_name = capitalize(pick(global.first_names_male)) + " " + capitalize(pick(global.last_names))
+			new_character.real_name = capitalize(pick(global.using_map.first_names_male)) + " " + capitalize(pick(global.using_map.last_names))
 		else
-			new_character.real_name = capitalize(pick(global.first_names_female)) + " " + capitalize(pick(global.last_names))
+			new_character.real_name = capitalize(pick(global.using_map.first_names_female)) + " " + capitalize(pick(global.using_map.last_names))
 	new_character.SetName(new_character.real_name)
 
 	if(G_found.mind && !G_found.mind.active)
@@ -473,10 +429,8 @@ Traitors and the like can also be revived with the previous role mostly intact.
 		new_character.mind.assigned_role = global.using_map.default_job_title//If they somehow got a null assigned role.
 
 	//DNA
-	if(new_character.dna)
-		new_character.dna.ready_dna(new_character)
-		if(record_found)//Pull up their name from database records if they did have a mind.
-			new_character.dna.unique_enzymes = record_found.get_dna()
+	if(record_found)//Pull up their name from database records if they did have a mind.
+		new_character.set_unique_enzymes(record_found.get_dna())
 	new_character.key = G_found.key
 
 	/*
@@ -488,12 +442,12 @@ Traitors and the like can also be revived with the previous role mostly intact.
 	var/player_key = G_found.key
 
 	//Now for special roles and equipment.
-	var/decl/special_role/antag_data = ispath(new_character.mind.assigned_special_role, /decl/special_role) && GET_DECL(new_character.mind.assigned_special_role)
-	if(antag_data)
+	var/decl/special_role/antag_data = GET_DECL(new_character.mind.assigned_special_role)
+	if(istype(antag_data))
 		antag_data.add_antagonist(new_character.mind)
 		antag_data.place_mob(new_character)
 	else
-		SSjobs.equip_rank(new_character, new_character.mind.assigned_role, 1)
+		SSjobs.equip_job_title(new_character, new_character.mind.assigned_role, 1)
 
 	//Announces the character on all the systems, based on the record.
 	if(!issilicon(new_character))//If they are not a cyborg/AI.
@@ -524,7 +478,7 @@ Traitors and the like can also be revived with the previous role mostly intact.
 		else
 			M.add_ion_law(input)
 			for(var/mob/living/silicon/ai/O in SSmobs.mob_list)
-				to_chat(O, "<span class='warning'>" + input + "...LAWS UPDATED</span>")
+				to_chat(O, SPAN_WARNING("[input]... LAWS UPDATED."))
 				O.show_laws()
 
 	log_admin("Admin [key_name(usr)] has added a new AI law - [input]")
@@ -546,7 +500,7 @@ Traitors and the like can also be revived with the previous role mostly intact.
 	if(!istype(M))
 		alert("Cannot revive a ghost")
 		return
-	if(config.allow_admin_rev)
+	if(get_config_value(/decl/config/toggle/on/admin_revive))
 		M.revive()
 
 		log_and_message_admins("healed / revived [key_name_admin(M)]!")
@@ -565,7 +519,7 @@ Traitors and the like can also be revived with the previous role mostly intact.
 	if(!input)
 		return
 	if(!customname)
-		customname = "[command_name()] Update"
+		customname = "[global.using_map.boss_name] Update"
 
 	// Even admin must bow to the whim of the autolanguagefilter.
 	if(filter_block_message(mob, input) || filter_block_message(mob, customname))
@@ -666,21 +620,13 @@ Traitors and the like can also be revived with the previous role mostly intact.
 /client/proc/cmd_admin_gib(mob/M as mob in SSmobs.mob_list)
 	set category = "Special Verbs"
 	set name = "Gib"
-
 	if(!check_rights(R_ADMIN|R_FUN))	return
-
 	var/confirm = alert(src, "You sure?", "Confirm", "Yes", "No")
 	if(confirm != "Yes") return
 	//Due to the delay here its easy for something to have happened to the mob
 	if(!M)	return
-
 	log_admin("[key_name(usr)] has gibbed [key_name(M)]")
 	message_admins("[key_name_admin(usr)] has gibbed [key_name_admin(M)]", 1)
-
-	if(isobserver(M))
-		gibs(M.loc)
-		return
-
 	M.gib()
 	SSstatistics.add_field_details("admin_verb","GIB") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
@@ -698,17 +644,10 @@ Traitors and the like can also be revived with the previous role mostly intact.
 		log_and_message_admins("used gibself.")
 		SSstatistics.add_field_details("admin_verb","GIBS") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
-/client/proc/update_world()
-	// If I see anyone granting powers to specific keys like the code that was here,
-	// I will both remove their SVN access and permanently ban them from my servers.
-	return
-
 /client/proc/cmd_admin_check_contents(mob/living/M as mob in SSmobs.mob_list)
 	set category = "Special Verbs"
 	set name = "Check Contents"
-
-	var/list/L = M.get_contents()
-	for(var/t in L)
+	for(var/t in M.get_mob_contents())
 		to_chat(usr, "[t]")
 	SSstatistics.add_field_details("admin_verb","CC") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
@@ -829,12 +768,11 @@ Traitors and the like can also be revived with the previous role mostly intact.
 	set desc = "Toggles random events such as meteors, black holes, blob (but not space dust) on/off"
 	if(!check_rights(R_SERVER))	return
 
-	if(!config.allow_random_events)
-		config.allow_random_events = 1
+	toggle_config_value(/decl/config/toggle/on/allow_random_events)
+	if(get_config_value(/decl/config/toggle/on/allow_random_events))
 		to_chat(usr, "Random events enabled")
 		message_admins("Admin [key_name_admin(usr)] has enabled random events.", 1)
 	else
-		config.allow_random_events = 0
 		to_chat(usr, "Random events disabled")
 		message_admins("Admin [key_name_admin(usr)] has disabled random events.", 1)
 	SSstatistics.add_field_details("admin_verb","TRE") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!

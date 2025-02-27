@@ -7,7 +7,7 @@
 	density = TRUE
 	var/obj/machinery/turbine/turbine
 	var/datum/gas_mixture/gas_contained
-	var/turf/simulated/inturf
+	var/turf/inturf
 	var/starter = 0
 	var/rpm = 0
 	var/rpmtarget = 0
@@ -25,7 +25,7 @@
 	anchored = TRUE
 	density = TRUE
 	var/obj/machinery/compressor/compressor
-	var/turf/simulated/outturf
+	var/turf/outturf
 	var/lastgen
 
 	uncreated_component_parts = null
@@ -125,7 +125,7 @@
 #define TURBGENG 0.8
 
 /obj/machinery/turbine/Process()
-	if(!compressor.starter)
+	if(!compressor?.starter)
 		return
 	overlays.Cut()
 	if(stat & BROKEN)
@@ -155,7 +155,7 @@
 
 /obj/machinery/turbine/interact(mob/user)
 
-	if ( (get_dist(src, user) > 1 ) || (stat & (NOPOWER|BROKEN)) && (!istype(user, /mob/living/silicon/ai)) )
+	if ( (get_dist(src, user) > 1 ) || (stat & (NOPOWER|BROKEN)) && (!isAI(user)) )
 		user.machine = null
 		close_browser(user, "window=turbine")
 		return
@@ -168,9 +168,9 @@
 
 	t += "Turbine: [round(compressor.rpm)] RPM<BR>"
 
-	t += "Starter: [ compressor.starter ? "<A href='?src=\ref[src];str=1'>Off</A> <B>On</B>" : "<B>Off</B> <A href='?src=\ref[src];str=1'>On</A>"]"
+	t += "Starter: [ compressor.starter ? "<A href='byond://?src=\ref[src];str=1'>Off</A> <B>On</B>" : "<B>Off</B> <A href='byond://?src=\ref[src];str=1'>On</A>"]"
 
-	t += "</PRE><HR><A href='?src=\ref[src];close=1'>Close</A>"
+	t += "</PRE><HR><A href='byond://?src=\ref[src];close=1'>Close</A>"
 
 	t += "</TT>"
 	show_browser(user, t, "window=turbine")
@@ -185,7 +185,7 @@
 
 /obj/machinery/turbine/OnTopic(user, href_list)
 	if(href_list["close"])
-		close_browser(usr, "window=turbine")
+		close_browser(user, "window=turbine")
 		return TOPIC_HANDLED
 
 	if(href_list["str"])
@@ -225,14 +225,14 @@
 	var/dat
 	if(src.compressor)
 		dat += {"<BR><B>Gas turbine remote control system</B><HR>
-		\nTurbine status: [ src.compressor.starter ? "<A href='?src=\ref[src];str=1'>Off</A> <B>On</B>" : "<B>Off</B> <A href='?src=\ref[src];str=1'>On</A>"]
+		\nTurbine status: [ src.compressor.starter ? "<A href='byond://?src=\ref[src];str=1'>Off</A> <B>On</B>" : "<B>Off</B> <A href='byond://?src=\ref[src];str=1'>On</A>"]
 		\n<BR>
 		\nTurbine speed: [src.compressor.rpm]rpm<BR>
 		\nPower currently being generated: [src.compressor.turbine.lastgen]W<BR>
 		\nInternal gas temperature: [src.compressor.gas_contained.temperature]K<BR>
-		\nVent doors: [ src.door_status ? "<A href='?src=\ref[src];doors=1'>Closed</A> <B>Open</B>" : "<B>Closed</B> <A href='?src=\ref[src];doors=1'>Open</A>"]
-		\n</PRE><HR><A href='?src=\ref[src];view=1'>View</A>
-		\n</PRE><HR><A href='?src=\ref[src];close=1'>Close</A>
+		\nVent doors: [ src.door_status ? "<A href='byond://?src=\ref[src];doors=1'>Closed</A> <B>Open</B>" : "<B>Closed</B> <A href='byond://?src=\ref[src];doors=1'>Open</A>"]
+		\n</PRE><HR><A href='byond://?src=\ref[src];view=1'>View</A>
+		\n</PRE><HR><A href='byond://?src=\ref[src];close=1'>Close</A>
 		\n<BR>
 		\n"}
 	else
@@ -244,9 +244,9 @@
 
 
 
-/obj/machinery/computer/turbine_computer/OnTopic(user, href_list)
+/obj/machinery/computer/turbine_computer/OnTopic(mob/user, href_list)
 	if( href_list["view"] )
-		usr.client.eye = src.compressor
+		user.client.eye = src.compressor
 		. = TOPIC_HANDLED
 	else if( href_list["str"] )
 		src.compressor.starter = !src.compressor.starter

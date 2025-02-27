@@ -1,27 +1,29 @@
-/obj/item/chems/drinks/glass2/attackby(obj/item/I, mob/user)
+/obj/item/chems/drinks/glass2/attackby(obj/item/used_item, mob/user)
 	if(extras.len >= 2) return ..() // max 2 extras, one on each side of the drink
 
-	if(istype(I, /obj/item/glass_extra))
-		var/obj/item/glass_extra/GE = I
-		if(can_add_extra(GE))
-			extras += GE
-			if(!user.try_unequip(GE, src))
-				return
-			to_chat(user, "<span class=notice>You add \the [GE] to \the [src].</span>")
-			update_icon()
-		else
+	if(istype(used_item, /obj/item/glass_extra))
+		var/obj/item/glass_extra/GE = used_item
+		if(!can_add_extra(GE))
 			to_chat(user, "<span class=warning>There's no space to put \the [GE] on \the [src]!</span>")
-	else if(istype(I, /obj/item/chems/food/fruit_slice))
+			return TRUE
+		extras += GE
+		if(!user.try_unequip(GE, src))
+			return TRUE
+		to_chat(user, "<span class=notice>You add \the [GE] to \the [src].</span>")
+		update_icon()
+		return TRUE
+	else if(istype(used_item, /obj/item/food/processed_grown/slice))
 		if(!rim_pos)
-			to_chat(user, "<span class=warning>There's no space to put \the [I] on \the [src]!</span>")
-			return
-		var/obj/item/chems/food/fruit_slice/FS = I
+			to_chat(user, "<span class=warning>There's no space to put \the [used_item] on \the [src]!</span>")
+			return TRUE
+		var/obj/item/food/processed_grown/slice/FS = used_item
 		extras += FS
 		if(!user.try_unequip(FS, src))
-			return
+			return TRUE
 		reset_offsets(0) // Reset its pixel offsets so the icons work!
 		to_chat(user, "<span class=notice>You add \the [FS] to \the [src].</span>")
 		update_icon()
+		return TRUE
 	else
 		return ..()
 
@@ -50,7 +52,7 @@
 	var/glass_desc
 	w_class = ITEM_SIZE_TINY
 	icon = 'icons/obj/drink_glasses/extras.dmi'
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 
 /obj/item/glass_extra/stick
 	name = "stick"

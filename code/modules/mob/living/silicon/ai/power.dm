@@ -85,7 +85,7 @@
 
 
 
-// Handles all necessary power checks: Area power, inteliCard and Malf AI APU power and manual override.
+// Handles all necessary power checks: Area power, intelliCard and Malf AI APU power and manual override.
 /mob/living/silicon/ai/proc/has_power(var/respect_override = 1)
 	if(psupply && !(psupply.stat & NOPOWER))
 		return 1
@@ -126,7 +126,7 @@
 	else if(aiRestorePowerRoutine)
 		return AI_POWERUSAGE_RESTORATION
 
-	if(getOxyLoss())
+	if(get_damage(OXY))
 		return AI_POWERUSAGE_RECHARGING
 	return AI_POWERUSAGE_NORMAL
 
@@ -142,11 +142,11 @@
 	if(has_power(0))
 		// Self-shutdown mode uses only 10kW, so we don't have any spare power to charge.
 		if(!self_shutdown || carded)
-			adjustOxyLoss(AI_POWERUSAGE_NORMAL - AI_POWERUSAGE_RECHARGING)
+			take_damage(AI_POWERUSAGE_NORMAL - AI_POWERUSAGE_RECHARGING, OXY)
 		return
 
 	// Not powered. Gain oxyloss depeding on our power usage.
-	adjustOxyLoss(calculate_power_usage())
+	take_damage(calculate_power_usage(), OXY)
 
 // This verb allows the AI to disable or enable the power override mode.
 /mob/living/silicon/ai/proc/ai_power_override()
@@ -195,12 +195,15 @@
 	active_power_usage = AI_POWERUSAGE_NORMAL * AI_POWERUSAGE_OXYLOSS_TO_WATTS_MULTIPLIER
 	use_power = POWER_USE_ACTIVE
 	power_channel = EQUIP
+	invisibility = INVISIBILITY_ABSTRACT
+	is_spawnable_type = FALSE
 	var/mob/living/silicon/ai/powered_ai = null
-	invisibility = 100
 
 /obj/machinery/ai_powersupply/Initialize()
 	. = ..()
 	powered_ai = loc
+	if(!istype(powered_ai))
+		return INITIALIZE_HINT_QDEL
 	powered_ai.psupply = src
 
 /obj/machinery/ai_powersupply/Destroy()
@@ -211,7 +214,7 @@
 	update_use_power(get_power_state())
 
 /obj/machinery/ai_powersupply/proc/get_power_state()
-	// Dead, powered by APU, admin power, or inside an item (inteliCard/IIS). No power usage.
+	// Dead, powered by APU, admin power, or inside an item (intelliCard/IIS). No power usage.
 	if(!powered_ai.stat == DEAD || powered_ai.admin_powered || istype(powered_ai.loc, /obj/item/))
 		return 0
 	// Normal power usage.

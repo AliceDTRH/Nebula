@@ -15,10 +15,9 @@
 	dusted_anim = "dust-m"
 	death_message = "lets out a faint chimper as it collapses and stops moving..."
 
-	unarmed_attacks = list(/decl/natural_attack/bite, /decl/natural_attack/claws, /decl/natural_attack/punch)
 	inherent_verbs = list(/mob/living/proc/ventcrawl)
-	hud_type = /datum/hud_data/monkey
-	meat_type = /obj/item/chems/food/meat/monkey
+	species_hud = /datum/hud_data/monkey
+	butchery_data = /decl/butchery_data/humanoid/monkey
 
 	rarity_value = 0.1
 	total_health = 150
@@ -32,15 +31,10 @@
 	pass_flags = PASS_FLAG_TABLE
 	holder_type = /obj/item/holder
 
-	appearance_descriptors = list(
-		/datum/appearance_descriptor/height = 0.6,
-		/datum/appearance_descriptor/build =  0.6
+	force_background_info = list(
+		/decl/background_category/heritage =   /decl/background_detail/heritage/hidden/monkey,
+		/decl/background_category/homeworld = /decl/background_detail/location/stateless,
+		/decl/background_category/faction =   /decl/background_detail/faction/other
 	)
 
-	force_cultural_info = list(
-		TAG_CULTURE =   /decl/cultural_info/culture/hidden/monkey,
-		TAG_HOMEWORLD = /decl/cultural_info/location/stateless,
-		TAG_FACTION =   /decl/cultural_info/faction/other
-	)
-
-	ai = /datum/ai/monkey
+	ai = /datum/mob_controller/monkey

@@ -1,10 +1,10 @@
 /obj/item/aicard
-	name = "inteliCard"
+	name = "intelliCard"
 	icon = 'icons/obj/items/device/ai_card.dmi'
 	icon_state = ICON_STATE_WORLD
 	w_class = ITEM_SIZE_SMALL
 	slot_flags = SLOT_LOWER_BODY
-	origin_tech = "{'programming':4,'materials':4}"
+	origin_tech = @'{"programming":4,"materials":4}'
 	material = /decl/material/solid/fiberglass
 	matter = list(/decl/material/solid/metal/gold = MATTER_AMOUNT_REINFORCEMENT)
 
@@ -22,7 +22,7 @@
 	data["has_ai"] = carded_ai != null
 	if(carded_ai)
 		data["name"] = carded_ai.name
-		data["hardware_integrity"] = carded_ai.hardware_integrity()
+		data["hardware_integrity"] = carded_ai.get_health_percent()
 		data["backup_capacitor"] = carded_ai.backup_capacitor()
 		data["radio"] = !carded_ai.ai_radio.disabledAi
 		data["wireless"] = !carded_ai.control_disabled
@@ -53,12 +53,11 @@
 	if (href_list["wipe"])
 		var/confirm = alert("Are you sure you want to wipe this card's memory? This cannot be undone once started.", "Confirm Wipe", "Yes", "No")
 		if(confirm == "Yes" && (CanUseTopic(user, state) == STATUS_INTERACTIVE))
-			admin_attack_log(user, carded_ai, "Wiped using \the [src.name]", "Was wiped with \the [src.name]", "used \the [src.name] to wipe")
+			admin_attack_log(user, carded_ai, "Wiped using \the [src]", "Was wiped with \the [src]", "used \the [src] to wipe")
 			flush = 1
 			to_chat(carded_ai, "Your core files are being wiped!")
 			while (carded_ai && carded_ai.stat != DEAD)
-				carded_ai.adjustOxyLoss(2)
-				carded_ai.updatehealth()
+				carded_ai.take_damage(2, OXY)
 				sleep(10)
 			flush = 0
 	if (href_list["radio"])
@@ -99,7 +98,7 @@
 		new /obj/structure/aicore/deactivated(get_turf(ai))
 
 	ai.carded = 1
-	admin_attack_log(user, ai, "Carded with [src.name]", "Was carded with [src.name]", "used the [src.name] to card")
+	admin_attack_log(user, ai, "Carded with [src.name]", "Was carded with [src.name]", "used \the [src] to card")
 	src.SetName("[initial(name)] - [ai.name]")
 
 	ai.forceMove(src)
@@ -125,12 +124,6 @@
 	carded_ai.calculate_power_usage()
 	carded_ai = null
 	update_icon()
-
-/obj/item/aicard/see_emote(mob/living/M, text)
-	if(carded_ai && carded_ai.client)
-		var/rendered = "<span class='message'>[text]</span>"
-		carded_ai.show_message(rendered, 2)
-	..()
 
 /obj/item/aicard/show_message(msg, type, alt, alt_type)
 	if(carded_ai && carded_ai.client)

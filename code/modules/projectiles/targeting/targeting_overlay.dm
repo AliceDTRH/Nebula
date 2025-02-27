@@ -32,29 +32,8 @@
 		target_permissions |= perm
 
 	// Update HUD icons.
-	if(owner.gun_move_icon)
-		if(!(target_permissions & TARGET_CAN_MOVE))
-			owner.gun_move_icon.icon_state = "no_walk0"
-			owner.gun_move_icon.SetName("Allow Movement")
-		else
-			owner.gun_move_icon.icon_state = "no_walk1"
-			owner.gun_move_icon.SetName("Disallow Movement")
-
-	if(owner.item_use_icon)
-		if(!(target_permissions & TARGET_CAN_CLICK))
-			owner.item_use_icon.icon_state = "no_item0"
-			owner.item_use_icon.SetName("Allow Item Use")
-		else
-			owner.item_use_icon.icon_state = "no_item1"
-			owner.item_use_icon.SetName("Disallow Item Use")
-
-	if(owner.radio_use_icon)
-		if(!(target_permissions & TARGET_CAN_RADIO))
-			owner.radio_use_icon.icon_state = "no_radio0"
-			owner.radio_use_icon.SetName("Allow Radio Use")
-		else
-			owner.radio_use_icon.icon_state = "no_radio1"
-			owner.radio_use_icon.SetName("Disallow Radio Use")
+	if(istype(owner?.hud_used, /datum/hud))
+		owner.hud_used.update_gun_mode_icons(target_permissions)
 
 	var/message = "no longer permitted to "
 	var/use_span = "warning"
@@ -109,13 +88,13 @@
 
 	var/cancel_aim = 1
 
-	if(!(aiming_with in owner) || (istype(owner, /mob/living/carbon/human) && !(aiming_with in owner.get_held_items())))
+	if(!(aiming_with in owner) || (ishuman(owner) && !(aiming_with in owner.get_held_items())))
 		to_chat(owner, SPAN_WARNING("You must keep hold of your weapon!"))
 	else if(GET_STATUS(owner, STAT_BLIND))
 		to_chat(owner, SPAN_WARNING("You are blind and cannot see your target!"))
 	else if(!aiming_at || !isturf(aiming_at.loc))
 		to_chat(owner, SPAN_WARNING("You have lost sight of your target!"))
-	else if(owner.incapacitated() || owner.lying || owner.restrained())
+	else if(owner.incapacitated() || owner.current_posture.prone || owner.restrained())
 		to_chat(owner, SPAN_WARNING("You must be conscious and standing to keep track of your target!"))
 	else if(aiming_at.is_invisible_to(owner))
 		to_chat(owner, SPAN_WARNING("Your target has become invisible!"))
@@ -142,7 +121,7 @@
 	if(owner.incapacitated())
 		to_chat(owner, SPAN_WARNING("You cannot You cannot threaten \the [target] with \the [thing] in your current state."))
 		return
-	if(owner.lying)
+	if(owner.current_posture.prone)
 		to_chat(owner, SPAN_WARNING("You cannot threaten \the [target] with \the [thing] while prone."))
 		return
 	if(owner.restrained())
@@ -157,8 +136,9 @@
 	else
 		owner.visible_message(SPAN_DANGER("\The [owner] aims \the [thing] at \the [target]!"))
 
-	if(owner.client)
-		owner.client.add_gun_icons()
+	if(istype(owner.hud_used) && owner.client)
+		owner.hud_used.add_gun_icons()
+
 	var/decl/pronouns/pronouns = owner.get_pronouns()
 	to_chat(target, FONT_LARGE(SPAN_DANGER("\The [owner] [pronouns.is] menacing you with \a [thing]. No sudden moves!")))
 	aiming_with = thing
@@ -176,9 +156,9 @@
 
 	update_icon()
 	lock_time = world.time + 35
-	events_repository.register(/decl/observ/moved, owner, src, /obj/aiming_overlay/proc/update_aiming)
-	events_repository.register(/decl/observ/moved, aiming_at, src, /obj/aiming_overlay/proc/target_moved)
-	events_repository.register(/decl/observ/destroyed, aiming_at, src, /obj/aiming_overlay/proc/cancel_aiming)
+	events_repository.register(/decl/observ/moved, owner, src, TYPE_PROC_REF(/obj/aiming_overlay, update_aiming))
+	events_repository.register(/decl/observ/moved, aiming_at, src, TYPE_PROC_REF(/obj/aiming_overlay, target_moved))
+	events_repository.register(/decl/observ/destroyed, aiming_at, src, TYPE_PROC_REF(/obj/aiming_overlay, cancel_aiming))
 
 /obj/aiming_overlay/on_update_icon()
 	if(locked)
@@ -197,16 +177,15 @@
 	if(!active)
 		cancel_aiming(no_message)
 
-	if(owner.client)
+	if(owner.client && istype(owner.hud_used))
 		if(active)
 			if(!no_message)
 				to_chat(owner, "<span class='notice'>You will now aim rather than fire.</span>")
-			owner.client.add_gun_icons()
+			owner.hud_used.add_gun_icons()
 		else
 			if(!no_message)
 				to_chat(owner, "<span class='notice'>You will no longer aim rather than fire.</span>")
-			owner.client.remove_gun_icons()
-		owner.gun_setting_icon.icon_state = "gun[active]"
+			owner.hud_used.remove_gun_icons()
 
 /obj/aiming_overlay/proc/cancel_aiming(var/no_message = 0)
 	if(!aiming_with || !aiming_at)

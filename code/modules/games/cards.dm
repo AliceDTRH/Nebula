@@ -21,12 +21,13 @@ var/global/list/card_decks = list()
 /obj/item/deck
 	w_class = ITEM_SIZE_SMALL
 	icon = 'icons/obj/items/playing_cards.dmi'
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
 	var/list/cards = list()
 
 /obj/item/deck/Initialize()
 	. = ..()
 	global.card_decks += src
+	generate_cards()
 
 /obj/item/deck/Destroy()
 	. = ..()
@@ -63,16 +64,12 @@ var/global/list/card_decks = list()
 	name = "card box"
 	desc = "A small leather case to show how classy you are compared to everyone else."
 	icon_state = "card_holder"
-	material = /decl/material/solid/leather
+	material = /decl/material/solid/organic/leather
 
 /obj/item/deck/cards
 	name = "deck of cards"
 	desc = "A simple deck of playing cards."
 	icon_state = "deck"
-
-/obj/item/deck/Initialize()
-	. = ..()
-	generate_cards()
 
 /obj/item/deck/proc/generate_cards()
 	return
@@ -109,7 +106,7 @@ var/global/list/card_decks = list()
 
 /obj/item/deck/compact
 	name = "compact deck of cards"
-	desc = "A deck of playing cards. Looks like this one hasn't numbers from two to five, and jokers."
+	desc = "A deck of playing cards. Looks like this one is missing numbers from two to five, and both jokers."
 	icon_state = "deck"
 
 /obj/item/deck/compact/generate_cards()
@@ -137,27 +134,27 @@ var/global/list/card_decks = list()
 			cards += P
 
 /obj/item/deck/attack_hand(mob/user)
-	if(user.a_intent == I_GRAB || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
+	if(user.check_intent(I_FLAG_GRAB) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
 		return ..()
 	draw_card(user)
 	return TRUE
 
-/obj/item/deck/examine(mob/user)
+/obj/item/deck/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(cards.len)
-		to_chat(user, "<br>There [cards.len == 1 ? "is" : "are"] still <b>[cards.len] card\s</b>.")
-	to_chat(user, SPAN_NOTICE("You can deal cards at a table by clicking on it with grab intent."))
+		. += "<br>There [cards.len == 1 ? "is" : "are"] still <b>[cards.len] card\s</b>."
+	. += SPAN_NOTICE("You can deal cards at a table by clicking on it with grab intent.")
 
-/obj/item/deck/attackby(obj/O, mob/user)
-	if(istype(O,/obj/item/hand))
-		var/obj/item/hand/H = O
+/obj/item/deck/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item,/obj/item/hand))
+		var/obj/item/hand/H = used_item
 		for(var/datum/playingcard/P in H.cards)
 			cards += P
 
-		qdel(O)
+		qdel(used_item)
 		to_chat(user, "You place your cards on the bottom of \the [src].")
-		return
-	..()
+		return TRUE
+	return ..()
 
 /obj/item/deck/verb/draw_card()
 
@@ -166,13 +163,11 @@ var/global/list/card_decks = list()
 	set desc = "Draw a card from a deck."
 	set src in view(1)
 
-	if(usr.stat || !Adjacent(usr)) return
-
-	if(!istype(usr,/mob/living/carbon))
+	// TODO: let dogs play poker
+	if(!ishuman(usr) || usr.incapacitated() || !Adjacent(usr))
 		return
 
-	var/mob/living/carbon/user = usr
-
+	var/mob/living/human/user = usr
 	if(!cards.len)
 		to_chat(usr, "There are no cards in the deck.")
 		return
@@ -210,7 +205,6 @@ var/global/list/card_decks = list()
 	for(var/mob/living/player in viewers(3))
 		if(!player.stat)
 			players += player
-	//players -= usr
 
 	var/mob/living/M = input("Who do you wish to deal a card?") as null|anything in players
 	if(!usr || !src || !M) return
@@ -226,17 +220,17 @@ var/global/list/card_decks = list()
 	H.concealed = 1
 	H.update_icon()
 	if(user==target)
-		var/decl/pronouns/G = user.get_pronouns()
-		user.visible_message("\The [user] deals a card to [G.self].")
+		var/decl/pronouns/pronouns = user.get_pronouns()
+		user.visible_message("\The [user] deals a card to [pronouns.self].")
 	else
 		user.visible_message("\The [user] deals a card to \the [target].")
 
 	H.throw_at(get_step(target, ismob(target) ? target.dir : target), 10, 1,user)
 
-/obj/item/hand/attackby(obj/item/O, mob/user)
+/obj/item/hand/attackby(obj/item/used_item, mob/user)
 
-	if(istype(O,/obj/item/hand))
-		var/obj/item/hand/H = O
+	if(istype(used_item,/obj/item/hand))
+		var/obj/item/hand/H = used_item
 		for(var/datum/playingcard/P in cards)
 			H.cards += P
 		H.concealed = src.concealed
@@ -245,7 +239,7 @@ var/global/list/card_decks = list()
 		H.name = "hand of [(H.cards.len)] card\s"
 		return TRUE
 
-	if(length(cards) == 1 && IS_PEN(O))
+	if(length(cards) == 1 && IS_PEN(used_item))
 		var/datum/playingcard/P = cards[1]
 		if(lowertext(P.name) != "blank card")
 			to_chat(user, SPAN_WARNING("You cannot write on that card."))
@@ -264,7 +258,7 @@ var/global/list/card_decks = list()
 	cards = shuffle(cards)
 	user.visible_message("\The [user] shuffles [src].")
 
-/obj/item/deck/handle_mouse_drop(atom/over, mob/user)
+/obj/item/deck/handle_mouse_drop(atom/over, mob/user, params)
 	if(over == user && (loc == user || in_range(src, user)) && user.get_empty_hand_slot())
 		user.put_in_hands(src)
 		return TRUE
@@ -272,11 +266,11 @@ var/global/list/card_decks = list()
 
 /obj/item/pack
 	name = "card pack"
-	desc = "For those with disposible income."
+	desc = "For those with disposable income."
 	icon_state = "card_pack"
 	icon = 'icons/obj/items/playing_cards.dmi'
-	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/cardboard
+	w_class = ITEM_SIZE_SMALL
+	material = /decl/material/solid/organic/cardboard
 	var/list/cards = list()
 
 
@@ -297,8 +291,11 @@ var/global/list/card_decks = list()
 	icon = 'icons/obj/items/playing_cards.dmi'
 	icon_state = "empty"
 	w_class = ITEM_SIZE_TINY
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
+	dir = NORTH // our default dir is expected to be north, e.g. we've been placed by someone facing north
 	var/concealed = 0
+	/// Whether or not we should shift our icons according to our dir or not.
+	var/is_on_table = FALSE
 	var/list/datum/playingcard/cards = list()
 
 /obj/item/hand/attack_self(var/mob/user)
@@ -336,50 +333,49 @@ var/global/list/card_decks = list()
 	user.put_in_hands(new_hand)
 	return TRUE
 
-/obj/item/hand/examine(mob/user)
+/obj/item/hand/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if((!concealed || src.loc == user) && cards.len)
-		to_chat(user, "It contains:")
+		. += "It contains:"
 		for(var/datum/playingcard/P in cards)
-			to_chat(user, "\The [APPEND_FULLSTOP_IF_NEEDED(P.name)]")
+			. += "\The [APPEND_FULLSTOP_IF_NEEDED(P.name)]"
 
-/obj/item/hand/on_update_icon(var/direction = 0)
+/obj/item/hand/on_update_icon()
 	. = ..()
-	if(!cards.len)
-		qdel(src)
-		return
-	else if(cards.len > 1)
-		name = "hand of cards"
-		desc = "Some playing cards."
-	else if(concealed)
-		name = "single playing card"
-		desc = "An unknown playing card, concealed."
-	else
-		var/datum/playingcard/P = cards[1]
-		name = "[P.name]"
-		desc = "[P.desc]"
+	var/card_count = length(cards)
+	switch(card_count)
+		if(0)
+			qdel(src)
+			return
+		if(1)
+			var/datum/playingcard/top_card = cards[1]
+			if(concealed)
+				name = "single playing card"
+				desc = "An unknown playing card, concealed."
+			else
+				name = top_card.name
+				desc = top_card.desc
+			var/image/I = top_card.card_image(concealed, src.icon)
+			I.pixel_x += (-5+rand(10))
+			I.pixel_y += (-5+rand(10))
+			add_overlay(I)
+			compile_overlays()
+			return
+		else
+			name = "hand of cards"
+			desc = "Some playing cards."
 
-	overlays.Cut()
-
-	if(cards.len == 1)
-		var/datum/playingcard/P = cards[1]
-		var/image/I = P.card_image(concealed, src.icon)
-		I.pixel_x += (-5+rand(10))
-		I.pixel_y += (-5+rand(10))
-		overlays += I
-		return
-
-	var/offset = FLOOR(20/cards.len)
+	var/offset = floor(20/card_count)
 
 	var/matrix/M = matrix()
-	if(direction)
-		switch(direction)
+	if(is_on_table)
+		switch(dir)
 			if(NORTH)
-				M.Translate( 0,  0)
+				M.Translate( 0,  0) // Technically redundant but it makes the logic clearer.
 			if(SOUTH)
 				M.Translate( 0,  4)
 			if(WEST)
-				M.Turn(90)
+				M.Turn(-90)
 				M.Translate( 3,  0)
 			if(EAST)
 				M.Turn(90)
@@ -387,29 +383,36 @@ var/global/list/card_decks = list()
 	var/i = 0
 	for(var/datum/playingcard/P in cards)
 		var/image/I = P.card_image(concealed, src.icon)
-		//I.pixel_x = origin+(offset*i)
-		switch(direction)
+		switch(dir)
 			if(SOUTH)
 				I.pixel_x = 8-(offset*i)
 			if(WEST)
 				I.pixel_y = -6+(offset*i)
 			if(EAST)
 				I.pixel_y = 8-(offset*i)
-			else
+			if(NORTH)
 				I.pixel_x = -7+(offset*i)
+			// other dirs are explicitly unsupported!
 		I.transform = M
-		overlays += I
+		add_overlay(I)
 		i++
+	compile_overlays() // these should be as responsive as possible
 
 /obj/item/hand/dropped(mob/user)
 	..()
-	if(locate(/obj/structure/table, loc))
-		src.update_icon(user.dir)
+	if(locate(/obj/structure/table) in loc)
+		is_on_table = TRUE
+		set_dir(user.dir)
 	else
-		update_icon()
+		is_on_table = FALSE
+		set_dir(initial(dir))
+	update_icon()
 
 /obj/item/hand/on_picked_up(mob/user)
-	src.update_icon()
+	..()
+	is_on_table = FALSE
+	set_dir(initial(dir))
+	update_icon()
 
 /*** A special thing that steals a card from a deck, probably lost in maint somewhere. ***/
 /obj/item/hand/missing_card

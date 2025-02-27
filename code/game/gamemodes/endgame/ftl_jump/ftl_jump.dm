@@ -53,14 +53,14 @@
 	if(M.client)
 		to_chat(M,"<span class='notice'>You feel oddly light, and somewhat disoriented as everything around you shimmers and warps ever so slightly.</span>")
 		M.overlay_fullscreen("wormhole", /obj/screen/fullscreen/wormhole_overlay)
-	M.set_status(STAT_CONFUSE, 20)
+	M.set_status_condition(STAT_CONFUSE, 20)
 	bluegoasts += new/obj/effect/bluegoast/(get_turf(M),M)
 
 /datum/universal_state/jump/proc/clear_duplicated(var/mob/living/M)
 	if(M.client)
 		to_chat(M,"<span class='notice'>You feel rooted in material world again.</span>")
 		M.clear_fullscreen("wormhole")
-	M.set_status(STAT_CONFUSE, 0)
+	M.set_status_condition(STAT_CONFUSE, 0)
 	for(var/mob/goast in global.ghost_mob_list)
 		goast.mouse_opacity = initial(goast.mouse_opacity)
 		goast.set_invisibility(initial(goast.invisibility))
@@ -72,7 +72,7 @@
 /obj/effect/bluegoast
 	name = "echo"
 	desc = "It's not going to punch you, is it?"
-	var/mob/living/carbon/human/daddy
+	var/mob/living/human/daddy
 	anchored = TRUE
 	var/reality = 0
 	simulated = 0
@@ -84,9 +84,9 @@
 	daddy = ndaddy
 	set_dir(daddy.dir)
 	appearance = daddy.appearance
-	events_repository.register(/decl/observ/moved, daddy, src, /obj/effect/bluegoast/proc/mirror)
-	events_repository.register(/decl/observ/dir_set, daddy, src, /obj/effect/bluegoast/proc/mirror_dir)
-	events_repository.register(/decl/observ/destroyed, daddy, src, /datum/proc/qdel_self)
+	events_repository.register(/decl/observ/moved, daddy, src, TYPE_PROC_REF(/obj/effect/bluegoast, mirror))
+	events_repository.register(/decl/observ/dir_set, daddy, src, TYPE_PROC_REF(/obj/effect/bluegoast, mirror_dir))
+	events_repository.register(/decl/observ/destroyed, daddy, src, TYPE_PROC_REF(/datum, qdel_self))
 
 /obj/effect/bluegoast/Destroy()
 	events_repository.unregister(/decl/observ/destroyed, daddy, src)
@@ -104,7 +104,7 @@
 	if(nloc == new_loc)
 		reality++
 		if(reality > 5)
-			to_chat(daddy, SPAN_NOTICE("Yep, it's certainly the other one. Your existance was a glitch, and it's finally being mended..."))
+			to_chat(daddy, SPAN_NOTICE("Yep, it's certainly the other one. Your existence was a glitch, and it's finally being mended..."))
 			blueswitch()
 		else if(reality > 3)
 			to_chat(daddy, SPAN_DANGER("Something is definitely wrong. Why do you think YOU are the original?"))
@@ -114,14 +114,14 @@
 /obj/effect/bluegoast/proc/mirror_dir(var/atom/movable/am, var/old_dir, var/new_dir)
 	set_dir(global.reverse_dir[new_dir])
 
-/obj/effect/bluegoast/examine()
+/obj/effect/bluegoast/examined_by(mob/user, distance, infix, suffix)
 	SHOULD_CALL_PARENT(FALSE)
-	return daddy.examine(arglist(args))
+	return daddy.examined_by(user, distance, infix, suffix)
 
 /obj/effect/bluegoast/proc/blueswitch()
-	var/mob/living/carbon/human/H
+	var/mob/living/human/H
 	if(ishuman(daddy))
-		H = new(get_turf(src), daddy.species.name, daddy.dna.Clone(), daddy.get_bodytype())
+		H = new(get_turf(src), daddy.species.name, daddy.get_mob_snapshot(), daddy.get_bodytype())
 		for(var/obj/item/entry in daddy.get_equipped_items(TRUE))
 			daddy.remove_from_mob(entry) //steals instead of copies so we don't end up with duplicates
 			H.equip_to_appropriate_slot(entry)
@@ -133,11 +133,3 @@
 	H.flavor_text = daddy.flavor_text
 	daddy.dust()
 	qdel(src)
-
-/obj/screen/fullscreen/wormhole_overlay
-	icon = 'icons/effects/effects.dmi'
-	icon_state = "mfoam"
-	screen_loc = ui_entire_screen
-	color = "#ff9900"
-	alpha = 100
-	blend_mode = BLEND_SUBTRACT

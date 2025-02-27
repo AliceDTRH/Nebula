@@ -1,7 +1,7 @@
 /decl/psionic_faculty/psychokinesis
 	id = PSI_PSYCHOKINESIS
 	name = "Psychokinesis"
-	associated_intent = I_GRAB
+	associated_intent_flag = I_FLAG_GRAB
 	armour_types = list(ARMOR_MELEE, ARMOR_BULLET)
 
 /decl/psionic_power/psychokinesis
@@ -19,19 +19,20 @@
 	admin_log = FALSE
 
 /decl/psionic_power/psychokinesis/psiblade/invoke(var/mob/living/user, var/mob/living/target)
-	if((target && user != target) || user.a_intent != I_HURT)
+	if((target && user != target) || !user.check_intent(I_FLAG_HARM))
 		return FALSE
 	. = ..()
 	if(.)
-		switch(user.psi.get_rank(faculty))
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+		switch(psi?.get_rank(faculty))
 			if(PSI_RANK_PARAMOUNT)
-				return new /obj/item/psychic_power/psiblade/master/grand/paramount(user, user)
+				return new /obj/item/ability/psionic/psiblade/master/grand/paramount(user, user)
 			if(PSI_RANK_GRANDMASTER)
-				return new /obj/item/psychic_power/psiblade/master/grand(user, user)
+				return new /obj/item/ability/psionic/psiblade/master/grand(user, user)
 			if(PSI_RANK_MASTER)
-				return new /obj/item/psychic_power/psiblade/master(user, user)
+				return new /obj/item/ability/psionic/psiblade/master(user, user)
 			else
-				return new /obj/item/psychic_power/psiblade(user, user)
+				return new /obj/item/ability/psionic/psiblade(user, user)
 
 /decl/psionic_power/psychokinesis/tinker
 	name =            "Tinker"
@@ -42,11 +43,11 @@
 	admin_log = FALSE
 
 /decl/psionic_power/psychokinesis/tinker/invoke(var/mob/living/user, var/mob/living/target)
-	if((target && user != target) || user.a_intent != I_HELP)
+	if((target && user != target) || !user.check_intent(I_FLAG_HELP))
 		return FALSE
 	. = ..()
 	if(.)
-		return new /obj/item/psychic_power/tinker(user)
+		return new /obj/item/ability/psionic/tinker(user)
 
 /decl/psionic_power/psychokinesis/telekinesis
 	name =            "Telekinesis"
@@ -63,18 +64,19 @@
 	)
 
 /decl/psionic_power/psychokinesis/telekinesis/invoke(var/mob/living/user, var/mob/living/target)
-	if(user.a_intent != I_GRAB)
+	if(!user.check_intent(I_FLAG_GRAB))
 		return FALSE
 	. = ..()
 	if(.)
 
 		var/distance = get_dist(user, target)
-		if(distance > user.psi.get_rank(PSI_PSYCHOKINESIS))
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+		if(distance > psi?.get_rank(PSI_PSYCHOKINESIS))
 			to_chat(user, "<span class='warning'>Your telekinetic power won't reach that far.</span>")
 			return FALSE
 
-		if(istype(target, /mob) || istype(target, /obj))
-			var/obj/item/psychic_power/telekinesis/tk = new(user)
+		if(ismob(target) || istype(target, /obj))
+			var/obj/item/ability/psionic/telekinesis/tk = new(user)
 			if(tk.set_focus(target))
 				tk.sparkle()
 				user.visible_message(SPAN_NOTICE("\The [user] reaches out."))

@@ -28,8 +28,9 @@
 	name =                   SPECIES_MANTID_ALATE
 	name_plural =            "Kharmaan Alates"
 	show_ssd =               "quiescent"
+	hidden_from_codex =      TRUE
 
-	base_prosthetics_model = null
+	base_external_prosthetics_model = null
 	available_bodytypes = list(/decl/bodytype/crystalline/mantid/alate)
 
 	description = "When human surveyors finally arrived at the outer reaches of explored space, they hoped to find \
@@ -52,51 +53,29 @@
 		'mods/species/ascent/sounds/ascent6.ogg'
 	)
 
-	siemens_coefficient =   0.2 // Crystalline body.
+	shock_vulnerability =   0.2 // Crystalline body.
 	oxy_mod =               0.8 // Don't need as much breathable gas as humans.
 	toxins_mod =            0.8 // Not as biologically fragile as meatboys.
 	radiation_mod =         0.5 // Not as biologically fragile as meatboys.
 
-	age_descriptor = /datum/appearance_descriptor/age/kharmaani
 	rarity_value =            3
 	gluttonous =              2
-	siemens_coefficient =     0
 	body_temperature =        null
 
 	breath_type =             /decl/material/gas/methyl_bromide
 	exhale_type =             /decl/material/gas/methane
-	poison_types =            list(/decl/material/gas/chlorine)
+	poison_types =            list(/decl/material/gas/chlorine = TRUE)
 
 	available_pronouns = list(/decl/pronouns/male)
 
 	species_flags =           SPECIES_FLAG_NO_SLIP | SPECIES_FLAG_NO_MINOR_CUT
 	spawn_flags =             SPECIES_IS_RESTRICTED
 
-	heat_discomfort_strings = list(
-		"You feel brittle and overheated.",
-		"Your overheated carapace flexes uneasily.",
-		"Overheated ichor trickles from your eyes."
-		)
-	cold_discomfort_strings = list(
-		"Frost forms along your carapace.",
-		"You hear a faint crackle of ice as you shift your freezing body.",
-		"Your movements become sluggish under the weight of the chilly conditions."
-		)
-	unarmed_attacks = list(
-		/decl/natural_attack/claws/strong/gloves,
-		/decl/natural_attack/bite/sharp
-	)
-
-	force_cultural_info = list(
-		TAG_CULTURE =   /decl/cultural_info/culture/ascent,
-		TAG_HOMEWORLD = /decl/cultural_info/location/kharmaani,
-		TAG_FACTION =   /decl/cultural_info/faction/ascent_alate,
-		TAG_RELIGION =  /decl/cultural_info/religion/kharmaani
-	)
-
-	appearance_descriptors = list(
-		/datum/appearance_descriptor/height =      0.75,
-		/datum/appearance_descriptor/body_length = 0.5
+	force_background_info = list(
+		/decl/background_category/heritage =   /decl/background_detail/heritage/ascent,
+		/decl/background_category/homeworld = /decl/background_detail/location/kharmaani,
+		/decl/background_category/faction =   /decl/background_detail/faction/ascent_alate,
+		/decl/background_category/religion =  /decl/background_detail/religion/kharmaani
 	)
 
 	pain_emotes_with_pain_level = list(
@@ -105,10 +84,10 @@
 			list(/decl/emote/visible/ascent_flicker, /decl/emote/visible/ascent_glint) = 20,
 		)
 
-/decl/species/mantid/handle_sleeping(var/mob/living/carbon/human/H)
+/decl/species/mantid/handle_sleeping(var/mob/living/human/H)
 	return
 
-/decl/species/mantid/equip_survival_gear(var/mob/living/carbon/human/H, var/extendedtank = 1)
+/decl/species/mantid/equip_survival_gear(var/mob/living/human/H, var/extendedtank = 1)
 	return
 
 /decl/species/mantid/gyne
@@ -122,21 +101,15 @@
 	gluttonous =              3
 	rarity_value =           10
 
-	age_descriptor = /datum/appearance_descriptor/age/kharmaani/gyne
 	blood_volume =         1200
 
 	bump_flag =               HEAVY
 	push_flags =              ALLMOBS
 	swap_flags =              ALLMOBS
 
-	appearance_descriptors = list(
-		/datum/appearance_descriptor/height =      2,
-		/datum/appearance_descriptor/body_length = 1.25
-	)
-
-	force_cultural_info = list(
-		TAG_CULTURE =   /decl/cultural_info/culture/ascent,
-		TAG_HOMEWORLD = /decl/cultural_info/location/kharmaani,
-		TAG_FACTION =   /decl/cultural_info/faction/ascent_gyne,
-		TAG_RELIGION =  /decl/cultural_info/religion/kharmaani
+	force_background_info = list(
+		/decl/background_category/heritage =   /decl/background_detail/heritage/ascent,
+		/decl/background_category/homeworld = /decl/background_detail/location/kharmaani,
+		/decl/background_category/faction =   /decl/background_detail/faction/ascent_gyne,
+		/decl/background_category/religion =  /decl/background_detail/religion/kharmaani
 	)

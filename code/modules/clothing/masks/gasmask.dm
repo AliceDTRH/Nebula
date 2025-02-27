@@ -27,10 +27,10 @@
 	var/gas_filter_strength = 1			//For gas mask filters
 
 
-/obj/item/clothing/mask/gas/examine(mob/user)
+/obj/item/clothing/mask/gas/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(clogged)
-		to_chat(user, "<span class='warning'>The intakes are clogged with [clogged]!</span>")
+		. += SPAN_WARNING("The intakes are clogged with [clogged]!")
 
 /obj/item/clothing/mask/gas/filters_water()
 	return (filter_water && !clogged)
@@ -111,7 +111,7 @@
 		/decl/material/solid/glass = MATTER_AMOUNT_SECONDARY,
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/mask/gas/syndicate
 	name = "tactical mask"
@@ -129,7 +129,7 @@
 		/decl/material/solid/glass = MATTER_AMOUNT_SECONDARY,
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/mask/gas/death_commando
 	name = "\improper Death Commando Mask"
@@ -151,8 +151,9 @@
 		ARMOR_BIO = ARMOR_BIO_SHIELDED
 		)
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
-	material = /decl/material/solid/cloth
-	origin_tech = "{'materials':1,'engineering':2}"
+	matter = null
+	material = /decl/material/solid/organic/cloth
+	origin_tech = @'{"materials":1,"engineering":2}'
 
 /obj/item/clothing/mask/gas/clown_hat
 	name = "clown wig and mask"

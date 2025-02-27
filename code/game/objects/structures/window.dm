@@ -5,9 +5,10 @@
 	density = TRUE
 	w_class = ITEM_SIZE_NORMAL
 
+	color = GLASS_COLOR
 	layer = SIDE_WINDOW_LAYER
 	anchored = TRUE
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CHECKS_BORDER | ATOM_FLAG_CAN_BE_PAINTED
+	atom_flags = ATOM_FLAG_CHECKS_BORDER | ATOM_FLAG_CAN_BE_PAINTED
 	obj_flags = OBJ_FLAG_ROTATABLE | OBJ_FLAG_MOVES_UNSUPPORTED
 	alpha = 180
 	material = /decl/material/solid/glass
@@ -15,16 +16,17 @@
 	atmos_canpass = CANPASS_PROC
 	handle_generic_blending = TRUE
 	hitsound = 'sound/effects/Glasshit.ogg'
-	maxhealth = 100
+	max_health = 100
 
 	var/damage_per_fire_tick = 2 		// Amount of damage per fire tick. Regular windows are not fireproof so they might as well break quickly.
-	var/construction_state = 2
+	var/const/CONSTRUCTION_STATE_NO_FRAME = 0
+	var/const/CONSTRUCTION_STATE_IN_FRAME = 1
+	var/const/CONSTRUCTION_STATE_FASTENED = 2
+	var/construction_state = CONSTRUCTION_STATE_FASTENED
 	var/id
 	var/polarized = 0
 	var/basestate = "window"
 	var/reinf_basestate = "rwindow"
-	var/paint_color
-	var/base_color // The windows initial color. Used for resetting purposes.
 	var/list/connections
 	var/list/other_connections
 
@@ -57,10 +59,6 @@
 // Updating connections may depend on material properties.
 /obj/structure/window/LateInitialize()
 	..()
-	//set_anchored(!constructed) // calls update_connections, potentially
-
-	base_color = get_color()
-
 	update_connections(1)
 	update_icon()
 	update_nearby_tiles(need_rebuild=1)
@@ -82,9 +80,10 @@
 	SHOULD_CALL_PARENT(FALSE)
 	. = shatter()
 
-/obj/structure/window/take_damage(damage = 0)
+/obj/structure/window/take_damage(damage, damage_type = BRUTE, damage_flags, inflicter, armor_pen = 0, silent, do_update_health)
 	. = ..()
-	playsound(loc, "glasscrack", 100, 1)
+	if(. && damage_type == BRUTE)
+		playsound(loc, "glasscrack", 100, 1)
 
 /obj/structure/window/proc/shatter(var/display_message = 1)
 	playsound(src, "shatter", 70, 1)
@@ -92,7 +91,11 @@
 		visible_message(SPAN_DANGER("\The [src] shatters!"))
 
 	var/debris_count = is_fulltile() ? 4 : 1
-	material.place_shards(loc, debris_count)
+	var/list/shards = material.place_shards(loc, debris_count)
+	if(paint_color)
+		for(var/obj/item/thing in shards)
+			thing.set_color(paint_color)
+
 	if(reinf_material)
 		reinf_material.create_object(loc, debris_count, /obj/item/stack/material/rods)
 	qdel(src)
@@ -101,7 +104,7 @@
 	var/proj_damage = Proj.get_structure_damage()
 	if(!proj_damage) return
 	..()
-	take_damage(proj_damage)
+	take_damage(proj_damage, Proj.atom_damage_type)
 
 /obj/structure/window/explosion_act(severity)
 	..()
@@ -128,42 +131,39 @@
 	return 1
 
 /obj/structure/window/hitby(atom/movable/AM, var/datum/thrownthing/TT)
-	..()
-	visible_message(SPAN_DANGER("[src] was hit by [AM]."))
-	var/tforce = 0
-	if(ismob(AM)) // All mobs have a multiplier and a size according to mob_defines.dm
-		var/mob/I = AM
-		tforce = I.mob_size * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	else if(isobj(AM))
-		var/obj/item/I = AM
-		tforce = I.throwforce * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	if(reinf_material) tforce *= 0.25
-	if(health - tforce <= 7 && !reinf_material)
-		set_anchored(FALSE)
-		step(src, get_dir(AM, src))
-	take_damage(tforce)
+	. = ..()
+	if(.)
+		visible_message(SPAN_DANGER("[src] was hit by [AM]."))
+		var/tforce = AM.get_thrown_attack_force() * (TT.speed/THROWFORCE_SPEED_DIVISOR)
+		if(reinf_material)
+			tforce *= 0.25
+		if(current_health - tforce <= 7 && !reinf_material)
+			set_anchored(FALSE)
+			step(src, get_dir(AM, src))
+		take_damage(tforce)
 
 /obj/structure/window/attack_hand(mob/user)
 	SHOULD_CALL_PARENT(FALSE)
 	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-	if (user.a_intent && user.a_intent == I_HURT)
+	if (user.check_intent(I_FLAG_HARM))
 
-		if (istype(user,/mob/living/carbon/human))
-			var/mob/living/carbon/human/H = user
-			if(H.species.can_shred(H))
-				attack_generic(H,25)
-				return
+		if(user.can_shred())
+			return attack_generic(user, 25)
 
 		playsound(src.loc, 'sound/effects/glassknock.ogg', 80, 1)
 		user.do_attack_animation(src)
-		user.visible_message(SPAN_DANGER("\The [user] bangs against \the [src]!"),
-							SPAN_DANGER("You bang against \the [src]!"),
-							"You hear a banging sound.")
+		user.visible_message(
+			SPAN_DANGER("\The [user] bangs against \the [src]!"),
+			SPAN_DANGER("You bang against \the [src]!"),
+			"You hear a banging sound."
+		)
 	else
 		playsound(src.loc, 'sound/effects/glassknock.ogg', 80, 1)
-		user.visible_message("[user.name] knocks on the [src.name].",
-							"You knock on the [src.name].",
-							"You hear a knocking sound.")
+		user.visible_message(
+			SPAN_NOTICE("\The [user] knocks on \the [src]."),
+			SPAN_NOTICE("You knock on \the [src]."),
+			"You hear a knocking sound."
+		)
 	return TRUE
 
 /obj/structure/window/do_simple_ranged_interaction(var/mob/user)
@@ -171,132 +171,178 @@
 	playsound(loc, 'sound/effects/Glasshit.ogg', 50, 1)
 	return TRUE
 
-/obj/structure/window/attackby(obj/item/W, mob/user)
-	if(!istype(W)) return//I really wish I did not need this
-
-	if(W.item_flags & ITEM_FLAG_NO_BLUDGEON) return
-
-	if(IS_SCREWDRIVER(W))
-		if(reinf_material && construction_state >= 1)
-			construction_state = 3 - construction_state
+/obj/structure/window/handle_default_screwdriver_attackby(mob/user, obj/item/screwdriver)
+	var/tool_sound = screwdriver.get_tool_sound(TOOL_SCREWDRIVER) || 'sound/items/Screwdriver.ogg'
+	if(reinf_material) // reinforced windows have construction states
+		if(construction_state >= CONSTRUCTION_STATE_IN_FRAME) // if the window is in the frame
+			playsound(loc, tool_sound, 75, 1)
+			switch(construction_state)
+				if(CONSTRUCTION_STATE_IN_FRAME)
+					construction_state = CONSTRUCTION_STATE_FASTENED
+					to_chat(user, SPAN_NOTICE("You have fastened the window to the frame."))
+				if(CONSTRUCTION_STATE_FASTENED)
+					construction_state = CONSTRUCTION_STATE_IN_FRAME
+					to_chat(user, SPAN_NOTICE("You have unfastened the window from the frame."))
 			update_nearby_icons()
-			playsound(loc, 'sound/items/Screwdriver.ogg', 75, 1)
-			to_chat(user, (construction_state == 1 ? SPAN_NOTICE("You have unfastened the window from the frame.") : SPAN_NOTICE("You have fastened the window to the frame.")))
-		else if(reinf_material && construction_state == 0)
-			set_anchored(!anchored)
-			playsound(loc, 'sound/items/Screwdriver.ogg', 75, 1)
+			return TRUE
+		else // if unanchored
+			set_anchored(!anchored) // sets construction_state for us
+			playsound(loc, tool_sound, 75, 1)
 			to_chat(user, (anchored ? SPAN_NOTICE("You have fastened the frame to the floor.") : SPAN_NOTICE("You have unfastened the frame from the floor.")))
-		else if(!reinf_material)
-			set_anchored(!anchored)
-			playsound(loc, 'sound/items/Screwdriver.ogg', 75, 1)
-			to_chat(user, (anchored ? SPAN_NOTICE("You have fastened the window to the floor.") : SPAN_NOTICE("You have unfastened the window.")))
-	else if(IS_CROWBAR(W) && reinf_material && construction_state <= 1)
-		construction_state = 1 - construction_state
-		playsound(loc, 'sound/items/Crowbar.ogg', 75, 1)
-		to_chat(user, (construction_state ? SPAN_NOTICE("You have pried the window into the frame.") : SPAN_NOTICE("You have pried the window out of the frame.")))
-	else if(IS_WRENCH(W) && !anchored && (!construction_state || !reinf_material))
-		if(!material)
-			to_chat(user, SPAN_NOTICE("You're not sure how to dismantle \the [src] properly."))
-		else
-			playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
-			visible_message(SPAN_NOTICE("[user] dismantles \the [src]."))
-			dismantle()
-	else if(IS_COIL(W) && is_fulltile())
-		if (polarized)
-			to_chat(user, SPAN_WARNING("\The [src] is already polarized."))
-			return
-		var/obj/item/stack/cable_coil/C = W
-		if (C.use(1))
-			playsound(src.loc, 'sound/effects/sparks1.ogg', 75, 1)
-			polarized = TRUE
-			to_chat(user, SPAN_NOTICE("You wire and polarize \the [src]."))
-	else if (IS_WIRECUTTER(W))
+			return TRUE
+	else // basic windows can only be anchored or unanchored
+		set_anchored(!anchored)
+		playsound(loc, tool_sound, 75, 1)
+		to_chat(user, (anchored ? SPAN_NOTICE("You have fastened the window to the floor.") : SPAN_NOTICE("You have unfastened the window.")))
+		return TRUE
+
+/obj/structure/window/handle_default_crowbar_attackby(mob/user, obj/item/crowbar)
+	if(!reinf_material || !anchored || construction_state > CONSTRUCTION_STATE_IN_FRAME)
+		return FALSE // ineligible, allow other interactions to proceed
+	switch(construction_state)
+		if(CONSTRUCTION_STATE_NO_FRAME) // pry the window into the frame
+			construction_state = CONSTRUCTION_STATE_IN_FRAME
+			to_chat(user, SPAN_NOTICE("You have pried the window into the frame."))
+		if(CONSTRUCTION_STATE_IN_FRAME)
+			construction_state = CONSTRUCTION_STATE_NO_FRAME
+			to_chat(user, SPAN_NOTICE("You have pried the window out of the frame."))
+	playsound(loc, crowbar.get_tool_sound(TOOL_CROWBAR) || 'sound/items/Crowbar.ogg', 75, 1)
+	return TRUE
+
+/obj/structure/window/handle_default_hammer_attackby(mob/user, obj/item/hammer)
+	return FALSE
+
+/obj/structure/window/handle_default_wrench_attackby(mob/user, obj/item/wrench)
+	if(anchored || (reinf_material && construction_state > CONSTRUCTION_STATE_NO_FRAME))
+		return FALSE // ineligible, allow other interactions to proceed
+	if(!material) // is this even necessary now? indestructible admin level window types maybe?
+		to_chat(user, SPAN_NOTICE("You're not sure how to dismantle \the [src] properly."))
+		return TRUE // prevent other interactions
+	playsound(loc, wrench.get_tool_sound(TOOL_WRENCH) || 'sound/items/Ratchet.ogg', 75, 1)
+	visible_message(SPAN_NOTICE("[user] dismantles \the [src]."))
+	dismantle_structure(user)
+	return TRUE
+
+/obj/structure/window/handle_default_cable_attackby(mob/user, obj/item/stack/cable_coil/coil)
+	if(!is_fulltile())
+		return FALSE // ineligible, allow other interactions to proceed
+	if(polarized)
+		to_chat(user, SPAN_WARNING("\The [src] is already polarized."))
+		return TRUE // prevent further interactions
+	if(coil.use(1))
+		playsound(loc, 'sound/effects/sparks1.ogg', 75, 1)
+		polarized = TRUE
+		to_chat(user, SPAN_NOTICE("You wire and polarize \the [src]."))
+	else
+		to_chat(user, SPAN_WARNING("You need at least one length of [coil.plural_name] to polarize \the [src]!"))
+	return TRUE
+
+/obj/structure/window/handle_default_wirecutter_attackby(mob/user, obj/item/wirecutters/wirecutters)
+	if (!polarized)
+		to_chat(user, SPAN_WARNING("\The [src] is not polarized."))
+		return TRUE // prevent other interactions
+	var/obj/item/stack/cable_coil/product = new /obj/item/stack/cable_coil(get_turf(user), 1)
+	if(product.add_to_stacks(user, TRUE))
+		user.put_in_hands(product)
+	if (opacity)
+		toggle() // must toggle off BEFORE unsetting the polarization var
+	polarized = FALSE
+	id = null
+	playsound(loc, wirecutters.get_tool_sound(TOOL_WIRECUTTERS) || 'sound/items/Wirecutter.ogg', 75, 1)
+	to_chat(user, SPAN_NOTICE("You cut the wiring and remove the polarization from \the [src]."))
+	return TRUE
+
+/obj/structure/window/attackby(obj/item/used_item, mob/user)
+	// bespoke interactions not handled by the prior procs
+	if(IS_MULTITOOL(used_item))
 		if (!polarized)
 			to_chat(user, SPAN_WARNING("\The [src] is not polarized."))
-			return
-		new /obj/item/stack/cable_coil(get_turf(user), 1)
-		if (opacity)
-			toggle()
-		polarized = FALSE
-		id = null
-		playsound(loc, 'sound/items/Wirecutter.ogg', 75, 1)
-		to_chat(user, SPAN_NOTICE("You cut the wiring and remove the polarization from \the [src]."))
-	else if(IS_MULTITOOL(W))
-		if (!polarized)
-			to_chat(user, SPAN_WARNING("\The [src] is not polarized."))
-			return
+			return TRUE
 		if (anchored)
 			playsound(loc, 'sound/effects/pop.ogg', 75, 1)
 			to_chat(user, SPAN_NOTICE("You toggle \the [src]'s tinting."))
 			toggle()
 		else
 			var/response = input(user, "New Window ID:", name, id) as null | text
-			if (isnull(response) || user.incapacitated() || !user.Adjacent(src) || user.get_active_hand() != W)
-				return
+			if (isnull(response) || user.incapacitated() || !user.Adjacent(src) || user.get_active_held_item() != used_item)
+				return TRUE
 			id = sanitize_safe(response, MAX_NAME_LEN)
 			to_chat(user, SPAN_NOTICE("The new ID of \the [src] is [id]."))
-		return
-	else if(istype(W, /obj/item/gun/energy/plasmacutter) && anchored)
-		var/obj/item/gun/energy/plasmacutter/cutter = W
+		return TRUE
+	else if(istype(used_item, /obj/item/gun/energy/plasmacutter) && anchored)
+		var/obj/item/gun/energy/plasmacutter/cutter = used_item
 		if(!cutter.slice(user))
-			return
+			return TRUE // failed to finish or otherwise failed, prevent further interactions
 		playsound(src, 'sound/items/Welder.ogg', 80, 1)
 		visible_message(SPAN_NOTICE("[user] has started slicing through the window's frame!"))
-		if(do_after(user,20,src))
+		if(do_after(user, 2 SECONDS, src))
 			visible_message(SPAN_WARNING("[user] has sliced through the window's frame!"))
 			playsound(src, 'sound/items/Welder.ogg', 80, 1)
-			construction_state = 0
-			set_anchored(0)
-	else if (!istype(W, /obj/item/paint_sprayer))
-		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-		if(W.damtype == BRUTE || W.damtype == BURN)
-			user.do_attack_animation(src)
-			hit(W.force)
-			if(health <= 7)
-				set_anchored(FALSE)
-				step(src, get_dir(user, src))
-		else
-			playsound(loc, 'sound/effects/Glasshit.ogg', 75, 1)
-		..()
-	return
+			set_anchored(FALSE)
+	if (istype(used_item, /obj/item/paint_sprayer))
+		return FALSE // allow afterattack to run
+	return ..() // handle generic interactions, bashing, etc
+
+/obj/structure/window/bash(obj/item/weapon, mob/user)
+	if(isliving(user) && user.check_intent(I_FLAG_HELP))
+		return FALSE
+	if(!weapon.user_can_attack_with(user))
+		return FALSE
+	if(weapon.item_flags & ITEM_FLAG_NO_BLUDGEON)
+		return FALSE
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+	// physical damage types that can impart force; swinging a bat or energy sword
+	if(weapon.atom_damage_type == BRUTE || weapon.atom_damage_type == BURN)
+		user.do_attack_animation(src)
+		hit(weapon.expend_attack_force(user))
+		if(current_health <= 7)
+			set_anchored(FALSE)
+			step(src, get_dir(user, src))
+	else
+		playsound(loc, 'sound/effects/Glasshit.ogg', 75, 1)
+	return TRUE // bash successful
 
 // TODO: generalize to matter list and parts_type.
 /obj/structure/window/create_dismantled_products(turf/T)
 	SHOULD_CALL_PARENT(FALSE)
-	var/list/products = material.create_object(loc, is_fulltile() ? 4 : 2)
+	. = material.create_object(loc, 1)
 	if(reinf_material)
-		for(var/obj/item/stack/material/S in products)
+		for(var/obj/item/stack/material/S in .)
 			S.reinf_material = reinf_material
 			S.update_strings()
 			S.update_icon()
+	if(paint_color)
+		for(var/obj/item/thing in .)
+			thing.set_color(paint_color)
 
-/obj/structure/window/grab_attack(var/obj/item/grab/G)
-	if (G.assailant.a_intent != I_HURT)
+/obj/structure/window/grab_attack(obj/item/grab/grab, mob/user)
+	if (!user.check_intent(I_FLAG_HARM))
 		return TRUE
-	if (!G.force_danger())
-		to_chat(G.assailant, SPAN_DANGER("You need a better grip to do that!"))
+	if (!grab.force_danger())
+		to_chat(user, SPAN_DANGER("You need a better grip to do that!"))
 		return TRUE
-	var/mob/living/affecting_mob = G.get_affecting_mob()
+	var/mob/living/affecting_mob = grab.get_affecting_mob()
 	if(!istype(affecting_mob))
-		attackby(G.affecting, G.assailant)
+		attackby(grab.affecting, user)
 		return TRUE
 	var/def_zone = ran_zone(BP_HEAD, 20, affecting_mob)
-	if(G.damage_stage() < 2)
-		G.affecting.visible_message(SPAN_DANGER("[G.assailant] bashes [G.affecting] against \the [src]!"))
+	if(grab.damage_stage() < 2)
+		grab.affecting.visible_message(SPAN_DANGER("\The [user] bashes \the [grab.affecting] against \the [src]!"))
 		if(prob(50))
 			SET_STATUS_MAX(affecting_mob, STAT_WEAK, 2)
 		affecting_mob.apply_damage(10, BRUTE, def_zone, used_weapon = src)
 		hit(25)
-		qdel(G)
+		qdel(grab)
 	else
-		G.affecting.visible_message(SPAN_DANGER("[G.assailant] crushes [G.affecting] against \the [src]!"))
+		grab.affecting.visible_message(SPAN_DANGER("\The [user] crushes \the [grab.affecting] against \the [src]!"))
 		SET_STATUS_MAX(affecting_mob, STAT_WEAK, 5)
 		affecting_mob.apply_damage(20, BRUTE, def_zone, used_weapon = src)
 		hit(50)
-		qdel(G)
+		qdel(grab)
 	return TRUE
 
 /obj/structure/window/proc/hit(var/damage, var/sound_effect = 1)
+	// TODO: use reinf_material properties, paper reinforcement should be worse than plasteel reinforcement
 	if(reinf_material) damage *= 0.5
 	take_damage(damage)
 
@@ -331,7 +377,7 @@
 /obj/structure/window/Move()
 	var/ini_dir = dir
 	update_nearby_tiles(need_rebuild=1)
-	..()
+	. = ..()
 	set_dir(ini_dir)
 	update_nearby_tiles(need_rebuild=1)
 
@@ -341,57 +387,35 @@
 		return 1
 	return 0
 
-/obj/structure/window/examine(mob/user)
+/obj/structure/window/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..(user)
 	if(reinf_material)
-		to_chat(user, SPAN_NOTICE("It is reinforced with the [reinf_material.solid_name] lattice."))
-
+		. += SPAN_NOTICE("It is reinforced with the [reinf_material.solid_name] lattice.")
 	if (reinf_material)
 		switch (construction_state)
-			if (0)
-				to_chat(user, SPAN_WARNING("The window is not in the frame."))
-			if (1)
-				to_chat(user, SPAN_WARNING("The window is pried into the frame but not yet fastened."))
-			if (2)
-				to_chat(user, SPAN_NOTICE("The window is fastened to the frame."))
-
+			if (CONSTRUCTION_STATE_NO_FRAME)
+				. += SPAN_WARNING("The window is not in the frame.")
+			if (CONSTRUCTION_STATE_IN_FRAME)
+				. += SPAN_WARNING("The window is pried into the frame but not yet fastened.")
+			if (CONSTRUCTION_STATE_FASTENED)
+				. += SPAN_NOTICE("The window is fastened to the frame.")
 	if (anchored)
-		to_chat(user, SPAN_NOTICE("It is fastened to \the [get_turf(src)]."))
+		. += SPAN_NOTICE("It is fastened to \the [get_turf(src)].")
 	else
-		to_chat(user, SPAN_WARNING("It is not fastened to anything."))
-
-	if (paint_color)
-		to_chat(user, SPAN_NOTICE("The glass is stained with paint."))
-
+		. += SPAN_WARNING("It is not fastened to anything.")
 	if (polarized)
-		to_chat(user, SPAN_NOTICE("It appears to be wired."))
+		. += SPAN_NOTICE("It appears to be wired.")
 
-/obj/structure/window/get_color()
-	if (paint_color)
-		return paint_color
-	else if (material)
-		var/decl/material/window = get_material()
-		return window.color
-	else if (base_color)
-		return base_color
-	return ..()
-
-/obj/structure/window/set_color()
-	paint_color = color
-	queue_icon_update()
-
-/obj/structure/window/proc/set_anchored(var/new_anchored)
-	if(anchored == new_anchored)
-		return
-	anchored = new_anchored
-	update_connections(1)
-	update_nearby_icons()
+/obj/structure/window/set_anchored(new_anchored)
+	if((. = ..()))
+		update_connections(1)
+		update_nearby_icons()
 
 //This proc is used to update the icons of nearby windows. It should not be confused with update_nearby_tiles(), which is an atmos proc!
 /obj/structure/window/proc/update_nearby_icons()
 	update_icon()
-	for(var/obj/structure/window/W in orange(src, 1))
-		W.update_icon()
+	for(var/obj/structure/window/window in orange(src, 1))
+		window.update_icon()
 
 // Visually connect with every type of window as long as it's full-tile.
 /obj/structure/window/can_visually_connect()
@@ -411,14 +435,7 @@
 
 	..()
 
-	if (paint_color)
-		color = paint_color
-	else if (material)
-		var/decl/material/window = get_material()
-		color = window.color
-	else
-		color = GLASS_COLOR
-
+	color = get_color()
 	layer = FULL_WINDOW_LAYER
 	if(!is_fulltile())
 		layer = SIDE_WINDOW_LAYER
@@ -447,10 +464,10 @@
 			add_overlay(I)
 
 /obj/structure/window/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
-	var/melting_point = material.melting_point
+	var/damage_point = material.temperature_damage_threshold
 	if(reinf_material)
-		melting_point += 0.25*reinf_material.melting_point
-	if(exposed_temperature > melting_point)
+		damage_point += 0.25*reinf_material.temperature_damage_threshold
+	if(exposed_temperature > damage_point)
 		hit(damage_per_fire_tick, 0)
 	..()
 
@@ -463,7 +480,7 @@
 	icon_state = "window_full"
 
 /obj/structure/window/basic/full/polarized
-	polarized = 1
+	polarized = TRUE
 
 /obj/structure/window/borosilicate
 	name = "borosilicate window"
@@ -516,7 +533,7 @@
 	name = "electrochromic window"
 	desc = "Adjusts its tint with voltage. Might take a few good hits to shatter it."
 	basestate = "rwindow"
-	polarized = 1
+	polarized = TRUE
 
 /obj/structure/window/reinforced/polarized/full
 	dir = NORTHEAST
@@ -547,8 +564,8 @@
 	construct_state = /decl/machine_construction/wall_frame/panel_closed/simple
 	base_type = /obj/machinery/button/windowtint
 
-/obj/machinery/button/windowtint/attackby(obj/item/W, mob/user)
-	if(IS_MULTITOOL(W))
+/obj/machinery/button/windowtint/attackby(obj/item/used_item, mob/user)
+	if(IS_MULTITOOL(used_item))
 		var/t = sanitize_safe(input(user, "Enter the ID for the button.", name, id_tag), MAX_NAME_LEN)
 		if(!CanPhysicallyInteract(user))
 			return TRUE
@@ -562,9 +579,9 @@
 /obj/machinery/button/windowtint/activate()
 	if(operating)
 		return
-	for(var/obj/structure/window/W in range(src,range))
-		if(W.polarized && (W.id == id_tag || !W.id))
-			W.toggle()
+	for(var/obj/structure/window/window in range(src,range))
+		if(window.polarized && (window.id == id_tag || !window.id))
+			window.toggle()
 	..()
 
 /obj/machinery/button/windowtint/power_change()
@@ -581,7 +598,7 @@
 	return TRUE
 
 /obj/structure/window/reinforced/crescent/attackby()
-	return
+	return TRUE
 
 /obj/structure/window/reinforced/crescent/explosion_act()
 	SHOULD_CALL_PARENT(FALSE)
@@ -589,9 +606,9 @@
 
 /obj/structure/window/reinforced/crescent/hitby()
 	SHOULD_CALL_PARENT(FALSE)
-	return
+	return FALSE
 
-/obj/structure/window/reinforced/crescent/take_damage()
+/obj/structure/window/reinforced/crescent/take_damage(damage, damage_type = BRUTE, damage_flags, inflicter, armor_pen = 0, silent, do_update_health)
 	return
 
 /obj/structure/window/reinforced/crescent/shatter()
@@ -622,8 +639,7 @@
 		if (ST.use(required_amount))
 			var/obj/structure/window/WD = new(loc, ST.material.type, ST.reinf_material?.type, dir_to_set, FALSE)
 			to_chat(user, SPAN_NOTICE("You place [WD]."))
-			WD.construction_state = 0
-			WD.set_anchored(FALSE)
+			WD.set_anchored(FALSE) // handles setting construction state for us
 		else
 			to_chat(user, SPAN_NOTICE("You do not have enough sheets."))
 			return

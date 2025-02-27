@@ -29,8 +29,9 @@
 
 	radar = image(loc = effect, icon = 'icons/obj/overmap.dmi', icon_state = "sensor_range")
 	radar.color = source.color
-	radar.tag = "radar"
-	radar.add_filter("blur", 1, list("blur", size = 1))
+	radar.add_filter("blur", 1, list(type = "blur", size = 1))
+	radar.appearance_flags |= RESET_TRANSFORM | KEEP_APART
+	radar.appearance_flags &= ~PIXEL_SCALE
 
 /datum/overmap_contact/proc/update_marker_icon()
 
@@ -67,10 +68,20 @@
 		return
 	var/list/showing = owner.linked?.navigation_viewers || owner.viewers
 	if(length(showing))
-		for(var/weakref/W in showing)
-			var/mob/M = W.resolve()
+		for(var/weakref/viewer_ref in showing)
+			var/mob/M = viewer_ref.resolve()
 			if(istype(M) && M.client)
 				M.client.images |= images
+
+/datum/overmap_contact/proc/hide()
+	if(!owner)
+		return
+	var/list/showing = owner.linked?.navigation_viewers || owner.viewers
+	if(length(showing))
+		for(var/weakref/viewer_ref in showing)
+			var/mob/M = viewer_ref.resolve()
+			if(istype(M) && M.client)
+				M.client.images -= images
 
 /datum/overmap_contact/proc/check_effect_shield()
 	var/obj/effect/overmap/visitable/visitable_effect = effect
@@ -88,7 +99,7 @@
 	pinged = TRUE
 	show()
 	animate(marker, alpha=255, 0.5 SECOND, 1, LINEAR_EASING)
-	addtimer(CALLBACK(src, .proc/unping), 1 SECOND)
+	addtimer(CALLBACK(src, PROC_REF(unping)), 1 SECOND)
 
 /datum/overmap_contact/proc/unping()
 	animate(marker, alpha=75, 2 SECOND, 1, LINEAR_EASING)
@@ -96,12 +107,7 @@
 
 /datum/overmap_contact/Destroy()
 	if(owner)
-		var/list/showing = owner.linked?.navigation_viewers || owner.viewers
-		if(length(showing))
-			for(var/weakref/W in showing)
-				var/mob/M = W.resolve()
-				if(istype(M) && M.client)
-					M.client.images -= images
+		hide()
 		if(effect)
 			owner.contact_datums -= effect
 		owner = null

@@ -1,13 +1,14 @@
-/obj/item/mech_equipment/mounted_system/projectile/attackby(var/obj/item/O, var/mob/user)
+/obj/item/mech_equipment/mounted_system/projectile/attackby(var/obj/item/used_item, var/mob/user)
 	var/obj/item/gun/projectile/automatic/A = holding
 	if(!istype(A))
-		return
-	if(istype(O, /obj/item/crowbar))
+		return FALSE
+	if(istype(used_item, /obj/item/crowbar))
 		A.unload_ammo(user)
-		to_chat(user, SPAN_NOTICE("You remove the ammo magazine from the [src]."))
-	else if(istype(O, A.magazine_type))
-		A.load_ammo(O, user)
-		to_chat(user, SPAN_NOTICE("You load the ammo magazine into the [src]."))
+		to_chat(user, SPAN_NOTICE("You remove the ammo magazine from \the [src]."))
+	else if(istype(used_item, A.magazine_type))
+		A.load_ammo(used_item, user)
+		to_chat(user, SPAN_NOTICE("You load the ammo magazine into \the [src]."))
+	return TRUE
 
 /obj/item/mech_equipment/mounted_system/projectile/attack_self(var/mob/user)
 	. = ..()
@@ -17,21 +18,21 @@
 
 /obj/item/gun/projectile/automatic/get_hardpoint_status_value()
 	if(!isnull(ammo_magazine))
-		return ammo_magazine.stored_ammo.len
+		return ammo_magazine.get_stored_ammo_count()
 
 /obj/item/gun/projectile/automatic/get_hardpoint_maptext()
 	if(!isnull(ammo_magazine))
-		return "[ammo_magazine.stored_ammo.len]/[ammo_magazine.max_ammo]"
+		return "[ammo_magazine.get_stored_ammo_count()]/[ammo_magazine.max_ammo]"
 	return 0
 
 //Weapons below this.
 /obj/item/mech_equipment/mounted_system/projectile
 	name = "mounted submachine gun"
 	icon_state = "mech_ballistic"
-	holding_type = /obj/item/gun/projectile/automatic/smg/mech
+	holding = /obj/item/gun/projectile/automatic/smg/mech
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND)
 	restricted_software = list(MECH_SOFTWARE_WEAPONS)
-	origin_tech = "{'programming':4,'combat':6,'engineering':5}"
+	origin_tech = @'{"programming":4,"combat":6,"engineering":5}'
 
 /obj/item/gun/projectile/automatic/smg/mech
 	magazine_type = /obj/item/ammo_magazine/mech/smg_top
@@ -49,10 +50,10 @@
 /obj/item/mech_equipment/mounted_system/projectile/assault_rifle
 	name = "mounted assault rifle"
 	icon_state = "mech_ballistic2"
-	holding_type = /obj/item/gun/projectile/automatic/assault_rifle/mech
+	holding = /obj/item/gun/projectile/automatic/assault_rifle/mech
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND)
 	restricted_software = list(MECH_SOFTWARE_WEAPONS)
-	origin_tech = "{'programming':4,'combat':8,'engineering':6}"
+	origin_tech = @'{"programming":4,"combat":8,"engineering":6}'
 
 /obj/item/gun/projectile/automatic/assault_rifle/mech
 	magazine_type = /obj/item/ammo_magazine/mech/rifle
@@ -69,9 +70,10 @@
 /obj/item/mech_equipment/mounted_system/projectile/machine
 	name = "mounted machine gun"
 	icon_state = "mech_machine_gun"
-	holding_type = /obj/item/gun/projectile/automatic/machine/mech
+	holding = /obj/item/gun/projectile/automatic/machine/mech
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND)
 	restricted_software = list(MECH_SOFTWARE_WEAPONS)
+	origin_tech = @'{"programming":4,"combat":8,"engineering":6}'
 
 /obj/item/gun/projectile/automatic/machine/mech
 	magazine_type = /obj/item/ammo_magazine/mech/rifle/drum

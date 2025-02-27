@@ -4,10 +4,8 @@
 
 /obj/effect/overmap/visitable/sector/planetoid/exoplanet/shrouded
 	name          = "shrouded exoplanet"
-	desc          = "An exoplanet shrouded in a perpetual storm of bizzare, light absorbing particles."
+	desc          = "An exoplanet shrouded in a perpetual storm of bizarre, light-absorbing particles."
 	color         = "#783ca4"
-	surface_color = "#3e3960"
-	water_color   = "#2b2840"
 
 /obj/effect/overmap/visitable/sector/planetoid/exoplanet/shrouded/get_atmosphere_color()
 	return COLOR_BLACK
@@ -18,7 +16,7 @@
 
 /datum/level_data/planetoid/exoplanet/shrouded
 	base_area           = /area/exoplanet/shrouded
-	base_turf           = /turf/exterior/shrouded
+	base_turf           = /turf/floor/shrouded
 	exterior_atmosphere = null
 	exterior_atmos_temp = null
 	level_generators    = list(
@@ -51,9 +49,9 @@
 
 /datum/fauna_generator/shrouded
 	fauna_types = list(
-		/mob/living/simple_animal/hostile/retaliate/royalcrab,
-		/mob/living/simple_animal/hostile/retaliate/jelly/alt,
-		/mob/living/simple_animal/hostile/retaliate/beast/shantak/alt,
+		/mob/living/simple_animal/hostile/royalcrab,
+		/mob/living/simple_animal/hostile/jelly/alt,
+		/mob/living/simple_animal/hostile/beast/shantak/alt,
 		/mob/living/simple_animal/hostile/leech
 	)
 
@@ -71,6 +69,8 @@
 	surface_light_gen_level_max    = 0.25
 	flora                          = /datum/planet_flora/random/shrouded
 	fauna                          = /datum/fauna_generator/shrouded
+	surface_color = "#3e3960"
+	water_color   = "#2b2840"
 	possible_rock_colors           = list(
 		COLOR_INDIGO,
 		COLOR_DARK_BLUE_GRAY,
@@ -85,8 +85,7 @@
 	name                       = "shrouded exoplanet"
 	planetoid_data_type        = /datum/planetoid_data/random/shrouded
 	overmap_marker_type        = /obj/effect/overmap/visitable/sector/planetoid/exoplanet/shrouded
-	ruin_tags_blacklist        = RUIN_HABITAT
-	template_parent_type       = /datum/map_template/planetoid/random/exoplanet
+	template_tags_blacklist    = TEMPLATE_TAG_HABITAT
 	level_data_type            = /datum/level_data/planetoid/exoplanet/shrouded
 	prefered_level_data_per_z  = list(
 		/datum/level_data/planetoid/exoplanet/shrouded,
@@ -108,8 +107,8 @@
 	megafauna_spawn_prob = 2 //Remember to change this if more types are added.
 	water_level_max      = 3
 	water_level_min      = 2
-	land_type            = /turf/exterior/shrouded
-	water_type           = /turf/exterior/water/tar
+	land_type            = /turf/floor/shrouded
+	water_type           = /turf/floor/shrouded/tar
 
 /datum/random_map/noise/exoplanet/shrouded/get_additional_spawns(var/value, var/turf/T)
 	..()
@@ -125,4 +124,4 @@
 		"sound/ambience/spookyspace1.ogg",
 		"sound/ambience/spookyspace2.ogg"
 	)
-	base_turf = /turf/exterior/shrouded
+	base_turf = /turf/floor/shrouded

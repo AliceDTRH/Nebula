@@ -13,7 +13,7 @@
 	dir = SOUTH
 	initialize_directions = SOUTH
 
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 /obj/machinery/atmospherics/pipe/zpipe/check_pressure(pressure)
 	var/datum/gas_mixture/environment = loc.return_air()
@@ -39,7 +39,7 @@
 	qdel(src) // NOT qdel.
 
 /obj/machinery/atmospherics/pipe/zpipe/on_update_icon()
-	return
+	color = get_color()
 
 /////////////////////////
 // the elusive up pipe //

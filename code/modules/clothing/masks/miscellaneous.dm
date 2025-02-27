@@ -43,7 +43,7 @@
 	down_gas_transfer_coefficient = 1
 	down_body_parts_covered = null
 	pull_mask = 1
-	material = /decl/material/solid/cloth
+	material = /decl/material/solid/organic/cloth
 
 /obj/item/clothing/mask/fakemoustache
 	name = "fake moustache"
@@ -61,7 +61,7 @@
 	icon_state = ICON_STATE_WORLD
 	flags_inv = HIDEFACE
 	body_parts_covered = 0
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 
 // This doesn't 'filter' water so much as allow us to breathe from the air above it.
 /obj/item/clothing/mask/snorkel/filters_water()
@@ -93,21 +93,25 @@
 	w_class = ITEM_SIZE_SMALL
 	siemens_coefficient = 0.9
 
-/obj/item/clothing/mask/horsehead/Initialize()
-	. = ..()
-	// The horse mask doesn't cause voice changes by default, the wizard spell changes the flag as necessary
+/obj/item/clothing/mask/horsehead/cursed
+	voicechange = TRUE
 	say_messages = list("NEEIIGGGHHHH!", "NEEEIIIIGHH!", "NEIIIGGHH!", "HAAWWWWW!", "HAAAWWW!")
 	say_verbs = list("whinnies", "neighs", "says")
+
+/obj/item/clothing/mask/horsehead/cursed/equipped(mob/user, slot)
+	. = ..()
+	if(slot == slot_wear_mask_str)
+		canremove = FALSE
 
 /obj/item/clothing/mask/ai
 	name = "camera MIU"
 	desc = "Allows for direct mental connection to accessible camera channels."
-	icon = 'icons/clothing/mask/ninja.dmi'
+	icon = 'icons/clothing/mask/camera_miu.dmi'
 	icon_state = ICON_STATE_WORLD
 	flags_inv = HIDEFACE
 	body_parts_covered = SLOT_FACE|SLOT_EYES
 	action_button_name = "Toggle MUI"
-	origin_tech = "{'programming':5,'engineering':5}"
+	origin_tech = @'{"programming":5,"engineering":5}'
 
 /obj/item/clothing/mask/ai/Initialize()
 	. = ..()
@@ -138,11 +142,11 @@
 	flags_inv = HIDEFACE|BLOCK_ALL_HAIR
 	siemens_coefficient = 0.9
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
-	material = /decl/material/solid/cloth
+	material = /decl/material/solid/organic/cloth
 
 /obj/item/clothing/mask/rubber/barros
 	name = "Amaya Barros mask"
-	desc = "Current Secretary-General of Sol Cental Government. Not that the real thing would visit this pigsty."
+	desc = "Current Secretary-General of Sol Central Government. Not that the real thing would visit this pigsty."
 	icon = 'icons/clothing/mask/barros.dmi'
 	visible_name = "Amaya Barros"
 
@@ -169,7 +173,7 @@
 	visible_name = species
 	var/decl/species/S = get_species_by_key(species)
 	if(istype(S))
-		var/decl/cultural_info/C = GET_DECL(S.default_cultural_info[TAG_CULTURE])
+		var/decl/background_detail/C = GET_DECL(S.default_background_info[/decl/background_category/heritage])
 		if(istype(C))
 			visible_name = C.get_random_name(pick(MALE,FEMALE))
 
@@ -184,7 +188,7 @@
 	icon = 'icons/clothing/mask/spirit.dmi'
 	flags_inv = HIDEFACE
 	body_parts_covered = SLOT_FACE|SLOT_EYES
-	material = /decl/material/solid/cloth
+	material = /decl/material/solid/organic/cloth
 
 // Bandanas below
 /obj/item/clothing/mask/bandana
@@ -198,7 +202,14 @@
 	body_parts_covered = SLOT_FACE
 	item_flags = ITEM_FLAG_FLEXIBLEMATERIAL
 	w_class = ITEM_SIZE_SMALL
-	material = /decl/material/solid/cloth
+	matter = null
+	material = /decl/material/solid/organic/cloth
+
+/obj/item/clothing/mask/bandana/colourable
+	name = "bandana"
+	desc = "A simple bandana, worn on the face or head."
+	color = null
+	material_alteration = MAT_FLAG_ALTERATION_COLOR | MAT_FLAG_ALTERATION_NAME | MAT_FLAG_ALTERATION_DESC
 
 /obj/item/clothing/mask/bandana/equipped(var/mob/user, var/slot)
 	. = ..()

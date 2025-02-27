@@ -7,14 +7,13 @@
 	icon_state = ICON_STATE_WORLD
 	w_class = ITEM_SIZE_LARGE
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	throwforce = 5
 	throw_speed = 1
 	throw_range = 2
 
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/metallic_hydrogen = MATTER_AMOUNT_REINFORCEMENT)
 
-	origin_tech = "{'powerstorage':3,'esoteric':5}"
+	origin_tech = @'{"powerstorage":3,"esoteric":5}'
 	var/drain_rate = 1500000		// amount of power to drain per tick
 	var/power_drained = 0 			// Amount of power drained.
 	var/max_power = 5e9				// Detonation point.
@@ -68,8 +67,8 @@
 		STOP_PROCESSING_POWER_OBJECT(src)
 	. = ..()
 
-/obj/item/powersink/attackby(var/obj/item/I, var/mob/user)
-	if(IS_SCREWDRIVER(I))
+/obj/item/powersink/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		if(mode == DISCONNECTED)
 			var/turf/T = loc
 			if(isturf(T) && !!T.is_plating())
@@ -90,6 +89,7 @@
 				"[user] detaches \the [src] from the cable.", \
 				"<span class='notice'>You detach \the [src] from the cable.</span>",
 				"<span class='italics'>You hear some wires being disconnected from something.</span>")
+		return TRUE
 	else
 		return ..()
 
@@ -105,7 +105,7 @@
 			SPAN_NOTICE("You activate \the [src]."),
 			SPAN_ITALIC("You hear a click.")
 		)
-		message_admins("Power sink activated by [key_name_admin(user)] at (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)")
+		message_admins("Power sink activated by [key_name_admin(user)] at (<A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[src.x];Y=[src.y];Z=[src.z]'>JMP</a>)")
 		log_game("Power sink activated by [key_name(user)] at [get_area_name(src)]")
 		set_mode(OPERATING)
 		return TRUE

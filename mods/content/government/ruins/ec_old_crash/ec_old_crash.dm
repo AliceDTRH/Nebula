@@ -8,7 +8,7 @@
 		/area/map_template/ecship/engine = NO_SCRUBBER|NO_VENT|NO_APC,
 		/area/map_template/ecship/cockpit = NO_SCRUBBER|NO_APC
 	)
-	ruin_tags = RUIN_HUMAN|RUIN_WRECK
+	template_tags = TEMPLATE_TAG_HUMAN|TEMPLATE_TAG_WRECK
 	template_flags = TEMPLATE_FLAG_CLEAR_CONTENTS | TEMPLATE_FLAG_NO_RUINS
 
 /area/map_template/ecship/crew
@@ -42,10 +42,10 @@
 	icon_state = "map_vent_out"
 	external_pressure_bound = 0.25 ATM
 
-/turf/simulated/floor/tiled/lowpressure
+/turf/floor/tiled/lowpressure
 	initial_gas = list(/decl/material/gas/carbon_dioxide = MOLES_O2STANDARD)
 
-/turf/simulated/floor/tiled/white/lowpressure
+/turf/floor/tiled/white/lowpressure
 	initial_gas = list(/decl/material/gas/carbon_dioxide = MOLES_O2STANDARD)
 
 /obj/item/disk/astrodata
@@ -58,7 +58,7 @@
 	icon = 'icons/obj/bureaucracy.dmi'
 	icon_state = "docs_part"
 	item_state = "paper"
-	material = /decl/material/solid/cardboard //#TODO: Replace with paper
+	material = /decl/material/solid/organic/paper
 
 /obj/item/ecletters/Initialize()
 	. = ..()
@@ -70,7 +70,7 @@
 /obj/item/paper/ecrashlog/Initialize()
 	. = ..()
 	var/shipname = "TEV [pick("Magellan", "Gagarin", "Drake", "Horizon", "Aurora")]"
-	var/decl/cultural_info/S = GET_DECL(/decl/cultural_info/culture/human)
+	var/decl/background_detail/S = GET_DECL(/decl/background_detail/heritage/human)
 	var/new_info = {"
 	I am Lieutenant Hao Ru, captain of [shipname], of the Terran Commonwealth Expeditionary Corps.<br>
 	We are dying. The Ran Mission has failed.<br>

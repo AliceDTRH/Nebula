@@ -1,12 +1,17 @@
 /decl/interaction_handler
 	abstract_type = /decl/interaction_handler
 	var/name
+	/// A string displayed when examining an atom that provides this handler as an alt interaction.
+	var/examine_desc
+	/// If set to TRUE, alt interactions will skip is_possible() before displaying in examined_by().
+	var/always_show_on_examine = FALSE
 	var/icon
 	var/icon_state
 	var/expected_target_type = /atom
 	var/expected_user_type = /mob/living
 	var/interaction_flags = INTERACTION_NEEDS_PHYSICAL_INTERACTION
 	var/incapacitation_flags
+	var/apply_click_cooldown = DEFAULT_ATTACK_COOLDOWN
 
 /decl/interaction_handler/proc/is_possible(var/atom/target, var/mob/user, var/obj/item/prop)
 
@@ -21,7 +26,7 @@
 	if(expected_target_type && !istype(target, expected_target_type))
 		return FALSE
 
-	if(isturf(target.loc))
+	if(isturf(target) || isturf(target.loc))
 		if(interaction_flags & INTERACTION_NEEDS_INVENTORY)
 			return FALSE
 	else
@@ -35,13 +40,13 @@
 	else if((interaction_flags & INTERACTION_NEEDS_ADJACENCY) && !user.Adjacent(target))
 		return FALSE
 
-	// CanPhysicallyInteract() also checks default incapacitation, so don't set 
+	// CanPhysicallyInteract() also checks default incapacitation, so don't set
 	// incapacitation_flags unless needed.
 	if(incapacitation_flags && user.incapacitated(incapacitation_flags))
 		return FALSE
 
 	return TRUE
 
-/decl/interaction_handler/proc/invoked(var/atom/target, var/mob/user)
+/decl/interaction_handler/proc/invoked(atom/target, mob/user, obj/item/prop)
 	SHOULD_CALL_PARENT(FALSE)
 	PRINT_STACK_TRACE("Alt interaction handler called with no invoked logic defined: [type]")

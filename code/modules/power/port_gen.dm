@@ -71,14 +71,14 @@
 		return STATUS_CLOSE
 	return ..()
 
-/obj/machinery/port_gen/examine(mob/user, distance)
+/obj/machinery/port_gen/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	if(distance > 1)
-		return
-	if(active)
-		to_chat(usr, "<span class='notice'>The generator is on.</span>")
-	else
-		to_chat(usr, "<span class='notice'>The generator is off.</span>")
+	if(distance <= 1)
+		if(active)
+			. += SPAN_NOTICE("The generator is on.")
+		else
+			. += SPAN_NOTICE("The generator is off.")
+
 /obj/machinery/port_gen/emp_act(severity)
 	if(!active)
 		return
@@ -139,21 +139,21 @@
 	var/overheating = 0		//if this gets high enough the generator explodes
 	var/max_overheat = 150
 
-/obj/machinery/port_gen/pacman/examine(mob/user)
+/obj/machinery/port_gen/pacman/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(active)
-		to_chat(user, "\The [src] appears to be producing [power_gen*power_output] W.")
+		. += "\The [src] appears to be producing [power_gen*power_output] W."
 	else
-		to_chat(user, "\The [src] is turned off.")
+		. += "\The [src] is turned off."
 	if(IsBroken())
-		to_chat(user, SPAN_WARNING("\The [src] seems to have broken down."))
+		. += SPAN_WARNING("\The [src] seems to have broken down.")
 	if(overheating)
-		to_chat(user, SPAN_DANGER("\The [src] is overheating!"))
+		. += SPAN_DANGER("\The [src] is overheating!")
 	if(sheet_path && sheet_material)
 		var/decl/material/mat = GET_DECL(sheet_material)
 		var/obj/item/stack/material/sheet = sheet_path
-		to_chat(user, "There [sheets == 1 ? "is" : "are"] [sheets] [sheets == 1 ? initial(sheet.singular_name) : initial(sheet.plural_name)] left in the hopper.")
-		to_chat(user, SPAN_SUBTLE("\The [src] uses [mat.solid_name] [initial(sheet.plural_name)] as fuel to produce power."))
+		. += "There [sheets == 1 ? "is" : "are"] [sheets] [sheets == 1 ? initial(sheet.singular_name) : initial(sheet.plural_name)] left in the hopper."
+		. += SPAN_SUBTLE("\The [src] uses [mat.solid_name] [initial(sheet.plural_name)] as fuel to produce power.")
 
 /obj/machinery/port_gen/pacman/Initialize()
 	. = ..()
@@ -178,10 +178,9 @@
 
 /obj/machinery/port_gen/pacman/proc/process_exhaust()
 	var/decl/material/mat = GET_DECL(sheet_material)
-	if(mat && mat.burn_product)
-		var/datum/gas_mixture/environment = loc.return_air()
-		if(environment)
-			environment.adjust_gas(mat.burn_product, 0.05*power_output)
+	var/datum/gas_mixture/environment = loc?.return_air()
+	if(mat && environment)
+		mat.add_burn_product(environment, 0.05*power_output)
 
 /obj/machinery/port_gen/pacman/HasFuel()
 	var/needed_sheets = power_output / time_per_sheet
@@ -253,7 +252,7 @@
 
 /obj/machinery/port_gen/pacman/handleInactive()
 	var/cooling_temperature = 20
-	var/datum/gas_mixture/environment = loc.return_air()
+	var/datum/gas_mixture/environment = loc?.return_air()
 	if (environment)
 		var/ratio = min(environment.return_pressure()/ONE_ATMOSPHERE, 1)
 		var/ambient = environment.temperature - T20C
@@ -261,7 +260,7 @@
 
 	if (operating_temperature > cooling_temperature)
 		var/temp_loss = (operating_temperature - cooling_temperature)/TEMPERATURE_DIVISOR
-		temp_loss = clamp(2, round(temp_loss, 1), TEMPERATURE_CHANGE_MAX)
+		temp_loss = clamp(round(temp_loss, 1), 2, TEMPERATURE_CHANGE_MAX)
 		operating_temperature = max(operating_temperature - temp_loss, cooling_temperature)
 		src.updateDialog()
 
@@ -301,19 +300,19 @@
 		return SPAN_WARNING("You cannot do this while \the [src] is running!")
 	return ..()
 
-/obj/machinery/port_gen/pacman/attackby(var/obj/item/O, var/mob/user)
-	if(istype(O, sheet_path) && (isnull(sheet_material) || sheet_material == O.get_material_type()))
-		var/obj/item/stack/addstack = O
+/obj/machinery/port_gen/pacman/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, sheet_path) && (isnull(sheet_material) || sheet_material == used_item.get_material_type()))
+		var/obj/item/stack/addstack = used_item
 		var/amount = min((max_sheets - sheets), addstack.amount)
 		if(amount < 1)
-			to_chat(user, "<span class='notice'>The [src.name] is full!</span>")
-			return
-		to_chat(user, "<span class='notice'>You add [amount] sheet\s to the [src.name].</span>")
+			to_chat(user, "<span class='notice'>\The [src] is full!</span>")
+			return TRUE
+		to_chat(user, "<span class='notice'>You add [amount] sheet\s to \the [src].</span>")
 		sheets += amount
 		addstack.use(amount)
 		updateUsrDialog()
-		return
-	if(IS_WRENCH(O) && !active)
+		return TRUE
+	if(IS_WRENCH(used_item) && !active)
 		if(!anchored)
 			to_chat(user, "<span class='notice'>You secure \the [src] to the floor.</span>")
 		else
@@ -321,7 +320,8 @@
 
 		playsound(src.loc, 'sound/items/Deconstruct.ogg', 50, 1)
 		anchored = !anchored
-	return component_attackby(O, user)
+		return TRUE
+	return component_attackby(used_item, user)
 
 /obj/machinery/port_gen/pacman/dismantle()
 	while (sheets > 0)
@@ -338,9 +338,9 @@
 
 	var/data[0]
 	data["active"] = active
-	if(istype(user, /mob/living/silicon/ai))
+	if(isAI(user))
 		data["is_ai"] = 1
-	else if(istype(user, /mob/living/silicon/robot) && !Adjacent(user))
+	else if(isrobot(user) && !Adjacent(user))
 		data["is_ai"] = 1
 	else
 		data["is_ai"] = 0
@@ -377,33 +377,35 @@
 		ui.open()
 		ui.set_auto_update(1)
 
-/obj/machinery/port_gen/pacman/Topic(href, href_list)
-	if(..())
+/obj/machinery/port_gen/pacman/OnTopic(mob/user, href_list)
+	if((. = ..()))
 		return
 
-	src.add_fingerprint(usr)
 	if(href_list["action"])
 		if(href_list["action"] == "enable")
 			if(!active && HasFuel() && !IsBroken())
-				active = 1
-				update_icon()
+				active = TRUE
+				. = TOPIC_REFRESH
 		if(href_list["action"] == "disable")
 			if (active)
-				active = 0
-				update_icon()
+				active = FALSE
+				. = TOPIC_REFRESH
 		if(href_list["action"] == "eject")
 			if(!active)
 				DropFuel()
+				. = TOPIC_REFRESH
 		if(href_list["action"] == "lower_power")
 			if (power_output > 1)
 				power_output--
+				. = TOPIC_REFRESH
 		if (href_list["action"] == "higher_power")
 			if (power_output < max_power_output || (emagged && power_output < round(max_power_output*2.5)))
 				power_output++
+				. = TOPIC_REFRESH
 
 /obj/machinery/port_gen/pacman/super
 	name = "portable fission generator"
-	desc = "A power generator that utilizes uranium sheets as fuel. Can run for much longer than the standard portabke generators. Rated for 80 kW max safe output."
+	desc = "A power generator that utilizes uranium sheets as fuel. Can run for much longer than the standard portable generators. Rated for 80 kW max safe output."
 	icon_state = "portgen1"
 	sheet_path = /obj/item/stack/material/puck
 	sheet_material = /decl/material/solid/metal/uranium
@@ -461,15 +463,15 @@
 	create_reagents(120)
 	. = ..()
 
-/obj/machinery/port_gen/pacman/super/potato/examine(mob/user)
+/obj/machinery/port_gen/pacman/super/potato/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "Auxilary tank shows [reagents.total_volume]u of liquid in it.")
+	. += "Auxilary tank shows [reagents.total_volume]u of liquid in it."
 
 /obj/machinery/port_gen/pacman/super/potato/UseFuel()
-	if(reagents.has_reagent(/decl/material/liquid/ethanol/vodka))
+	if(reagents.has_reagent(/decl/material/liquid/alcohol/vodka))
 		rad_power = 4
 		temperature_gain = 60
-		reagents.remove_any(1)
+		remove_any_reagents(1)
 		if(prob(2))
 			audible_message("<span class='notice'>[src] churns happily</span>")
 	else
@@ -483,18 +485,19 @@
 	if(power_output > max_safe_output)
 		icon_state = "potatodanger"
 
-/obj/machinery/port_gen/pacman/super/potato/attackby(var/obj/item/O, var/mob/user)
-	if(istype(O, /obj/item/chems/))
-		var/obj/item/chems/R = O
-		if(R.standard_pour_into(src,user))
-			if(reagents.has_reagent(/decl/material/liquid/ethanol/vodka))
-				audible_message("<span class='notice'>[src] blips happily</span>")
-				playsound(get_turf(src),'sound/machines/synth_yes.ogg', 50, 0)
-			else
-				audible_message("<span class='warning'>[src] blips in disappointment</span>")
-				playsound(get_turf(src), 'sound/machines/synth_no.ogg', 50, 0)
-		return
-	..()
+/obj/machinery/port_gen/pacman/super/potato/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, /obj/item/chems))
+		var/obj/item/chems/chem_container = used_item
+		var/old_vodka_amount = REAGENT_VOLUME(reagents, /decl/material/liquid/alcohol/vodka)
+		if(chem_container.standard_pour_into(src,user))
+			if(REAGENT_VOLUME(reagents, /decl/material/liquid/alcohol/vodka) > old_vodka_amount) // yay, booze!
+				audible_message(SPAN_NOTICE("[src] blips happily!"))
+				playsound(get_turf(src),'sound/machines/synth_yes.ogg', 50, FALSE)
+			else // you didn't add any more than we already had
+				audible_message(SPAN_WARNING("[src] blips in disappointment."))
+				playsound(get_turf(src), 'sound/machines/synth_no.ogg', 50, FALSE)
+			return TRUE
+	return ..()
 
 /obj/machinery/port_gen/pacman/mrs
 	name = "portable fusion generator"

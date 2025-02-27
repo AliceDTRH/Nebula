@@ -6,32 +6,44 @@
 	material = /decl/material/solid/metal/stainlesssteel
 	var/obj/item/tank/tank_one
 	var/obj/item/tank/tank_two
-	var/obj/item/attached_device
-	var/mob/attacher = null
+	var/obj/item/assembly/attached_device
+	var/weakref/attacher_ref = null
 	var/valve_open = 0
 	var/toggle = 1
 	movable_flags = MOVABLE_FLAG_PROXMOVE
 
-/obj/item/transfer_valve/IsAssemblyHolder()
-	return 1
+/obj/item/transfer_valve/Destroy()
+	if(!QDELETED(tank_one))
+		QDEL_NULL(tank_one)
+	else
+		tank_one = null
+	if(!QDELETED(tank_two))
+		QDEL_NULL(tank_two)
+	else
+		tank_two = null
+	if(!QDELETED(attached_device))
+		QDEL_NULL(attached_device)
+	else
+		attached_device = null
+	attacher_ref = null
+	return ..()
 
-/obj/item/transfer_valve/attackby(obj/item/item, mob/user)
+/obj/item/transfer_valve/attackby(obj/item/used_item, mob/user)
 	var/turf/location = get_turf(src) // For admin logs
-	if(istype(item, /obj/item/tank))
-
+	if(istype(used_item, /obj/item/tank))
 		var/T1_weight = 0
 		var/T2_weight = 0
 		if(tank_one && tank_two)
 			to_chat(user, "<span class='warning'>There are already two tanks attached, remove one first.</span>")
-			return
+			return TRUE
 
-		if(!user.try_unequip(item, src))
-			return
+		if(!user.try_unequip(used_item, src))
+			return TRUE
 		if(!tank_one)
-			tank_one = item
+			tank_one = used_item
 		else
-			tank_two = item
-			message_admins("[key_name_admin(user)] attached both tanks to a transfer valve. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
+			tank_two = used_item
+			message_admins("[key_name_admin(user)] attached both tanks to a transfer valve. (<A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
 			log_game("[key_name_admin(user)] attached both tanks to a transfer valve.")
 		to_chat(user, "<span class='notice'>You attach the tank to the transfer valve.</span>")
 
@@ -40,32 +52,33 @@
 			T2_weight = tank_two.w_class
 
 		src.w_class = max(initial(src.w_class),T1_weight,T2_weight) //gets w_class of biggest object, because you shouldn't be able to just shove tanks in and have them be tiny.
-
-		update_icon()
-
-		SSnano.update_uis(src) // update all UIs attached to src
+		. = TRUE
 //TODO: Have this take an assemblyholder
-	else if(isassembly(item))
-		var/obj/item/assembly/A = item
+	else if(isassembly(used_item))
+		var/obj/item/assembly/A = used_item
 		if(A.secured)
 			to_chat(user, "<span class='notice'>The device is secured.</span>")
-			return
+			return TRUE
 		if(attached_device)
 			to_chat(user, "<span class='warning'>There is already an device attached to the valve, remove it first.</span>")
-			return
-		if(!user.try_unequip(item, src))
-			return
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
 		attached_device = A
-		to_chat(user, "<span class='notice'>You attach the [item] to the valve controls and secure it.</span>")
+		to_chat(user, "<span class='notice'>You attach \the [used_item] to the valve controls and secure it.</span>")
 		A.holder = src
 		A.toggle_secure()	//this calls update_icon(), which calls update_icon() on the holder (i.e. the bomb).
 
-		global.bombers += "[key_name(user)] attached a [item] to a transfer valve."
-		message_admins("[key_name_admin(user)] attached a [item] to a transfer valve. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
-		log_game("[key_name_admin(user)] attached a [item] to a transfer valve.")
-		attacher = user
+		global.bombers += "[key_name(user)] attached a [used_item] to a transfer valve."
+		message_admins("[key_name_admin(user)] attached a [used_item] to a transfer valve. (<A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
+		log_game("[key_name_admin(user)] attached a [used_item] to a transfer valve.")
+		attacher_ref = weakref(user)
+		. = TRUE
+	if(.)
+		update_icon()
 		SSnano.update_uis(src) // update all UIs attached to src
-	return
+		return TRUE
+	return ..()
 
 
 /obj/item/transfer_valve/HasProximity(atom/movable/AM)
@@ -113,14 +126,14 @@
 	else if(attached_device)
 		if(href_list["rem_device"])
 			attached_device.dropInto(loc)
-			attached_device:holder = null
+			attached_device.holder = null
 			attached_device = null
 			update_icon()
 		if(href_list["device"])
 			attached_device.attack_self(usr)
 	return 1 // Returning 1 sends an update to attached UIs
 
-/obj/item/transfer_valve/proc/process_activation(var/obj/item/D)
+/obj/item/transfer_valve/proc/process_activation(var/obj/item/activator)
 	if(toggle)
 		toggle = 0
 		toggle_valve()
@@ -192,21 +205,22 @@
 		var/area/A = get_area(bombturf)
 
 		var/attacher_name = ""
+		var/mob/attacher = attacher_ref.resolve()
 		if(!attacher)
 			attacher_name = "Unknown"
 		else
 			attacher_name = "[attacher.name]([attacher.ckey])"
 
-		var/log_str = "Bomb valve opened in <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[bombturf.x];Y=[bombturf.y];Z=[bombturf.z]'>[A.proper_name]</a> "
+		var/log_str = "Bomb valve opened in <A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[bombturf.x];Y=[bombturf.y];Z=[bombturf.z]'>[A.proper_name]</a> "
 		log_str += "with [attached_device ? attached_device : "no device"] attacher: [attacher_name]"
 
 		if(attacher)
-			log_str += "(<A HREF='?_src_=holder;adminmoreinfo=\ref[attacher]'>?</A>)"
+			log_str += "(<A HREF='byond://?_src_=holder;adminmoreinfo=\ref[attacher]'>?</A>)"
 
 		var/mob/mob = get_mob_by_key(src.fingerprintslast)
 		var/last_touch_info = ""
 		if(mob)
-			last_touch_info = "(<A HREF='?_src_=holder;adminmoreinfo=\ref[mob]'>?</A>)"
+			last_touch_info = "(<A HREF='byond://?_src_=holder;adminmoreinfo=\ref[mob]'>?</A>)"
 
 		log_str += " Last touched by: [src.fingerprintslast][last_touch_info]"
 		global.bombers += log_str
@@ -218,8 +232,3 @@
 		split_gases()
 
 	src.update_icon()
-
-// this doesn't do anything but the timer etc. expects it to be here
-// eventually maybe have it update icon to show state (timer, prox etc.) like old bombs
-/obj/item/transfer_valve/proc/c_state()
-	return

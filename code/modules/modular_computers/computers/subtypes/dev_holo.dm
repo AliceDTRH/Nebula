@@ -1,6 +1,6 @@
 /obj/item/modular_computer/holotablet
 	name = "holotablet"
-	desc = "An holoemitter-fitted device designed for writing reports and notes."
+	desc = "A holoemitter-fitted device designed for writing reports and notes."
 	icon = 'icons/obj/modular_computers/holo/basic.dmi'
 	icon_state = ICON_STATE_WORLD
 
@@ -75,7 +75,7 @@
 
 	update_lighting()
 
-// Subtypes. It's not exactly.. well, presets, so i'll put it here for now.
+// Subtypes. It's not exactly... well, presets, so i'll put it here for now.
 
 /obj/item/modular_computer/holotablet/round
 	name = "round holotablet"

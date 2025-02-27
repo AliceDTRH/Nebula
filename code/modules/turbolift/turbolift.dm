@@ -27,6 +27,8 @@
 	var/busy_state                                      // Used for controller processing.
 	var/next_process
 
+	var/move_air = FALSE                                 // Whether or not the turbolift will move air with it.
+
 /datum/turbolift/proc/emergency_stop()
 	queued_floors.Cut()
 	target_floor = null
@@ -40,11 +42,11 @@
 
 /datum/turbolift/proc/open_doors(var/datum/turbolift_floor/use_floor = current_floor)
 	for(var/obj/machinery/door/airlock/door in (use_floor ? (doors + use_floor.doors) : doors))
-		INVOKE_ASYNC(door, /obj/machinery/door/proc/open)
+		INVOKE_ASYNC(door, TYPE_PROC_REF(/obj/machinery/door, open))
 
 /datum/turbolift/proc/close_doors(var/datum/turbolift_floor/use_floor = current_floor)
 	for(var/obj/machinery/door/airlock/door in (use_floor ? (doors + use_floor.doors) : doors))
-		INVOKE_ASYNC(door, /obj/machinery/door/proc/close)
+		INVOKE_ASYNC(door, TYPE_PROC_REF(/obj/machinery/door, close))
 
 #define LIFT_MOVING    1
 #define LIFT_WAITING_A 2
@@ -133,13 +135,13 @@
 	if(!moving_upwards)
 		for(var/turf/T in destination)
 			for(var/atom/movable/AM in T)
-				if(istype(AM, /mob/living))
+				if(isliving(AM))
 					var/mob/living/M = AM
 					M.gib()
 				else if(AM.simulated)
 					qdel(AM)
 
-	origin.move_contents_to(destination)
+	origin.move_contents_to(destination, move_air)
 
 	if((locate(/obj/machinery/power) in destination) || (locate(/obj/structure/cable) in destination))
 		SSmachines.makepowernets()

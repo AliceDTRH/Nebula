@@ -4,23 +4,33 @@
 	name = "impossible exosuit"
 	desc = "It seems to be saying 'please let me die'."
 	abstract_type = /mob/living/exosuit/premade
+	icon = 'icons/mecha/mecha_preview.dmi'
+	icon_state = "preview"
+	pixel_x = 0
+	pixel_y = 0
 	var/decal
+	var/decal_blend = BLEND_MULTIPLY
 
 /mob/living/exosuit/premade/Initialize()
-	if(arms)
-		arms.decal = decal
-		arms.prebuild()
-	if(legs)
-		legs.decal = decal
-		legs.prebuild()
-	if(head)
-		head.decal = decal
-		head.prebuild()
-	if(body)
-		body.decal = decal
-		body.prebuild()
+
+	// Reset our mapping helpers.
+	default_pixel_x = -8
+	default_pixel_y = 0
+	pixel_x = default_pixel_x
+	pixel_y = default_pixel_y
+	icon = null
+	icon_state = null
+
+	for(var/obj/item/mech_component/comp in list(arms, legs, head, body))
+		if(decal)
+			comp.decal = decal
+		if(!isnull(decal_blend))
+			comp.decal_blend = decal_blend
+		comp.prebuild()
+
 	if(!material)
 		material = GET_DECL(/decl/material/solid/metal/steel)
+
 	. = ..()
 
 	spawn_mech_equipment()
@@ -30,7 +40,7 @@
 
 /mob/living/exosuit/premade/random
 	name = "mismatched exosuit"
-	desc = "It seems to have been roughly thrown together and then spraypainted a single colour."
+	desc = "It seems to have been roughly thrown together and then spray-painted a single colour."
 
 /mob/living/exosuit/premade/random/Initialize(mapload, var/obj/structure/heavy_vehicle_frame/source_frame, var/super_random = FALSE, var/using_boring_colours = FALSE)
 	var/list/use_colours

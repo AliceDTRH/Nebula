@@ -1,6 +1,6 @@
 GLOBAL_PROTECTED_UNTYPED(game_id, null)
 
-/hook/global_init/proc/generate_game_id()
+/proc/generate_game_id()
 	if(!isnull(global.game_id))
 		return
 
@@ -50,7 +50,7 @@ GLOBAL_PROTECTED_UNTYPED(game_id, null)
 			if(special_role_name)
 				strings += special_role_name
 		if(ishuman(M))
-			var/mob/living/carbon/human/H = M
+			var/mob/living/human/H = M
 			if(H.species)
 				strings += H.species.name
 		for(var/text in strings)
@@ -70,32 +70,45 @@ GLOBAL_PROTECTED_UNTYPED(game_id, null)
 
 	return match
 
+// Get the URL used to connect to the server.
+/proc/get_world_url()
+	return "byond://[get_config_value(/decl/config/text/server) || get_config_value(/decl/config/text/serverurl) || "[world.address]:[world.port]"]"
+
 /world/New()
 	//set window title
-	name = "[config.server_name] - [global.using_map.full_name]"
+
+	name = "[get_config_value(/decl/config/text/server_name) || "Nebula Station 13"] - [global.using_map.full_name]"
 
 	//logs
 	SetupLogs()
 
 	changelog_hash = md5('html/changelog.html')					//used for telling if the changelog has changed recently
 
-	if(config && config.server_name != null && config.server_suffix && world.port > 0)
-		// dumb and hardcoded but I don't care~
-		config.server_name += " #[(world.port % 1000) / 100]"
-
 	if(byond_version < REQUIRED_DM_VERSION)
 		to_world_log("Your server's BYOND version does not meet the minimum DM version for this server. Please update BYOND.")
 
-	callHook("startup")
-	//Emergency Fix
-	load_mods()
-	//end-emergency fix
+	// Initialize the global vars decl, which marks vars as protected.
+	GET_DECL(/decl/global_vars)
+	// And the offset used for in-game time
+	global.roundstart_hour = rand(0, 23)
+	initialise_map_list()
+	world.load_mode()
+	world.load_motd()
+	load_admins()
+	world.connect_database()
+	jobban_loadbanfile()
+	LoadBans()
+	update_holiday() //Uncommenting ALLOW_HOLIDAYS in configuration will enable this.
+	try_load_alien_whitelist()
+	investigate_reset()
+	// Precache/build trait trees.
+	for(var/decl/trait/trait in decls_repository.get_decls_of_type_unassociated(/decl/trait))
+		trait.build_references()
 
 	. = ..()
 
 #ifdef UNIT_TEST
 	log_unit_test("Unit Tests Enabled. This will destroy the world when testing is complete.")
-	load_unit_test_changes()
 #endif
 	Master.Initialize(10, FALSE)
 
@@ -106,14 +119,14 @@ var/global/world_topic_last = world.timeofday
 	var/list/throttle = global.world_topic_throttle[addr]
 	if (!global.world_topic_throttle[addr])
 		global.world_topic_throttle[addr] = throttle = list(0, null)
-	else if ((!config.no_throttle_localhost || !global.localhost_addresses[addr]) && throttle[1] && throttle[1] > world.timeofday + 15 SECONDS)
+	else if ((!get_config_value(/decl/config/toggle/no_throttle_localhost) || !global.localhost_addresses[addr]) && throttle[1] && throttle[1] > world.timeofday + 15 SECONDS)
 		return throttle[2] ? "Throttled ([throttle[2]])" : "Throttled"
 
 	throttle[1] = max(throttle[1], world.timeofday) + time
 	throttle[2] = reason
 
 /world/Topic(T, addr, master, key)
-	direct_output(diary, "TOPIC: \"[T]\", from:[addr], master:[master], key:[key][log_end]")
+	to_file(diary, "TOPIC: \"[T]\", from:[addr], master:[master], key:[key][log_end]")
 
 	if (global.world_topic_last > world.timeofday)
 		global.world_topic_throttle = list() //probably passed midnight
@@ -125,41 +138,55 @@ var/global/world_topic_last = world.timeofday
 	if(!length(params))
 		return
 	var/command_key = params[1]
-	if(!command_key || !global.topic_commands[command_key])
+	if(!command_key)
+		return "Unrecognised Command"
+	var/decl/topic_command/command = decls_repository.get_decl_by_id("topic_command_[command_key]")
+	if(!istype(command))
 		return "Unrecognised Command"
 
-	var/decl/topic_command/TC = global.topic_commands[command_key]
-	return TC.try_use(T, addr, master, key)
+	return command.try_use(T, addr, master, key)
 
+var/global/_reboot_announced = FALSE
 /world/Reboot(var/reason)
+
+	if(get_config_value(/decl/config/toggle/wait_for_sigusr1_reboot) && reason != 3)
+		text2file("foo", "reboot_called")
+		if(!global._reboot_announced)
+			to_world("<span class=danger>World reboot waiting for external scripts. Please be patient.</span>")
+			global._reboot_announced = TRUE
+		global.Master.restart_timeout = 5 MINUTES
+		return
+
 	if(global.using_map.reboot_sound)
 		sound_to(world, sound(pick(global.using_map.reboot_sound)))// random end sounds!! - LastyBatsy
 
-	Master.Shutdown()
+	// Master.Shutdown() // In almost all normal cases, world/Reboot() calls world/Del() which calls Shutdown() on the master controller. Having it here means it runs multiple times.
 
-	if(config.server)	//if you set a server location in config.txt, it sends you there instead of trying to reconnect to the same world address. -- NeoFite
+	var/serverurl = get_config_value(/decl/config/text/server)
+	if(serverurl)	//if you set a server location in configuration, it sends you there instead of trying to reconnect to the same world address. -- NeoFite
 		for(var/client/C in global.clients)
-			to_chat(C, link("byond://[config.server]"))
-
-	if(config.wait_for_sigusr1_reboot && reason != 3)
-		text2file("foo", "reboot_called")
-		to_world("<span class=danger>World reboot waiting for external scripts. Please be patient.</span>")
-		return
+			to_chat(C, link("byond://[serverurl]"))
 
 	game_log("World rebooted at [time_stamp()]")
 
-	callHook("reboot")
+	on_reboot(reason)
 
 	..(reason)
 
+/// If you need to add modular functionality on-reboot, override this instead of /world/Reboot().
+/// It runs directly before the parent call in /world/Reboot().
+/world/proc/on_reboot(reason)
+	return
+
 /world/Del()
 	Master.Shutdown()
-	callHook("shutdown")
+	on_shutdown()
 	return ..()
 
-/hook/startup/proc/loadMode()
-	world.load_mode()
-	return 1
+/// If you need to add modular functionality on-shutdown, override this instead of /world/Del().
+/// It runs directly before the parent call in /world/Del().
+/world/proc/on_shutdown()
+	return
 
 /world/proc/load_mode()
 	if(!fexists("data/mode.txt"))
@@ -174,55 +201,21 @@ var/global/world_topic_last = world.timeofday
 /world/proc/save_mode(var/the_mode)
 	var/F = file("data/mode.txt")
 	fdel(F)
-	direct_output(F, the_mode)
-
-/hook/startup/proc/loadMOTD()
-	world.load_motd()
-	return 1
+	to_file(F, the_mode)
 
 /world/proc/load_motd()
 	join_motd = safe_file2text("config/motd.txt", FALSE)
 
-/proc/load_configuration()
-	config = new /datum/configuration()
-	config.load("config/config.txt")
-	config.load("config/game_options.txt","game_options")
-	config.loadsql("config/dbconfig.txt")
-	config.load_event("config/custom_event.txt")
-
-/hook/startup/proc/loadMods()
-	world.load_mods()
-	return 1
-
-/world/proc/load_mods()
-	if(config.admin_legacy_system)
-		var/text = safe_file2text("config/moderators.txt", FALSE)
-		if (!text)
-			error("Failed to load config/mods.txt")
-		else
-			var/list/lines = splittext(text, "\n")
-			for(var/line in lines)
-				if (!line)
-					continue
-
-				if (copytext(line, 1, 2) == ";")
-					continue
-
-				var/title = "Moderator"
-				var/rights = admin_ranks[title]
-
-				var/ckey = copytext(line, 1, length(line)+1)
-				var/datum/admins/D = new /datum/admins(title, rights, ckey)
-				D.associate(global.ckey_directory[ckey])
-
 /world/proc/update_status()
 	var/s = "<b>[station_name()]</b>"
 
-	if(config && config.discordurl)
-		s += " (<a href=\"[config.discordurl]\">Discord</a>)"
+	var/discordurl = get_config_value(/decl/config/text/discordurl)
+	if(discordurl)
+		s += " (<a href=\"[discordurl]\">Discord</a>)"
 
-	if(config && config.server_name)
-		s = "<b>[config.server_name]</b> &#8212; [s]"
+	var/config_server_name = get_config_value(/decl/config/text/server_name)
+	if(config_server_name)
+		s = "<b>[config_server_name]</b> &#8212; [s]"
 
 	var/list/features = list()
 
@@ -231,15 +224,15 @@ var/global/world_topic_last = world.timeofday
 	else
 		features += "<b>STARTING</b>"
 
-	if (!config.enter_allowed)
+	if (!get_config_value(/decl/config/toggle/on/enter_allowed))
 		features += "closed"
 
-	features += config.abandon_allowed ? "respawn" : "no respawn"
+	features += get_config_value(/decl/config/toggle/on/abandon_allowed) ? "respawn" : "no respawn"
 
-	if (config && config.allow_vote_mode)
+	if (get_config_value(/decl/config/toggle/vote_mode))
 		features += "vote"
 
-	if (config && config.allow_ai)
+	if (get_config_value(/decl/config/toggle/on/allow_ai))
 		features += "AI allowed"
 
 	var/n = 0
@@ -253,8 +246,9 @@ var/global/world_topic_last = world.timeofday
 		features += "~[n] player"
 
 
-	if (config && config.hostedby)
-		features += "hosted by <b>[config.hostedby]</b>"
+	var/hosted_by = get_config_value(/decl/config/text/hosted_by)
+	if (hosted_by)
+		features += "hosted by <b>[hosted_by]</b>"
 
 	if (features)
 		s += ": [jointext(features, ", ")]"
@@ -277,19 +271,18 @@ var/global/world_topic_last = world.timeofday
 	diary = file("[global.log_directory]/main.log") // This is the primary log, containing attack, admin, and game logs.
 	to_file(diary, "[log_end]\n[log_end]\nStarting up. (ID: [game_id]) [time2text(world.timeofday, "hh:mm.ss")][log_end]\n---------------------[log_end]")
 
-	if(config && config.log_runtime)
+	if(get_config_value(/decl/config/toggle/log_runtime))
 		var/runtime_log = file("[global.log_directory]/runtime.log")
 		to_file(runtime_log, "Game [game_id] starting up at [time2text(world.timeofday, "hh:mm.ss")]")
 		log = runtime_log // runtimes and some other output is logged directly to world.log, which is redirected here.
 
 #define FAILED_DB_CONNECTION_CUTOFF 5
 var/global/failed_db_connections = 0
-/hook/startup/proc/connectDB()
+/world/proc/connect_database()
 	if(!setup_database_connection())
 		to_world_log("Your server failed to establish a connection with the SQL database.")
 	else
 		to_world_log("SQL database connection established.")
-	return 1
 
 /proc/setup_database_connection()
 

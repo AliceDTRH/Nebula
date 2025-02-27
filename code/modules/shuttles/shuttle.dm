@@ -12,10 +12,11 @@
 	var/arrive_time = 0	//the time at which the shuttle arrives when long jumping
 	var/flags = 0
 	var/process_state = IDLE_STATE //Used with SHUTTLE_FLAGS_PROCESS, as well as to store current state.
-	var/category = /datum/shuttle
+	abstract_type = /datum/shuttle
 	var/multiz = 0	//how many multiz levels, starts at 0
 
-	var/ceiling_type = /turf/unsimulated/floor/shuttle_ceiling
+	var/ceiling_type = /turf/floor/shuttle_ceiling
+	var/force_ceiling_on_init = TRUE // Whether or not to force ceilings turfs to be created above on initialization.
 
 	var/sound_takeoff = 'sound/effects/shuttle_takeoff.ogg'
 	var/sound_landing = 'sound/effects/shuttle_landing.ogg'
@@ -29,6 +30,11 @@
 
 	var/mothershuttle //tag of mothershuttle
 	var/motherdock    //tag of mothershuttle landmark, defaults to starting location
+
+	/// The landmark_tag of the landmark being used to match rotation and placement when docking.
+	var/current_port_tag
+	/// A list of all available docking ports to use for rotation/placement when landing and docking.
+	var/list/docking_ports
 
 /datum/shuttle/New(map_hash, var/obj/effect/shuttle_landmark/initial_location)
 	..()
@@ -48,7 +54,7 @@
 		for(var/area_type in shuttle_area)
 			if(istype(area_type, /area)) // If the shuttle area is already an instance, it does not need to be located.
 				areas += area_type
-				events_repository.register(/decl/observ/destroyed, area_type, src, .proc/remove_shuttle_area)
+				events_repository.register(/decl/observ/destroyed, area_type, src, PROC_REF(remove_shuttle_area))
 				continue
 			var/area/A
 			if(map_hash && islist(SSshuttle.map_hash_to_areas[map_hash]))
@@ -58,7 +64,7 @@
 			if(!istype(A))
 				CRASH("Shuttle \"[name]\" couldn't locate area [area_type].")
 			areas += A
-			events_repository.register(/decl/observ/destroyed, A, src, .proc/remove_shuttle_area)
+			events_repository.register(/decl/observ/destroyed, A, src, PROC_REF(remove_shuttle_area))
 		shuttle_area = areas
 
 	if(initial_location)
@@ -80,8 +86,10 @@
 			CRASH("A supply shuttle is already defined.")
 		SSsupply.shuttle = src
 
+	create_ceiling(force_ceiling_on_init)
+
 /datum/shuttle/proc/remove_shuttle_area(area/area_to_remove)
-	events_repository.unregister(/decl/observ/destroyed, area_to_remove, src, .proc/remove_shuttle_area)
+	events_repository.unregister(/decl/observ/destroyed, area_to_remove, src, PROC_REF(remove_shuttle_area))
 	SSshuttle.shuttle_areas -= area_to_remove
 	shuttle_area -= area_to_remove
 	if(!length(shuttle_area))
@@ -108,7 +116,7 @@
 		if (moving_status == SHUTTLE_IDLE)
 			return	//someone cancelled the launch
 
-		if(!fuel_check()) //fuel error (probably out of fuel) occured, so cancel the launch
+		if(!fuel_check()) //fuel error (probably out of fuel) occurred, so cancel the launch
 			var/datum/shuttle/autodock/S = src
 			if(istype(S))
 				S.cancel_launch(null)
@@ -130,7 +138,7 @@
 		if(moving_status == SHUTTLE_IDLE)
 			return	//someone cancelled the launch
 
-		if(!fuel_check()) //fuel error (probably out of fuel) occured, so cancel the launch
+		if(!fuel_check()) //fuel error (probably out of fuel) occurred, so cancel the launch
 			var/datum/shuttle/autodock/S = src
 			if(istype(S))
 				S.cancel_launch(null)
@@ -168,13 +176,15 @@
 		return FALSE
 	testing("[src] moving to [destination]. Areas are [english_list(shuttle_area)]")
 	var/list/translation = list()
+	var/atom/movable/center_of_rotation = get_center_of_rotation()
+	var/angle_offset = get_angle_offset(center_of_rotation, destination)
 	for(var/area/A in shuttle_area)
 		testing("Moving [A]")
-		translation += get_turf_translation(get_turf(current_location), get_turf(destination), A.contents)
+		translation += get_turf_translation(get_turf(center_of_rotation), get_turf(destination), A.contents, angle = angle_offset)
 	var/obj/effect/shuttle_landmark/old_location = current_location
 	RAISE_EVENT(/decl/observ/shuttle_pre_move, src, old_location, destination)
-	shuttle_moved(destination, translation)
-	RAISE_EVENT_REPEAT(/decl/observ/shuttle_moved, src, old_location, destination)
+	shuttle_moved(destination, translation, angle_offset)
+	RAISE_EVENT(/decl/observ/shuttle_moved, src, old_location, destination)
 	if(istype(old_location))
 		old_location.shuttle_departed(src)
 	destination.shuttle_arrived(src)
@@ -190,14 +200,15 @@
 
 	testing("Force moving [src] to [destination]. Areas are [english_list(shuttle_area)]")
 	var/list/translation = list()
-
+	var/atom/movable/center_of_rotation = get_center_of_rotation()
+	var/angle_offset = get_angle_offset(center_of_rotation, destination)
 	for(var/area/A in shuttle_area)
 		testing("Moving [A]")
-		translation += get_turf_translation(get_turf(current_location), get_turf(destination), A.contents)
+		translation += get_turf_translation(get_turf(center_of_rotation), get_turf(destination), A.contents, angle = angle_offset)
 	var/obj/effect/shuttle_landmark/old_location = current_location
 	RAISE_EVENT(/decl/observ/shuttle_pre_move, src, old_location, destination)
-	shuttle_moved(destination, translation)
-	RAISE_EVENT_REPEAT(/decl/observ/shuttle_moved, src, old_location, destination)
+	shuttle_moved(destination, translation, angle_offset)
+	RAISE_EVENT(/decl/observ/shuttle_moved, src, old_location, destination)
 	if(istype(old_location))
 		old_location.shuttle_departed(src)
 	destination.shuttle_arrived(src)
@@ -206,7 +217,7 @@
 //just moves the shuttle from A to B, if it can be moved
 //A note to anyone overriding move in a subtype. shuttle_moved() must absolutely not, under any circumstances, fail to move the shuttle.
 //If you want to conditionally cancel shuttle launches, that logic must go in short_jump(), long_jump() or attempt_move()
-/datum/shuttle/proc/shuttle_moved(var/obj/effect/shuttle_landmark/destination, var/list/turf_translation)
+/datum/shuttle/proc/shuttle_moved(obj/effect/shuttle_landmark/destination, list/turf_translation, angle = 0)
 
 //	log_debug("move_shuttle() called for [shuttle_tag] leaving [origin] en route to [destination].")
 //	log_degug("area_coming_from: [origin]")
@@ -234,32 +245,29 @@
 					bug.gib()
 				else
 					qdel(AM) //it just gets atomized I guess? TODO throw it into space somewhere, prevents people from using shuttles as an atom-smasher
-	for(var/area/A in shuttle_area)
-		// if there was a zlevel above our origin, erase our ceiling now we're leaving
-		if(HasAbove(current_location.z))
-			for(var/turf/TO in A.contents)
-				var/turf/TA = GetAbove(TO)
-				if(istype(TA, ceiling_type))
-					TA.ChangeTurf(get_base_turf_by_area(TA), 1, 1)
-		if(knockdown)
+
+	if(knockdown)
+		for(var/area/A in shuttle_area)
 			A.throw_unbuckled_occupants(4, 1)
 
 	if(logging_home_tag)
 		var/datum/shuttle_log/s_log = SSshuttle.shuttle_logs[src]
 		s_log.handle_move(current_location, destination)
 
-	var/list/new_turfs = translate_turfs(turf_translation, current_location.base_area, current_location.base_turf, TRUE)
+	// if there's a zlevel above our destination, paint in a ceiling on it so we retain our air
+	create_translated_ceiling(FALSE, turf_translation)
+
+	var/list/new_turfs = translate_turfs(turf_translation, current_location.base_area, current_location.base_turf, TRUE, TRUE, angle = angle)
 	current_location = destination
 
-	// if there's a zlevel above our destination, paint in a ceiling on it so we retain our air
-	if(HasAbove(current_location.z))
-		for(var/area/A in shuttle_area)
-			for(var/turf/TD in A.contents)
-				var/turf/TA = GetAbove(TD)
-				if(istype(TA, get_base_turf_by_area(TA)) || (istype(TA) && TA.is_open()))
-					if(get_area(TA) in shuttle_area)
-						continue
-					TA.ChangeTurf(ceiling_type, TRUE, TRUE, TRUE)
+	// remove the old ceiling, if it existed
+	for(var/turf/TO in turf_translation)
+		var/turf/TA = GetAbove(TO)
+		if(istype(TA))
+			if(istype(TA, ceiling_type))
+				TA.ChangeTurf(get_base_turf_by_area(TA), TRUE, TRUE, TRUE)
+			else if(TA.prev_type == ceiling_type)
+				TA.prev_type = null
 
 	handle_pipes_and_power_on_move(new_turfs)
 
@@ -305,6 +313,47 @@
 	for(var/obj/machinery/atmospherics/pipe as anything in pipes)
 		pipe.build_network()
 
+/datum/shuttle/proc/create_ceiling(force)
+	if(!HasAbove(current_location.z))
+		return
+	for(var/area/A in shuttle_area)
+		for(var/turf/TD in A.contents)
+			// Background turfs don't get a ceiling.
+			if(TD.turf_flags & TURF_FLAG_BACKGROUND)
+				continue
+			var/turf/TA = GetAbove(TD)
+			if(!TA)
+				continue
+			if(force || istype(TA, get_base_turf_by_area(TA)) || TA.is_open())
+				if(get_area(TA) in shuttle_area)
+					continue
+				TA.ChangeTurf(ceiling_type, TRUE, TRUE, TRUE)
+
+/datum/shuttle/proc/create_translated_ceiling(force, list/turf_translation)
+	for(var/turf/TS in turf_translation)
+		var/turf/TD = turf_translation[TS]
+
+		if(TS.turf_flags & TURF_FLAG_BACKGROUND)
+			continue
+		var/turf/TAD = GetAbove(TD)
+		var/turf/TAS = GetAbove(TS)
+		if(!istype(TAD))
+			continue
+
+		// Check for multi-z shuttles. Don't create a ceiling where the shuttle is about to be.
+		if((istype(TAS) && (get_area(TAS) in shuttle_area)))
+			continue
+
+
+		if(force || (istype(TAD, get_base_turf_by_area(TAD)) || TAD.is_open()))
+			TAD.ChangeTurf(ceiling_type, TRUE, TRUE, TRUE)
+
+		// TODO: Ideally the latter checks here would remain is_open() rather than direct type checks, but unfortunately we can't do that with only the path.
+		// In nearly all current situations, they are effectively the same thing.
+		else if(!TAD.prev_type || istype(TAD.prev_type, get_base_turf_by_area(TAD)) || ispath(TAD.prev_type, /turf/open) || ispath(TAD.prev_type, /turf/space))
+			// In case there's a pending shuttle move above, prepare it to create a ceiling post-translation.
+			TAD.prev_type = ceiling_type
+
 //returns 1 if the shuttle has a valid arrive time
 /datum/shuttle/proc/has_arrive_time()
 	return (moving_status == SHUTTLE_INTRANSIT)
@@ -344,3 +393,64 @@
 		return "The motherdock (tag: [initial(motherdock)]) was not found."
 	if(!mothershuttle && initial(mothershuttle))
 		return "The mothershuttle (tag: [initial(mothershuttle)]) was not found."
+
+// Landing/docking ports
+/datum/shuttle/proc/get_ports()
+	return docking_ports
+
+/datum/shuttle/proc/add_port(obj/abstract/local_dock/port)
+	if(!istype(port))
+		return FALSE
+	LAZYADD(docking_ports, port)
+	return TRUE
+
+/datum/shuttle/proc/get_port_choices()
+	var/list/res = list()
+	var/list/ports = get_ports()
+	for(var/obj/abstract/local_dock/port in ports)
+		res[port.name] = port
+	res["none"] = null
+	return res
+
+/datum/shuttle/proc/get_current_port()
+	if(!current_port_tag)
+		return null
+	var/obj/abstract/local_dock/current_port = get_port_by_tag(current_port_tag)
+	return current_port
+
+/datum/shuttle/proc/get_center_of_rotation()
+	return get_current_port() || current_location
+
+/datum/shuttle/proc/set_port(port)
+	if(isnull(port)) // short-circuit special case for null port
+		current_port_tag = null
+		return TRUE
+	var/obj/abstract/local_dock/dock
+	if(istype(port, /obj/abstract/local_dock)) // We need to check availability.
+		dock = port
+	else
+		dock = get_port_by_tag(port)
+	if(dock && (dock.port_tag != current_port_tag))
+		current_port_tag = dock.port_tag
+		return TRUE
+	return FALSE // port did not exist or was already selected
+
+/datum/shuttle/proc/get_port_by_tag(port_tag)
+	for(var/obj/abstract/local_dock/port in get_ports())
+		if(port.port_tag == port_tag)
+			return port
+	return null
+
+/datum/shuttle/proc/get_port_name()
+	var/obj/abstract/local_dock/current_port = get_port_by_tag(current_port_tag)
+	return current_port?.name || "none"
+
+/datum/shuttle/proc/get_angle_offset(obj/rotation_center, obj/effect/shuttle_landmark/destination)
+	if(istype(rotation_center, /obj/effect/shuttle_landmark))
+		var/obj/effect/shuttle_landmark/center_landmark = rotation_center
+		return center_landmark.get_angle_offset(destination)
+	// Fallback case for a docking port.
+	var/obj/abstract/local_dock/center_dock = rotation_center
+	if(istype(center_dock) && center_dock.reorient)
+		return dir2angle(destination.dir) - dir2angle(rotation_center.dir)
+	return 0 // do not rotate

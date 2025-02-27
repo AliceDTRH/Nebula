@@ -157,7 +157,7 @@ var/global/datum/controller/master/Master = new
 
 
 // Please don't stuff random bullshit here,
-// 	Make a subsystem, give it the SS_NO_FIRE flag, and do your work in it's Initialize()
+// 	Make a subsystem, give it the SS_NO_FIRE flag, and do your work in its Initialize()
 /datum/controller/master/Initialize(delay, init_sss)
 	set waitfor = 0
 
@@ -176,7 +176,7 @@ var/global/datum/controller/master/Master = new
 
 	var/start_timeofday = REALTIMEOFDAY
 	// Initialize subsystems.
-	current_ticklimit = config.tick_limit_mc_init
+	current_ticklimit = get_config_value(/decl/config/num/tick_limit_mc_init)
 	for (var/datum/controller/subsystem/SS in subsystems)
 		if (SS.flags & SS_NO_INIT)
 			continue
@@ -187,7 +187,6 @@ var/global/datum/controller/master/Master = new
 
 	var/msg = "Initializations complete within [time] second\s!"
 	report_progress(msg)
-	log_world(msg)
 
 	initializing = FALSE
 
@@ -202,7 +201,7 @@ var/global/datum/controller/master/Master = new
 #else
 	world.sleep_offline = TRUE
 #endif
-	world.fps = config.fps
+	world.fps = get_config_value(/decl/config/num/fps)
 	var/initialized_tod = REALTIMEOFDAY
 
 	initializations_finished_with_no_players_logged_in = initialized_tod < REALTIMEOFDAY - 10
@@ -220,12 +219,17 @@ var/global/datum/controller/master/Master = new
 		CRASH("Attempted to set invalid runlevel: [new_runlevel]")
 
 // Starts the mc, and sticks around to restart it if the loop ever ends.
+var/global/_announced_start = FALSE
 /datum/controller/master/proc/StartProcessing(delay)
 	set waitfor = 0
 	if(delay)
 		sleep(delay)
 	report_progress("Master starting processing")
-	SSwebhooks.send(WEBHOOK_ROUNDPREP, list("map" = station_name(), "url" = get_world_url()))
+
+	if(!global._announced_start) // Only announce roundstart once.
+		SSwebhooks.send(WEBHOOK_ROUNDPREP, list("map" = station_name(), "url" = get_world_url()))
+		global._announced_start = TRUE
+
 	var/rtn = Loop()
 	if (rtn > 0 || processing < 0)
 		return //this was suppose to happen.

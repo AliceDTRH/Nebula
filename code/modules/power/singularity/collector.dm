@@ -10,9 +10,9 @@ var/global/list/rad_collectors = list()
 	anchored = FALSE
 	density = TRUE
 	initial_access = list(access_engine_equip)
+	max_health = 100
 	var/obj/item/tank/hydrogen/loaded_tank = null
 
-	var/health = 100
 	var/max_safe_temp = 1000 + T0C
 	var/melted
 
@@ -44,8 +44,8 @@ var/global/list/rad_collectors = list()
 	if(T)
 		var/datum/gas_mixture/our_turfs_air = T.return_air()
 		if(our_turfs_air.temperature > max_safe_temp)
-			health -= ((our_turfs_air.temperature - max_safe_temp) / 10)
-			if(health <= 0)
+			current_health -= ((our_turfs_air.temperature - max_safe_temp) / 10)
+			if(current_health <= 0)
 				collector_break()
 
 	//so that we don't zero out the meter if the SM is processed first.
@@ -80,64 +80,63 @@ var/global/list/rad_collectors = list()
 		return FALSE
 	. = TRUE
 	if((stat & BROKEN) || melted)
-		to_chat(user, "<span class='warning'>The [src] is completely destroyed!</span>")
+		to_chat(user, "<span class='warning'>\The [src] is completely destroyed!</span>")
 	if(!src.locked)
 		toggle_power()
-		user.visible_message("[user.name] turns the [src.name] [active? "on":"off"].", \
-		"You turn the [src.name] [active? "on":"off"].")
+		user.visible_message("[user.name] turns \the [src] [active? "on":"off"].", \
+		"You turn \the [src] [active? "on":"off"].")
 		investigate_log("turned [active?"<font color='green'>on</font>":"<font color='red'>off</font>"] by [user.key]. [loaded_tank?"Fuel: [round(loaded_tank.air_contents.gas[/decl/material/gas/hydrogen]/0.29)]%":"<font color='red'>It is empty</font>"].","singulo")
 	else
 		to_chat(user, "<span class='warning'>The controls are locked!</span>")
 
-/obj/machinery/rad_collector/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/tank/hydrogen))
+/obj/machinery/rad_collector/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/tank/hydrogen))
 		if(!src.anchored)
-			to_chat(user, "<span class='warning'>The [src] needs to be secured to the floor first.</span>")
-			return 1
+			to_chat(user, "<span class='warning'>\The [src] needs to be secured to the floor first.</span>")
+			return TRUE
 		if(src.loaded_tank)
 			to_chat(user, "<span class='warning'>There's already a tank loaded.</span>")
-			return 1
-		if(!user.try_unequip(W, src))
-			return
-		src.loaded_tank = W
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		src.loaded_tank = used_item
 		update_icon()
-		return 1
-	else if(IS_CROWBAR(W))
+		return TRUE
+	else if(IS_CROWBAR(used_item))
 		if(loaded_tank && !src.locked)
 			eject()
-			return 1
-	else if(IS_WRENCH(W))
+			return TRUE
+	else if(IS_WRENCH(used_item))
 		if(loaded_tank)
 			to_chat(user, "<span class='notice'>Remove the tank first.</span>")
-			return 1
+			return TRUE
 		for(var/obj/machinery/rad_collector/R in get_turf(src))
 			if(R != src)
 				to_chat(user, "<span class='warning'>You cannot install more than one collector on the same spot.</span>")
-				return 1
+				return TRUE
 		playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
 		src.anchored = !src.anchored
-		user.visible_message("[user.name] [anchored? "secures":"unsecures"] the [src.name].", \
+		user.visible_message("[user.name] [anchored? "secures":"unsecures"] \the [src].", \
 			"You [anchored? "secure":"undo"] the external bolts.", \
 			"You hear a ratchet.")
-		return 1
-	else if(istype(W, /obj/item/card/id)||istype(W, /obj/item/modular_computer))
+		return TRUE
+	else if(istype(used_item, /obj/item/card/id)||istype(used_item, /obj/item/modular_computer))
 		if (src.allowed(user))
 			if(active)
 				src.locked = !src.locked
 				to_chat(user, "The controls are now [src.locked ? "locked." : "unlocked."]")
 			else
 				src.locked = 0 //just in case it somehow gets locked
-				to_chat(user, "<span class='warning'>The controls can only be locked when the [src] is active</span>")
+				to_chat(user, SPAN_WARNING("The controls can only be locked when \the [src] is active."))
 		else
 			to_chat(user, "<span class='warning'>Access denied!</span>")
-		return 1
+		return TRUE
 	return ..()
 
-/obj/machinery/rad_collector/examine(mob/user, distance)
+/obj/machinery/rad_collector/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (distance <= 3 && !(stat & BROKEN))
-		to_chat(user, "The meter indicates that \the [src] is collecting [last_power] W.")
-		return 1
+		. += "The meter indicates that \the [src] is collecting [last_power] W."
 
 /obj/machinery/rad_collector/explosion_act(severity)
 	if(severity != 1)

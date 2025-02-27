@@ -1,63 +1,62 @@
-/datum/hud/borer
-	var/list/borer_hud_elements = list()
-	var/obj/screen/intent/hud_intent_selector
-	var/obj/screen/borer/toggle_host_control/hud_toggle_control
-	var/obj/screen/borer/inject_chemicals/hud_inject_chemicals
-	var/obj/screen/borer/leave_host/hud_leave_host
+/decl/hud_element/borer
+	abstract_type = /decl/hud_element/borer
 
-/datum/hud/borer/Destroy()
-	QDEL_NULL_LIST(borer_hud_elements)
-	hud_toggle_control =   null
-	hud_inject_chemicals = null
-	hud_leave_host =       null
-	QDEL_NULL(hud_intent_selector)
-	. = ..()
+/decl/hud_element/borer/inject_chemicals
+	elem_type = /obj/screen/borer/inject_chemicals
 
-/datum/hud/borer/FinalizeInstantiation()
-	hud_intent_selector =  new
-	adding = list(hud_intent_selector)
-	hud_inject_chemicals = new
-	hud_leave_host =       new
-	borer_hud_elements = list(
-		hud_inject_chemicals,
-		hud_leave_host
+/decl/hud_element/borer/leave_host
+	elem_type = /obj/screen/borer/leave_host
+
+/decl/hud_element/borer/toggle_control
+	elem_type = /obj/screen/borer/toggle_host_control
+
+/datum/hud/animal/borer
+	omit_hud_elements = list(
+		/decl/hud_element/movement,
+		/decl/hud_element/stamina
 	)
-	if(istype(mymob, /mob/living/simple_animal/borer))
-		var/mob/living/simple_animal/borer/borer = mymob
-		if(!borer.neutered)
-			hud_toggle_control = new
-			borer_hud_elements += hud_toggle_control
-	adding += borer_hud_elements
-	if(mymob)
-		var/mob/living/simple_animal/borer/borer = mymob
-		if(istype(borer) && borer.host)
-			for(var/obj/thing in borer_hud_elements)
-				thing.alpha =        255
-				thing.invisibility = 0
-		if(mymob.client)
-			mymob.client.screen |= adding
+	additional_hud_elements = list(
+		/decl/hud_element/borer/inject_chemicals,
+		/decl/hud_element/borer/leave_host,
+		/decl/hud_element/borer/toggle_control
+	)
+	var/list/borer_hud_elements
+
+/datum/hud/animal/borer/neutered
+	additional_hud_elements = list(
+		/decl/hud_element/borer/inject_chemicals,
+		/decl/hud_element/borer/leave_host
+	)
+
+/datum/hud/animal/borer/Destroy()
+	borer_hud_elements = null
+	return ..()
+
+/datum/hud/animal/borer/create_and_register_element(decl/hud_element/ui_elem, decl/ui_style/ui_style, ui_color, ui_alpha)
+	var/obj/screen/elem = ..()
+	if(istype(elem) && istype(elem, /obj/screen/borer))
+		LAZYADD(borer_hud_elements, elem)
+	return elem
 
 /mob/living/simple_animal/borer
-	hud_type = /datum/hud/borer
+	hud_used = /datum/hud/animal/borer
 
 /mob/living/simple_animal/borer/proc/reset_ui_callback()
 	if(!is_on_special_ability_cooldown())
-		var/datum/hud/borer/borer_hud = hud_used
+		var/datum/hud/animal/borer/borer_hud = hud_used
 		if(istype(borer_hud))
 			for(var/obj/thing in borer_hud.borer_hud_elements)
 				thing.color = null
 
 /obj/screen/borer
 	icon = 'mods/mobs/borers/icons/borer_ui.dmi'
-	alpha = 0
-	invisibility = INVISIBILITY_MAXIMUM
+	use_supplied_ui_icon = FALSE
+	requires_ui_style = FALSE
 
-/obj/screen/borer/Click(location, control, params)
-	if(!istype(usr, /mob/living/simple_animal/borer))
+/obj/screen/borer/handle_click(mob/user, params)
+	if(!isborer(user))
 		return FALSE
-	if(usr.stat == DEAD)
-		return FALSE
-	var/mob/living/simple_animal/borer/worm = usr
+	var/mob/living/simple_animal/borer/worm = user
 	if(!worm.host)
 		return FALSE
 	return TRUE
@@ -67,12 +66,12 @@
 	icon_state = "seize_control"
 	screen_loc = "LEFT+3,TOP-1"
 
-/obj/screen/borer/toggle_host_control/Click(location, control, params)
+/obj/screen/borer/toggle_host_control/handle_click(mob/user, params)
 	. = ..()
 	if(!.)
 		return FALSE
 
-	var/mob/living/simple_animal/borer/worm = usr
+	var/mob/living/simple_animal/borer/worm = user
 	if(!worm.can_use_borer_ability())
 		return
 
@@ -81,7 +80,7 @@
 		return
 
 	to_chat(worm, SPAN_NOTICE("You begin delicately adjusting your connection to the host brain..."))
-	if(!do_after(worm, 100+(worm.host.getBrainLoss()*5) || !worm.host || !worm.can_use_borer_ability()))
+	if(!do_after(worm, 100+(worm.host.get_damage(BRAIN)*5) || !worm.host || !worm.can_use_borer_ability()))
 		return
 
 	to_chat(worm, SPAN_DANGER("You plunge your probosci deep into the cortex of the host brain, interfacing directly with their nervous system."))
@@ -113,9 +112,9 @@
 	if(!worm.host.lastKnownIP)
 		worm.host.lastKnownIP = s2h_ip
 	worm.controlling = TRUE
-	worm.host.verbs += /mob/living/carbon/proc/release_control
-	worm.host.verbs += /mob/living/carbon/proc/punish_host
-	worm.host.verbs += /mob/living/carbon/proc/spawn_larvae
+	worm.host.verbs += /mob/living/proc/release_control
+	worm.host.verbs += /mob/living/proc/punish_host
+	worm.host.verbs += /mob/living/proc/spawn_larvae
 
 	return TRUE
 
@@ -124,12 +123,12 @@
 	icon_state = "inject_chemicals"
 	screen_loc = "LEFT+2,TOP-1"
 
-/obj/screen/borer/inject_chemicals/Click(location, control, params)
+/obj/screen/borer/inject_chemicals/handle_click(mob/user, params)
 	. = ..()
 	if(!.)
 		return FALSE
 
-	var/mob/living/simple_animal/borer/worm = usr
+	var/mob/living/simple_animal/borer/worm = user
 	if(!worm.can_use_borer_ability())
 		return
 
@@ -142,7 +141,7 @@
 		return
 
 	to_chat(worm, SPAN_NOTICE("You squirt a measure of [chem] from your reservoirs into \the [worm.host]'s bloodstream."))
-	worm.host.reagents.add_reagent(worm.chemical_types[chem], 10)
+	worm.host.add_to_reagents(worm.chemical_types[chem], 10)
 	worm.chemicals -= 50
 	return TRUE
 
@@ -151,12 +150,12 @@
 	icon_state = "leave_host"
 	screen_loc = "LEFT+1,TOP-1"
 
-/obj/screen/borer/leave_host/Click(location, control, params)
+/obj/screen/borer/leave_host/handle_click(mob/user, params)
 	. = ..()
 	if(!.)
 		return FALSE
 
-	var/mob/living/simple_animal/borer/worm = usr
+	var/mob/living/simple_animal/borer/worm = user
 	if(!worm.can_use_borer_ability())
 		return
 

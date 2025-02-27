@@ -28,14 +28,14 @@
 	update_icon()
 			//spawn(5) program.process() //no, program.process sends some signals and machines respond and we here again and we lag -rastaf0
 
-/obj/machinery/embedded_controller/Topic(href, href_list)
-	if(..())
-		update_icon()
+/obj/machinery/embedded_controller/OnTopic(mob/user, href_list)
+	if((. = ..()))
 		return
-	if(usr)
-		usr.set_machine(src)
+	if(user)
+		user.set_machine(src)
 	if(program)
 		return program.receive_user_command(href_list["command"]) // Any further sanitization should be done in here.
+	return TOPIC_NOACTION
 
 /obj/machinery/embedded_controller/Process()
 	if(program)
@@ -50,12 +50,11 @@
 	icon_state              = "airlock_control_off"
 	power_channel           = ENVIRON
 	density                 = FALSE
-	unacidable              = TRUE
 	obj_flags               = OBJ_FLAG_MOVES_UNSUPPORTED
 	construct_state         = /decl/machine_construction/wall_frame/panel_closed
 	frame_type              = /obj/item/frame/button/airlock_controller
 	base_type               = /obj/machinery/embedded_controller/radio/simple_docking_controller
-	directional_offset      = "{'NORTH':{'y':-22}, 'SOUTH':{'y':24}, 'EAST':{'x':-22}, 'WEST':{'x':22}}"
+	directional_offset      = @'{"NORTH":{"y":-22}, "SOUTH":{"y":24}, "EAST":{"x":-22}, "WEST":{"x":22}}'
 	required_interaction_dexterity = DEXTERITY_TOUCHSCREENS
 	var/frequency           = EXTERNAL_AIR_FREQ
 	///Icon state of the screen used by dummy controllers to match the same state
@@ -154,8 +153,8 @@
 	if(!istype(holder))
 		return
 	. = list()
-	. += "ID tag: <a href='?src=\ref[src];set_tag=1'>[controller.id_tag]</a><br>"
-	. += "Frequency: <a href='?src=\ref[src];set_freq=1'>[controller.frequency]</a><br>"
+	. += "ID tag: <a href='byond://?src=\ref[src];set_tag=1'>[controller.id_tag]</a><br>"
+	. += "Frequency: <a href='byond://?src=\ref[src];set_freq=1'>[controller.frequency]</a><br>"
 	. += "Likely tags used by controller:<br>"
 	var/list/tags = controller.program?.get_receive_filters(TRUE)
 	if(!length(tags))
@@ -175,20 +174,20 @@
 	if(href_list["set_tag"])
 		var/new_tag = input(user, "Enter a new tag to use. Warning: this will reset all tags used by this machine, not just the main one!", "Tag Selection", controller.id_tag) as text|null
 		if(extension_status(user) != STATUS_INTERACTIVE)
-			return MT_NOACTION
+			return TOPIC_NOACTION
 		new_tag = sanitize_name(new_tag, MAX_MESSAGE_LEN, TRUE, FALSE)
 		if(new_tag)
 			controller.reset_id_tags(new_tag)
 			controller.set_frequency(controller.frequency)
-			return MT_REFRESH
+			return TOPIC_REFRESH
 
 	if(href_list["set_freq"])
 		var/new_frequency = input(user, "Enter a new frequency to use.", "frequency Selection", controller.frequency) as num|null
 		if(!new_frequency || (extension_status(user) != STATUS_INTERACTIVE))
-			return MT_NOACTION
+			return TOPIC_NOACTION
 		new_frequency = sanitize_frequency(new_frequency, RADIO_LOW_FREQ, RADIO_HIGH_FREQ)
 		controller.set_frequency(new_frequency)
-		return MT_REFRESH
+		return TOPIC_REFRESH
 
 /decl/stock_part_preset/radio/receiver/vent_pump/airlock
 	frequency = EXTERNAL_AIR_FREQ

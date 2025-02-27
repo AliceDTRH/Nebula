@@ -1,7 +1,7 @@
 
 /obj/item/forensics/sample_kit/powder
 	name = "fingerprint powder"
-	desc = "A jar containing alumiinum powder and a specialized brush."
+	desc = "A jar containing aluminium powder and a specialized brush."
 	icon_state = "dust"
 	evidence_type = "fingerprint"
 	evidence_path = /obj/item/forensics/sample/print
@@ -21,7 +21,7 @@
 	icon_state = "fingerprint0"
 	item_state = "paper"
 	possible_evidence_types = list(/datum/forensics/fingerprints)
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/plastic
 
 /obj/item/forensics/sample/print/on_update_icon()
 	. = ..()
@@ -33,7 +33,7 @@
 /obj/item/forensics/sample/print/merge_evidence_list(var/list/new_evidence)
 	for(var/datum/fingerprint/newprint in new_evidence)
 		for(var/datum/fingerprint/F in evidence)
-			if(F.merge(newprint))	
+			if(F.merge(newprint))
 				new_evidence -= newprint
 				break
 	..()
@@ -54,7 +54,7 @@
 	SetName("[initial(name)] (\the [M])")
 	update_icon()
 
-/obj/item/forensics/sample/print/proc/can_take_print_from(mob/living/carbon/human/H, user)
+/obj/item/forensics/sample/print/proc/can_take_print_from(mob/living/human/H, user)
 	if(LAZYLEN(evidence))
 		return
 
@@ -72,14 +72,15 @@
 			return TRUE
 	to_chat(user, SPAN_WARNING("They don't have any hands."))
 
-/obj/item/forensics/sample/print/attack(var/mob/living/carbon/human/H, var/mob/user)
-	if(!istype(H))
+/obj/item/forensics/sample/print/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	if(!ishuman(target))
 		return ..()
 
+	var/mob/living/human/H = target
 	if(!can_take_print_from(H, user))
 		return 1
 
-	var/time_to_take = H.a_intent == I_HELP ? 1 SECOND : 3 SECONDS
+	var/time_to_take = H.check_intent(I_FLAG_HELP) ? 1 SECOND : 3 SECONDS
 	user.visible_message(SPAN_NOTICE("\The [user] starts taking fingerprints from \the [H]."))
 	if(!do_mob(user, H, time_to_take))
 		user.visible_message(SPAN_WARNING("\The [user] tries to take prints from \the [H], but they move away."))

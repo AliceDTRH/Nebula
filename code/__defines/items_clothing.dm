@@ -2,21 +2,47 @@
 
 #define CANDLE_LUM 3 // For how bright candles are.
 
-#define ACCESSORY_SLOT_UTILITY  "Utility"
-#define ACCESSORY_SLOT_HOLSTER	"Holster"
-#define ACCESSORY_SLOT_ARMBAND  "Armband"
-#define ACCESSORY_SLOT_RANK     "Rank"
-#define ACCESSORY_SLOT_DEPT		"Department"
-#define ACCESSORY_SLOT_DECOR    "Decor"
-#define ACCESSORY_SLOT_MEDAL    "Medal"
-#define ACCESSORY_SLOT_INSIGNIA "Insignia"
-#define ACCESSORY_SLOT_ARMOR_C  "Chest armor"
-#define ACCESSORY_SLOT_ARMOR_A  "Arm armor"
-#define ACCESSORY_SLOT_ARMOR_L  "Leg armor"
-#define ACCESSORY_SLOT_ARMOR_S  "Armor storage"
-#define ACCESSORY_SLOT_ARMOR_M  "Misc armor"
-#define ACCESSORY_SLOT_HELM_C	"Helmet cover"
-#define ACCESSORY_SLOT_OVER     "Over"
+#define ACCESSORY_SLOT_UTILITY     "Utility"
+#define ACCESSORY_SLOT_HOLSTER	   "Holster"
+#define ACCESSORY_SLOT_ARMBAND     "Armband"
+#define ACCESSORY_SLOT_RANK        "Rank"
+#define ACCESSORY_SLOT_DEPT		   "Department"
+#define ACCESSORY_SLOT_DECOR       "Decor"
+#define ACCESSORY_SLOT_NECK        "Neck"
+#define ACCESSORY_SLOT_MEDAL       "Medal"
+#define ACCESSORY_SLOT_INSIGNIA    "Insignia"
+#define ACCESSORY_SLOT_ARMOR_C     "Chest armor"
+#define ACCESSORY_SLOT_ARMOR_A     "Arm armor"
+#define ACCESSORY_SLOT_ARMOR_L     "Leg armor"
+#define ACCESSORY_SLOT_ARMOR_S     "Armor storage"
+#define ACCESSORY_SLOT_ARMOR_M     "Misc armor"
+#define ACCESSORY_SLOT_HELM_C	   "Helmet cover"
+#define ACCESSORY_SLOT_OVER_HELMET "Hat"
+#define ACCESSORY_SLOT_OVER        "Over"
+#define ACCESSORY_SLOT_SENSORS     "Suit Sensors"
+#define ACCESSORY_SLOT_GREAVES     "Greaves"
+#define ACCESSORY_SLOT_GAUNTLETS   "Gauntlets"
+
+// Accessory will be shown as part of the name of the item when examined.
+#define ACCESSORY_VISIBILITY_ENSEMBLE   0
+// Accessory will be shown as 'with a [foo] attached'.
+#define ACCESSORY_VISIBILITY_ATTACHMENT 1
+// Accessory will only be shown on 'view accessories'.
+#define ACCESSORY_VISIBILITY_HIDDEN     2
+
+#define UNIFORM_DEFAULT_ACCESSORIES list( \
+	ACCESSORY_SLOT_SENSORS,               \
+	ACCESSORY_SLOT_UTILITY,               \
+	ACCESSORY_SLOT_HOLSTER,               \
+	ACCESSORY_SLOT_ARMBAND,               \
+	ACCESSORY_SLOT_RANK,                  \
+	ACCESSORY_SLOT_DEPT,                  \
+	ACCESSORY_SLOT_DECOR,                 \
+	ACCESSORY_SLOT_NECK,                  \
+	ACCESSORY_SLOT_MEDAL,                 \
+	ACCESSORY_SLOT_INSIGNIA,              \
+	ACCESSORY_SLOT_OVER                   \
+)
 
 // Bitmasks for the flags_inv variable. These determine when a piece of clothing hides another, i.e. a helmet hiding glasses.
 // WARNING: The following flags apply only to the external suit!
@@ -52,7 +78,6 @@
 #define slot_wear_id_str     "slot_wear_id"
 #define slot_gloves_str      "slot_gloves"
 #define slot_glasses_str     "slot_glasses"
-#define slot_tie_str         "slot_tie"
 #define slot_l_store_str     "slot_l_store"
 #define slot_r_store_str     "slot_r_store"
 #define slot_s_store_str     "slot_s_store"
@@ -64,6 +89,7 @@
 #define slot_socks_str       "slot_socks"
 
 // Bodypart coverage bitflags.
+#define SLOT_NONE        0
 #define SLOT_UPPER_BODY  BITFLAG(0)
 #define SLOT_LOWER_BODY  BITFLAG(1)
 #define SLOT_OVER_BODY   BITFLAG(2)
@@ -81,14 +107,14 @@
 #define SLOT_HEAD        BITFLAG(14)
 #define SLOT_ID          BITFLAG(15)
 #define SLOT_BACK        BITFLAG(16)
-#define SLOT_TIE         BITFLAG(17)
-#define SLOT_HOLSTER     BITFLAG(18)
-#define SLOT_POCKET      BITFLAG(19)
+#define SLOT_HOLSTER     BITFLAG(17)
+#define SLOT_POCKET      BITFLAG(18)
+#define SLOT_TAIL        BITFLAG(19)
 #define SLOT_LEGS        (SLOT_LEG_LEFT|SLOT_LEG_RIGHT)
 #define SLOT_FEET        (SLOT_FOOT_LEFT|SLOT_FOOT_RIGHT)
 #define SLOT_ARMS        (SLOT_ARM_LEFT|SLOT_ARM_RIGHT)
 #define SLOT_HANDS       (SLOT_HAND_LEFT|SLOT_HAND_RIGHT)
-#define SLOT_FULL_BODY   (SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS|SLOT_HEAD|SLOT_FACE|SLOT_EYES|SLOT_EARS|SLOT_UPPER_BODY|SLOT_LOWER_BODY)
+#define SLOT_FULL_BODY   (SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS|SLOT_HEAD|SLOT_FACE|SLOT_EYES|SLOT_EARS|SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_TAIL)
 
 // Bitflags for the percentual amount of protection a piece of clothing which covers the body part offers.
 // Used with human/proc/get_heat_protection() and human/proc/get_cold_protection().
@@ -150,22 +176,18 @@
 #define FIRE_MAX_FIRESUIT_STACKS  20 // If the number of stacks goes above this firesuits won't protect you anymore. If not, you can walk around while on fire like a badass.
 
 #define THROWFORCE_GIBS 3              // Throw speed for gibbed or dismembered organs.
-#define THROWFORCE_SPEED_DIVISOR    12 // The throwing speed value at which the throwforce multiplier is exactly 1.
+#define THROWFORCE_SPEED_DIVISOR    12 // The throwing speed value at which the thrown force multiplier is exactly 1.
 #define THROWNOBJ_KNOCKBACK_SPEED   15 // The minumum speed of a w_class 2 thrown object that will cause living mobs it hits to be knocked back. Heavier objects can cause knockback at lower speeds.
 #define THROWNOBJ_KNOCKBACK_DIVISOR 2  // Affects how much speed the mob is knocked back with.
 
 // Suit sensor levels
-#define SUIT_SENSOR_OFF      0
-#define SUIT_SENSOR_BINARY   1
-#define SUIT_SENSOR_VITAL    2
-#define SUIT_SENSOR_TRACKING 3
-
-#define SUIT_NO_SENSORS      0
-#define SUIT_HAS_SENSORS     1
-#define SUIT_LOCKED_SENSORS  2
+#define VITALS_SENSOR_OFF      0
+#define VITALS_SENSOR_BINARY   1
+#define VITALS_SENSOR_VITAL    2
+#define VITALS_SENSOR_TRACKING 3
 
 // Hair Flags
-#define VERY_SHORT           BITFLAG(0)
+#define HAIR_VERY_SHORT      BITFLAG(0)
 #define HAIR_TIEABLE         BITFLAG(1)
 #define HAIR_BALD            BITFLAG(2)
 #define HAIR_LOSS_VULNERABLE BITFLAG(3)
@@ -177,20 +199,21 @@
 #define HUD_JANITOR  BITFLAG(3)
 
 // Limbs.
-#define BP_L_FOOT "l_foot"
-#define BP_R_FOOT "r_foot"
-#define BP_L_LEG  "l_leg"
-#define BP_R_LEG  "r_leg"
-#define BP_L_HAND "l_hand"
-#define BP_R_HAND "r_hand"
+#define BP_L_FOOT       "l_foot"
+#define BP_R_FOOT       "r_foot"
+#define BP_L_LEG        "l_leg"
+#define BP_R_LEG        "r_leg"
+#define BP_L_HAND       "l_hand"
+#define BP_R_HAND       "r_hand"
+#define BP_M_HAND       "midlimb"
 #define BP_L_HAND_UPPER "l_u_hand"
 #define BP_R_HAND_UPPER "r_u_hand"
-#define BP_L_ARM  "l_arm"
-#define BP_R_ARM  "r_arm"
-#define BP_HEAD   "head"
-#define BP_CHEST  "chest"
-#define BP_GROIN  "groin"
-#define BP_TAIL   "tail"
+#define BP_L_ARM        "l_arm"
+#define BP_R_ARM        "r_arm"
+#define BP_HEAD         "head"
+#define BP_CHEST        "chest"
+#define BP_GROIN        "groin"
+#define BP_TAIL         "tail"
 
 // Other inventory-related slots (also organs).
 #define BP_MOUTH  "mouth"
@@ -204,6 +227,7 @@ var/global/list/all_limb_tags = list(
 	BP_R_ARM,
 	BP_L_HAND,
 	BP_R_HAND,
+	BP_M_HAND,
 	BP_L_HAND_UPPER,
 	BP_R_HAND_UPPER,
 	BP_L_LEG,
@@ -217,6 +241,7 @@ var/global/list/all_limb_tags_by_depth = list(
 	BP_L_HAND_UPPER,
 	BP_R_HAND,
 	BP_R_HAND_UPPER,
+	BP_M_HAND,
 	BP_L_ARM,
 	BP_R_ARM,
 	BP_L_FOOT,
@@ -233,28 +258,11 @@ var/global/list/default_onmob_icons = list(
 	BP_R_HAND =          'icons/mob/onmob/items/righthand.dmi'
 )
 
-// This list should be sorted by display priority/order for mob examine to look nice.
-var/global/list/all_inventory_slots = list(
+var/global/list/all_hand_slots = list(
 	BP_L_HAND,
 	BP_R_HAND,
+	BP_M_HAND,
 	BP_L_HAND_UPPER,
 	BP_R_HAND_UPPER,
-	BP_MOUTH,
-	slot_w_uniform_str,
-	slot_head_str,
-	slot_wear_suit_str,
-	slot_s_store_str,
-	slot_back_str,
-	slot_gloves_str,
-	slot_belt_str,
-	slot_shoes_str,
-	slot_wear_mask_str,
-	slot_glasses_str,
-	slot_l_ear_str,
-	slot_r_ear_str,
-	slot_wear_id_str,
-	slot_handcuffed_str,
-	slot_tie_str,
-	slot_l_store_str,
-	slot_r_store_str
+	BP_MOUTH
 )

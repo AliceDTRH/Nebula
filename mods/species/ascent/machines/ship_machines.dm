@@ -53,10 +53,10 @@ MANTIDIFY(/obj/machinery/door/airlock/external/bolted, "mantid airlock", "door")
 
 MANTIDIFY(/obj/item/chems/chem_disp_cartridge, "canister", "chemical storage")
 /obj/item/chems/chem_disp_cartridge/ascent/crystal/populate_reagents()
-	reagents.add_reagent(/decl/material/liquid/crystal_agent, reagents.maximum_volume)
+	add_to_reagents(/decl/material/liquid/crystal_agent, reagents.maximum_volume)
 
 /obj/item/chems/chem_disp_cartridge/ascent/bromide/populate_reagents()
-	reagents.add_reagent(/decl/material/liquid/bromide, reagents.maximum_volume)
+	add_to_reagents(/decl/material/liquid/bromide, reagents.maximum_volume)
 
 /obj/machinery/sleeper/ascent
 	name = "mantid sleeper"
@@ -163,11 +163,11 @@ MANTIDIFY(/obj/item/chems/chem_disp_cartridge, "canister", "chemical storage")
 	if(!user.check_dexterity(DEXTERITY_COMPLEX_TOOLS, TRUE))
 		return ..()
 	if(ishuman(user))
-		var/mob/living/carbon/human/H = user
+		var/mob/living/human/H = user
 		if(!(H.species.name in ALL_ASCENT_SPECIES))
 			to_chat(H, SPAN_WARNING("You have no idea how to use \the [src]."))
 			return TRUE
-	else if(!istype(user, /mob/living/silicon/robot/flying/ascent))
+	else if(!isascentdrone(user))
 		to_chat(user, SPAN_WARNING("You have no idea how to interface with \the [src]."))
 		return TRUE
 	user.visible_message(SPAN_NOTICE("\The [user] switches \the [src] [on ? "off" : "on"]."))

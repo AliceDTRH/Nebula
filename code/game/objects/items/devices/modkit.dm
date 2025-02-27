@@ -7,7 +7,7 @@
 	desc = "A kit containing all the needed tools and parts to modify a hardsuit for another user."
 	icon = 'icons/obj/items/modkit.dmi'
 	icon_state = "modkit"
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	var/parts = MODKIT_FULL
 	var/target_bodytype = BODYTYPE_HUMANOID
 
@@ -21,7 +21,7 @@
 		var/decl/species/species = GET_DECL(global.using_map.default_species)
 		target_bodytype = species.default_bodytype.bodytype_flag
 	. = ..()
-	
+
 /obj/item/modkit/afterattack(obj/O, mob/user, proximity)
 	if(!proximity)
 		return
@@ -52,7 +52,7 @@
 
 	user.visible_message("<span class='notice'>\The [user] opens \the [src] and modifies \the [O].</span>","<span class='notice'>You open \the [src] and modify \the [O].</span>")
 
-	I.refit_for_bodytype(target_bodytype)
+	I.refit_for_bodytype(target_bodytype, skip_rename = TRUE)
 
 	if (istype(I, /obj/item/clothing/head/helmet))
 		parts &= ~MODKIT_HELMET
@@ -62,6 +62,6 @@
 	if(!parts)
 		qdel(src)
 
-/obj/item/modkit/examine(mob/user)
+/obj/item/modkit/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..(user)
-	to_chat(user, "It looks as though it modifies hardsuits to fit [target_bodytype] users.")
+	. += "It looks as though it modifies hardsuits to fit [target_bodytype] users."

@@ -13,21 +13,22 @@
 	action_button_name = "Toggle Jetpack"
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/metal/aluminium = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'materials':1,'engineering':3}"
+	origin_tech = @'{"materials":1,"engineering":3}'
 
 /obj/item/tank/jetpack/Initialize()
 	. = ..()
 	ion_trail = new /datum/effect/effect/system/trail/ion()
 	ion_trail.set_up(src)
+	refresh_ion_trail()
 
 /obj/item/tank/jetpack/Destroy()
 	QDEL_NULL(ion_trail)
 	. = ..()
 
-/obj/item/tank/jetpack/examine(mob/living/user)
+/obj/item/tank/jetpack/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(air_contents.total_moles < 5)
-		to_chat(user, "<span class='danger'>The meter on \the [src] indicates you are almost out of gas!</span>")
+		. += SPAN_DANGER("The meter on \the [src] indicates you are almost out of gas!")
 
 /obj/item/tank/jetpack/verb/toggle_rockets()
 	set name = "Toggle Jetpack Stabilization"
@@ -35,30 +36,39 @@
 	src.stabilization_on = !( src.stabilization_on )
 	to_chat(usr, "You toggle the stabilization [stabilization_on? "on":"off"].")
 
-/obj/item/tank/jetpack/on_update_icon(override)
+/obj/item/tank/jetpack/on_update_icon()
 	. = ..()
 	if(on)
 		add_overlay("[icon_state]-on")
 
-/obj/item/tank/jetpack/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/tank/jetpack/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && slot == slot_back_str && on)
 		overlay.icon_state = "[overlay.icon_state]-on"
 	. = ..()
+
+/obj/item/tank/jetpack/equipped(mob/user, slot)
+	. = ..()
+	refresh_ion_trail()
+
+/obj/item/tank/jetpack/proc/refresh_ion_trail()
+	if(on && isliving(loc))
+		var/mob/living/wearer = loc
+		if(wearer.get_jetpack() == src)
+			ion_trail.start()
+			return
+	ion_trail.stop()
 
 /obj/item/tank/jetpack/verb/toggle()
 	set name = "Toggle Jetpack"
 	set category = "Object"
 
 	on = !on
-	if(on)
-		ion_trail.start()
-	else
-		ion_trail.stop()
+	refresh_ion_trail()
 	update_icon()
 
 	if (ismob(usr))
 		var/mob/M = usr
-		M.update_inv_back()
+		M.update_equipment_overlay(slot_back_str)
 		M.update_action_buttons()
 
 	to_chat(usr, "You toggle the thrusters [on? "on":"off"].")
@@ -100,7 +110,8 @@
 	starting_pressure = list(/decl/material/gas/carbon_dioxide = 6 ATM)
 
 /obj/item/tank/jetpack/rig
-	name = "integrated manuvering module thrusterpack"
-	desc = "The 'manuvering' part of a manuvering jet module for a hardsuit. You could... probably use this standalone?"
+	name = "integrated maneuvering module thrusterpack"
+	desc = "The 'maneuvering' part of a maneuvering jet module for a hardsuit. You could... probably use this standalone?"
+	starting_pressure = list(/decl/material/gas/oxygen = 6 ATM)
 	var/obj/item/rig/holder
 

@@ -14,11 +14,11 @@
 	for(var/chem_name in chemical_types)
 		var/chem = chemical_types[chem_name]
 		if(REAGENT_VOLUME(owner.reagents, chem) < 3)
-			owner.reagents.add_reagent(chem, 5)
+			owner.add_to_reagents(chem, 5)
 
 	// They're also super gross and ooze ichor.
 	if(prob(5))
-		var/mob/living/carbon/human/H = owner
+		var/mob/living/human/H = owner
 		if(!istype(H))
 			return
 
@@ -38,5 +38,4 @@
 		B.leave_host()
 		B.ckey = last_owner.ckey
 
-	spawn(0)
-		qdel(src)
+	qdel(src)

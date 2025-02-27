@@ -18,6 +18,7 @@
 	stat_immune = 0
 	stat = BROKEN         // Should be removed if the terminals initialize fully.
 	reason_broken = MACHINE_BROKEN_GENERIC
+	abstract_type = /obj/machinery/power/smes
 
 	var/capacity = 5e6 // maximum charge
 	var/charge = 1e6 // actual charge
@@ -115,7 +116,7 @@
 
 /obj/machinery/power/smes/proc/input_power(var/percentage)
 	var/to_input = target_load * (percentage/100)
-	to_input = clamp(0, to_input, target_load)
+	to_input = clamp(to_input, 0, target_load)
 	input_available = 0
 	if(percentage == 100)
 		inputting = 2
@@ -196,7 +197,7 @@
 		return
 
 	var/total_restore = output_used * (percent_load / 100) // First calculate amount of power used from our output
-	total_restore = clamp(0, total_restore, output_used) // Now clamp the value between 0 and actual output, just for clarity.
+	total_restore = clamp(total_restore, 0, output_used) // Now clamp the value between 0 and actual output, just for clarity.
 	total_restore = output_used - total_restore			   // And, at last, subtract used power from outputted power, to get amount of power we will give back to the SMES.
 
 	// now recharge this amount
@@ -219,13 +220,10 @@
 	ui_interact(user)
 	return TRUE
 
-/obj/machinery/power/smes/attackby(var/obj/item/W, var/mob/user)
-	if(component_attackby(W, user))
-		return TRUE
-
-	if (!panel_open)
-		to_chat(user, "<span class='warning'>You need to open the access hatch on \the [src] first!</span>")
-		return TRUE
+/obj/machinery/power/smes/attackby(var/obj/item/used_item, var/mob/user)
+	if((. = component_attackby(used_item, user)))
+		return
+	return bash(used_item, user)
 
 /obj/machinery/power/smes/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1)
 	// this is the data which will be sent to the ui
@@ -265,22 +263,19 @@
 		return 0
 	return round(100.0*charge/capacity, 0.1)
 
-/obj/machinery/power/smes/Topic(href, href_list)
-	if(..())
-		return 1
+/obj/machinery/power/smes/OnTopic(mob/user, href_list)
+	if((. = ..()))
+		return
 
 	if( href_list["cmode"] )
 		inputting(!input_attempt)
-		update_icon()
-		return 1
+		. = TOPIC_REFRESH
 	else if( href_list["online"] )
 		outputting(!output_attempt)
-		update_icon()
-		return 1
+		. = TOPIC_REFRESH
 	else if( href_list["reboot"] )
 		failure_timer = 0
-		update_icon()
-		return 1
+		. = TOPIC_REFRESH
 	else if( href_list["input"] )
 		switch( href_list["input"] )
 			if("min")
@@ -290,7 +285,7 @@
 			if("set")
 				input_level = (input(usr, "Enter new input level (0-[input_level_max/1000] kW)", "SMES Input Power Control", input_level/1000) as num) * 1000
 		input_level = max(0, min(input_level_max, input_level))	// clamp to range
-		return 1
+		. = TOPIC_REFRESH
 	else if( href_list["output"] )
 		switch( href_list["output"] )
 			if("min")
@@ -300,7 +295,7 @@
 			if("set")
 				output_level = (input(usr, "Enter new output level (0-[output_level_max/1000] kW)", "SMES Output Power Control", output_level/1000) as num) * 1000
 		output_level = max(0, min(output_level_max, output_level))	// clamp to range
-		return 1
+		. = TOPIC_REFRESH
 
 
 /obj/machinery/power/smes/proc/energy_fail(var/duration)
@@ -341,6 +336,6 @@
 	update_icon()
 	..()
 
-/obj/machinery/power/smes/examine(mob/user)
+/obj/machinery/power/smes/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "The service hatch is [panel_open ? "open" : "closed"].")
+	. += "The service hatch is [panel_open ? "open" : "closed"]."

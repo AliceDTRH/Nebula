@@ -7,7 +7,7 @@
 	icon_state = "printer"
 	hardware_size = 1
 	critical = 0
-	origin_tech = "{'programming':2,'engineering':2}"
+	origin_tech = @'{"programming":2,"engineering":2}'
 
 	var/datum/computer_file/program/scanner/driver_type = /datum/computer_file/program/scanner		// A program type that the scanner interfaces with and attempts to install on insertion.
 	var/datum/computer_file/program/scanner/driver		 		// A driver program which has been set up to interface with the scanner.
@@ -54,8 +54,10 @@
 
 /obj/item/stock_parts/computer/scanner/proc/do_on_afterattack(mob/user, atom/target, proximity)
 
-/obj/item/stock_parts/computer/scanner/attackby(obj/W, mob/user)
-	do_on_attackby(user, W)
+// TODO: Revisit to see if we can make do_on_attackby return a bool so that normal afterattack can run.
+/obj/item/stock_parts/computer/scanner/attackby(obj/item/used_item, mob/user)
+	do_on_attackby(user, used_item)
+	return TRUE
 
 /obj/item/stock_parts/computer/scanner/proc/do_on_attackby(mob/user, atom/target)
 

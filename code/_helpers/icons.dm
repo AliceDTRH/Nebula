@@ -163,7 +163,7 @@ mob
 			// Send the icon to src's local cache
 			send_rsc(src, getFlatIcon(src), iconName)
 			// Display the icon in their browser
-			direct_output(src, browse("<body bgcolor='#000000'><p><img src='[iconName]'></p></body>"))
+			show_browser(src, "<body bgcolor='#000000'><p><img src='[iconName]'></p></body>")
 
 		Output_Icon()
 			set name = "2. Output Icon"
@@ -215,11 +215,6 @@ world
 */
 
 #define TO_HEX_DIGIT(n) ascii2text((n&15) + ((n&15)<10 ? 48 : 87))
-
-/icon/proc/MakeLying()
-	var/icon/I = new(src,dir=SOUTH)
-	I.BecomeLying()
-	return I
 
 /icon/proc/BecomeLying()
 	Turn(90)
@@ -276,8 +271,8 @@ world
 
 // make this icon fully opaque--transparent pixels become black
 /icon/proc/Opaque(background = "#000000")
-		SwapColor(null, background)
-		MapColors(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,1)
+	SwapColor(null, background)
+	MapColors(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,1)
 
 // Change a grayscale icon into a white icon where the original color becomes the alpha
 // I.e., black -> transparent, gray -> translucent white, white -> solid white
@@ -635,7 +630,7 @@ The _flatIcons list is a cache for generated icon files.
 */
 
 // Creates a single icon from a given /atom or /image.  Only the first argument is required.
-/proc/getFlatIcon(image/A, defdir=2, deficon=null, defstate="", defblend=BLEND_DEFAULT, always_use_defdir = 0)
+/proc/getFlatIcon(image/A, defdir = SOUTH, deficon = null, defstate = "", defblend = BLEND_DEFAULT, always_use_defdir = FALSE)
 	// We start with a blank canvas, otherwise some icon procs crash silently
 	var/icon/flat = icon('icons/effects/effects.dmi', "icon_state"="nothing") // Final flattened icon
 	if(!A || A.alpha <= 0)
@@ -643,7 +638,7 @@ The _flatIcons list is a cache for generated icon files.
 
 	var/curicon =  A.icon || deficon
 	var/curstate = A.icon_state || defstate
-	var/curdir =   (A.dir != SOUTH && !always_use_defdir) ? A.dir : defdir
+	var/curdir =   (A.dir != defdir && !always_use_defdir) ? A.dir : defdir
 	var/curblend = (A.blend_mode == BLEND_DEFAULT) ? defblend : A.blend_mode
 
 	if(curicon && !check_state_in_icon(curstate, curicon))
@@ -724,7 +719,7 @@ The _flatIcons list is a cache for generated icon files.
 			add = icon(I.icon, I.icon_state, I.dir)
 			// This checks for a silent failure mode of the icon routine. If the requested dir
 			// doesn't exist in this icon state it returns a 32x32 icon with 0 alpha.
-			if (I.dir != SOUTH && add.Width() == 32 && add.Height() == 32)
+			if (I.dir != defdir && add.Width() == 32 && add.Height() == 32)
 				// Check every pixel for blank (computationally expensive, but the process is limited
 				// by the amount of film on the station, only happens when we hit something that's
 				// turned, and bails at the very first pixel it sees.
@@ -740,19 +735,18 @@ The _flatIcons list is a cache for generated icon files.
 				if (blankpixel)
 					// Pull the default direction.
 					add = icon(I.icon, I.icon_state)
-		else // 'I' is an appearance object.
-			if(istype(A,/obj/machinery/atmospherics) && (I in A.underlays))
-				add = getFlatIcon(new /image(I), I.dir, curicon, null, curblend, 1)
-			else
-				/*
-				The state var is null so that it uses the appearance's state, not ours or the default
-				Falling back to our state if state is null would be incorrect overlay logic (overlay with null state does not inherit it from parent to which it is attached)
+		// 'I' is an appearance object.
+		else if(istype(A,/obj/machinery/atmospherics) && (I in A.underlays))
+			add = getFlatIcon(new /image(I), I.dir, curicon, null, curblend, 1)
+		else
+			/*
+			The state var is null so that it uses the appearance's state, not ours or the default
+			Falling back to our state if state is null would be incorrect overlay logic (overlay with null state does not inherit it from parent to which it is attached)
 
-				If icon is null on an overlay it will inherit the icon from the attached parent, so we _do_ pass curicon ...
-				but it does not do so if its icon_state is ""/null, so we check beforehand to exclude this
-				*/
-				var/icon_to_pass = (!I.icon_state && !I.icon) ? null : curicon
-				add = getFlatIcon(new/image(I), curdir, icon_to_pass, null, curblend, always_use_defdir)
+			If icon is null on an overlay it will inherit the icon from the attached parent, so we _do_ pass curicon ...
+			but it does not do so if its icon_state is ""/null, so we check beforehand to exclude this
+			*/
+			add = getFlatIcon(new/image(I), curdir, (!I.icon_state && !I.icon) ? null : curicon, null, curblend, always_use_defdir)
 
 		// Find the new dimensions of the flat icon to fit the added overlay
 		addX1 = min(flatX1, I.pixel_x + 1)
@@ -803,22 +797,6 @@ The _flatIcons list is a cache for generated icon files.
 		alpha_mask.Blend(image_overlay,ICON_OR)//OR so they are lumped together in a nice overlay.
 	return alpha_mask//And now return the mask.
 
-/mob/proc/AddCamoOverlay(atom/A)//A is the atom which we are using as the overlay.
-	var/icon/opacity_icon = new(A.icon, A.icon_state)//Don't really care for overlays/underlays.
-	//Now we need to culculate overlays+underlays and add them together to form an image for a mask.
-	//var/icon/alpha_mask = getFlatIcon(src)//Accurate but SLOW. Not designed for running each tick. Could have other uses I guess.
-	var/icon/alpha_mask = getIconMask(src)//Which is why I created that proc. Also a little slow since it's blending a bunch of icons together but good enough.
-	opacity_icon.AddAlphaMask(alpha_mask)//Likely the main source of lag for this proc. Probably not designed to run each tick.
-	opacity_icon.ChangeOpacity(0.4)//Front end for MapColors so it's fast. 0.5 means half opacity and looks the best in my opinion.
-	for(var/i=0,i<5,i++)//And now we add it as overlays. It's faster than creating an icon and then merging it.
-		var/image/I = image("icon" = opacity_icon, "icon_state" = A.icon_state, "layer" = layer+0.8)//So it's above other stuff but below weapons and the like.
-		switch(i)//Now to determine offset so the result is somewhat blurred.
-			if(1)	I.pixel_x--
-			if(2)	I.pixel_x++
-			if(3)	I.pixel_y--
-			if(4)	I.pixel_y++
-		overlays += I//And finally add the overlay.
-
 #define HOLOPAD_SHORT_RANGE 1 //For determining the color of holopads based on whether they're short or long range.
 #define HOLOPAD_LONG_RANGE 2
 
@@ -835,14 +813,6 @@ The _flatIcons list is a cache for generated icon files.
 	var/icon/alpha_mask = new('icons/effects/effects.dmi', "scanline-[hologram_color]")//Scanline effect.
 	flat_icon.AddAlphaMask(alpha_mask)//Finally, let's mix in a distortion effect.
 	return flat_icon
-
-//For photo camera.
-/proc/build_composite_icon(atom/A)
-	var/icon/composite = icon(A.icon, A.icon_state, A.dir, 1)
-	for(var/O in A.overlays)
-		var/image/I = O
-		composite.Blend(icon(I.icon, I.icon_state, I.dir, 1), ICON_OVERLAY)
-	return composite
 
 /proc/adjust_brightness(var/color, var/value)
 	if (!color) return "#ffffff"
@@ -894,22 +864,26 @@ The _flatIcons list is a cache for generated icon files.
 			var/turf/T = locate(target_x + x_offset, target_y + y_offset, target_z)
 			if(checker && !checker?.can_capture_turf(T))
 				continue
-			else
+			else if(T)
 				render_turfs.Add(T)
 
 	// - Collecting list of atoms to render -
 
 	var/list/render_atoms = list()
+	// This is a workaround for the lighting planemaster not being factored in.
+	// If it's ever removed, or if a better way is found, please replace this.
+	var/list/render_lighting = list()
 	for(var/turf/T as anything in render_turfs)
 		render_atoms.Add(T)
 
 		for(var/atom/A as anything in T)
-			// In some cases we want to filter lighting overlays.
-			if(istype(A, /atom/movable/lighting_overlay) && show_lighting)
-				render_atoms.Add(A)
+			// We need to handle lighting separately if we're including it, and if not, skip it entirely.
+			if(istype(A, /atom/movable/lighting_overlay))
+				if(show_lighting)
+					render_lighting.Add(A)
 				continue
 
-			if(!A.alpha || A.invisibility)
+			if(!A.alpha || (A.invisibility > SEE_INVISIBLE_LIVING))
 				continue
 
 			render_atoms.Add(A)
@@ -925,11 +899,19 @@ The _flatIcons list is a cache for generated icon files.
 
 		if(ismob(A))
 			var/mob/M = A
-			if(M.lying)
+			if(M.current_posture.prone)
 				atom_icon.BecomeLying()
 
 		var/x_offset = (A.x - target_x) * world.icon_size
 		var/y_offset = (A.y - target_y) * world.icon_size
 		capture.Blend(atom_icon, blendMode2iconMode(A.blend_mode), A.pixel_x + x_offset, A.pixel_y + y_offset)
+
+	// TODO: for custom exposure/flash/etc simulation on the camera, you could set the alpha on the overlay copy icons here
+	if(show_lighting)
+		for(var/atom/movable/lighting_overlay/lighting_overlay as anything in render_lighting)
+			var/icon/lighting_overlay_icon = getFlatIcon(lighting_overlay)
+			var/x_offset = (lighting_overlay.x - target_x) * world.icon_size
+			var/y_offset = (lighting_overlay.y - target_y) * world.icon_size
+			capture.Blend(lighting_overlay_icon, ICON_MULTIPLY, lighting_overlay.pixel_x + x_offset, lighting_overlay.pixel_y + y_offset)
 
 	return capture

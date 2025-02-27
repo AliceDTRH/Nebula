@@ -32,8 +32,9 @@
 
 	if(air?.volume || liquid?.total_volume)
 		temporarily_store_fluids()
-		QDEL_NULL(air)
-		QDEL_NULL(liquid)
+
+	QDEL_NULL(air)
+	QDEL_NULL(liquid)
 
 	for(var/obj/machinery/atmospherics/pipe/P in members)
 		P.parent = null
@@ -44,24 +45,27 @@
 
 	. = ..()
 
-/datum/pipeline/Process()//This use to be called called from the pipe networks
+/datum/pipeline/Process()//This use to be called from the pipe networks
 	//Check to see if pressure is within acceptable limits
 	var/pressure = air.return_pressure()
 	if(pressure > maximum_pressure)
 		for(var/obj/machinery/atmospherics/pipe/member in members)
 			if(!member.check_pressure(pressure))
 				members.Remove(member)
+
+				// Safety check.
+				if(member.parent == src)
+					member.parent = null
 				break //Only delete 1 pipe per process
 
 /datum/pipeline/proc/temporarily_store_fluids()
 	//Update individual gas_mixtures by volume ratio
 
 	var/liquid_transfer_per_pipe = min(REAGENT_UNITS_PER_PIPE, (liquid && length(members)) ? (liquid.total_volume / length(members)) : 0)
-	if(!liquid_transfer_per_pipe && !liquid_transfer_per_pipe)
+	if(!air?.volume && !liquid_transfer_per_pipe)
 		return
 
 	for(var/obj/machinery/atmospherics/pipe/member in members)
-
 		if(air?.volume)
 			member.air_temporary = new
 			member.air_temporary.copy_from(air)
@@ -69,7 +73,7 @@
 			member.air_temporary.multiply(member.volume / air.volume)
 
 		if(liquid_transfer_per_pipe)
-			member.liquid_temporary = new(REAGENT_UNITS_PER_PIPE, src)
+			member.liquid_temporary = new(REAGENT_UNITS_PER_PIPE, member)
 			liquid.trans_to_holder(member.liquid_temporary, liquid_transfer_per_pipe)
 
 /datum/pipeline/proc/build_pipeline(obj/machinery/atmospherics/pipe/base)
@@ -164,26 +168,17 @@
 
 /datum/pipeline/proc/mingle_with_turf(turf/target, mingle_volume)
 
-	if(!isturf(target))
+	if(!isturf(target) || !istype(air))
 		return
 
-	var/datum/gas_mixture/air_sample = air.remove_ratio(mingle_volume/air.volume)
-	air_sample.volume = mingle_volume
+	var/datum/gas_mixture/air_sample = air.remove_volume(mingle_volume)
 
 	if(target.zone)
-		//Have to consider preservation of group statuses
-		var/datum/gas_mixture/turf_copy = new
-
-		turf_copy.copy_from(target.zone.air)
-		turf_copy.volume = target.zone.air.volume //Copy a good representation of the turf from parent group
-
-		equalize_gases(list(air_sample, turf_copy))
+		//Copy a good representation of the turf from parent group
+		var/datum/gas_mixture/turf_sample = target.zone.air.remove_volume(CELL_VOLUME)
+		equalize_gases(list(air_sample, turf_sample))
 		air.merge(air_sample)
-
-		turf_copy.subtract(target.zone.air)
-
-		target.zone.air.merge(turf_copy)
-
+		target.assume_air(turf_sample)
 	else
 		var/datum/gas_mixture/turf_air = target.return_air()
 
@@ -198,68 +193,35 @@
 		network.update = 1
 
 /datum/pipeline/proc/temperature_interact(turf/target, share_volume, thermal_conductivity)
+
+	if(air.volume <= 0) // Avoid div by zero.
+		return
+
 	var/total_heat_capacity = air.heat_capacity()
 	var/partial_heat_capacity = total_heat_capacity*(share_volume/air.volume)
+	var/datum/gas_mixture/target_air = target.return_air()
 
-	if(SHOULD_PARTICIPATE_IN_ZONES(target) && !target.blocks_air)
-		var/delta_temperature = 0
-		var/sharer_heat_capacity = 0
+	if(total_heat_capacity <= 0) // Avoid div by zero.
+		return
 
-		if(target.zone)
-			delta_temperature = (air.temperature - target.zone.air.temperature)
-			sharer_heat_capacity = target.zone.air.heat_capacity()
-		else
-			delta_temperature = (air.temperature - target.air.temperature)
-			sharer_heat_capacity = target.air.heat_capacity()
+	if(target.blocks_air)
+		return
 
-		var/self_temperature_delta = 0
-		var/sharer_temperature_delta = 0
+	if(partial_heat_capacity <= 0)
+		return
 
-		if((sharer_heat_capacity > 0) && (partial_heat_capacity > 0))
-			var/heat = thermal_conductivity*delta_temperature* \
-				(partial_heat_capacity*sharer_heat_capacity/(partial_heat_capacity+sharer_heat_capacity))
+	var/sharer_heat_capacity = target_air.heat_capacity()
 
-			self_temperature_delta = -heat/total_heat_capacity
-			sharer_temperature_delta = heat/sharer_heat_capacity
-		else
-			return 1
+	if(sharer_heat_capacity <= 0)
+		return
 
-		air.temperature += self_temperature_delta
-
-		if(target.zone)
-			target.zone.air.temperature += sharer_temperature_delta/target.zone.air.group_multiplier
-		else
-			target.air.temperature += sharer_temperature_delta
-
-	else if(istype(target, /turf/exterior) && !target.blocks_air)
-		var/turf/exterior/modeled_location = target
-		var/datum/gas_mixture/target_air = modeled_location.return_air()
-
-		var/delta_temperature = air.temperature - target_air.temperature
-		var/sharer_heat_capacity = target_air.heat_capacity()
-
-		if((sharer_heat_capacity > 0) && (partial_heat_capacity > 0))
-			var/heat = thermal_conductivity*delta_temperature* \
-				(partial_heat_capacity*sharer_heat_capacity/(partial_heat_capacity+sharer_heat_capacity))
-
-			air.temperature += -heat/total_heat_capacity
-		else
-			return 1
-
-	else
-		if((target.heat_capacity > 0) && (partial_heat_capacity > 0))
-			var/delta_temperature = air.temperature - target.temperature
-
-			var/heat = thermal_conductivity*delta_temperature* \
-				(partial_heat_capacity*target.heat_capacity/(partial_heat_capacity+target.heat_capacity))
-
-			air.temperature -= heat/total_heat_capacity
-			// Only increase the temperature of the target if it's simulated.
-			if(istype(target, /turf/simulated))
-				target.temperature += heat/target.heat_capacity
+	var/delta_temperature = (air.temperature - target_air.temperature)
+	var/heat = thermal_conductivity * delta_temperature * ( partial_heat_capacity * sharer_heat_capacity / (partial_heat_capacity + sharer_heat_capacity) )
+	air.add_thermal_energy(-heat)
+	target_air.add_thermal_energy(heat)
 
 	if(network)
-		network.update = 1
+		network.update = TRUE
 
 //surface must be the surface area in m^2
 /datum/pipeline/proc/radiate_heat_to_space(surface, thermal_conductivity)
@@ -286,6 +248,6 @@
 	// Previously, the temperature would enter equilibrium at 26C or 294K.
 	// Only would happen if both sides (all 2 square meters of surface area) were exposed to sunlight.  We now assume it aligned edge on.
 	// It currently should stabilise at 129.6K or -143.6C
-	. -= surface * STEFAN_BOLTZMANN_CONSTANT * thermal_conductivity * (surface_temperature - COSMIC_RADIATION_TEMPERATURE) ** 4
+	. -= surface * STEFAN_BOLTZMANN_CONSTANT * thermal_conductivity * (surface_temperature  ** 4 - COSMIC_RADIATION_TEMPERATURE ** 4)
 
 #undef REAGENT_UNITS_PER_PIPE

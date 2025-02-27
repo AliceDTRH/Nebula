@@ -1,8 +1,8 @@
 /obj/item/chems/chem_disp_cartridge/foaming_agent/populate_reagents()
-	reagents.add_reagent(/decl/material/liquid/foaming_agent, reagents.maximum_volume)
+	add_to_reagents(/decl/material/liquid/foaming_agent, reagents.maximum_volume)
 
 /obj/item/chems/chem_disp_cartridge/polyacid/populate_reagents()
-	reagents.add_reagent(/decl/material/liquid/acid/polyacid, reagents.maximum_volume)
+	add_to_reagents(/decl/material/liquid/acid/polyacid, reagents.maximum_volume)
 
 /obj/structure/sealant_injector
 	name = "sealant tank injector"
@@ -35,23 +35,23 @@
 		new /obj/item/chems/chem_disp_cartridge/polyacid(src) = 1
 	)
 
-/obj/structure/sealant_injector/attackby(obj/item/O, mob/user)
+/obj/structure/sealant_injector/attackby(obj/item/used_item, mob/user)
 
-	if(istype(O, /obj/item/sealant_tank))
+	if(istype(used_item, /obj/item/sealant_tank))
 		if(loaded_tank)
 			to_chat(user, SPAN_WARNING("\The [src] already has a sealant tank inserted."))
 			return TRUE
-		if(user.try_unequip(O, src))
-			loaded_tank = O
+		if(user.try_unequip(used_item, src))
+			loaded_tank = used_item
 			update_icon()
 			return TRUE
 
-	if(istype(O, /obj/item/chems/chem_disp_cartridge))
+	if(istype(used_item, /obj/item/chems/chem_disp_cartridge))
 		if(length(cartridges) >= max_cartridges)
 			to_chat(user, SPAN_WARNING("\The [src] is loaded to capacity with cartridges."))
 			return TRUE
-		if(user.try_unequip(O, src))
-			LAZYSET(cartridges, O, 1)
+		if(user.try_unequip(used_item, src))
+			LAZYSET(cartridges, used_item, 1)
 			update_icon()
 			return TRUE
 
@@ -63,7 +63,7 @@
 		to_chat(user, SPAN_WARNING("There is no tank loaded."))
 		return TRUE
 
-	var/fill_space = FLOOR(loaded_tank.max_foam_charges - loaded_tank.foam_charges) / 5
+	var/fill_space = floor(loaded_tank.max_foam_charges - loaded_tank.foam_charges) / 5
 	if(fill_space <= 0)
 		to_chat(user, SPAN_WARNING("\The [loaded_tank] is full."))
 		return TRUE
@@ -103,7 +103,8 @@
 /decl/interaction_handler/sealant_try_inject
 	name = "Inject Sealant"
 	expected_target_type = /obj/structure/sealant_injector
+	examine_desc = "inject sealant from a held item"
 
-/decl/interaction_handler/sealant_try_inject/invoked(var/atom/target, var/mob/user)
+/decl/interaction_handler/sealant_try_inject/invoked(atom/target, mob/user, obj/item/prop)
 	var/obj/structure/sealant_injector/SI = target
 	SI.try_inject(user)

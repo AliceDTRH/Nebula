@@ -4,7 +4,7 @@
 	icon = 'mods/species/ascent/icons/particle_rifle/rifle.dmi'
 	icon_state = ICON_STATE_WORLD
 	slot_flags = SLOT_BACK
-	force = 25 // Heavy as Hell.
+	_base_attack_force = 25 // Heavy as Hell.
 	projectile_type = /obj/item/projectile/beam/particle
 	max_shots = 18
 	self_recharge = 1
@@ -20,13 +20,13 @@
 		list(mode_name="shock",  projectile_type = /obj/item/projectile/beam/stun/shock),
 		list(mode_name="lethal", projectile_type = /obj/item/projectile/beam/particle)
 		)
-	sprite_sheets = list(BODYTYPE_MANTID_LARGE = 'mods/species/ascent/icons/particle_rifle/inhands_gyne.dmi')
+	_gyne_onmob_icon = 'mods/species/ascent/icons/particle_rifle/inhands_gyne.dmi'
 
 /obj/item/gun/energy/particle/small
 	name = "particle projector"
 	desc = "A smaller variant on the Ascent particle lance, usually carried by drones and alates."
 	icon = 'mods/species/ascent/icons/particle_rifle/rifle_small.dmi'
-	force = 12
+	_base_attack_force = 12
 	max_shots = 9
 	burst = 1
 	one_hand_penalty = 0
@@ -42,11 +42,12 @@
 
 /obj/item/gun/energy/particle/on_update_icon()
 	. = ..()
+	var/obj/item/cell/power_supply = get_cell()
 	var/datum/firemode/current_mode = firemodes[sel_mode]
-	overlays = list(
-		image(icon, "[get_world_inventory_state()]-[istype(current_mode) ? current_mode.name : "lethal"]"),
-		image(icon, "[get_world_inventory_state()]-charge-[istype(power_supply) ? FLOOR(power_supply.percent()/20) : 0]")
-	)
+	set_overlays(list(
+		"[get_world_inventory_state()]-[istype(current_mode) ? current_mode.name : "lethal"]",
+		"[get_world_inventory_state()]-charge-[istype(power_supply) ? floor(power_supply.percent()/20) : 0]"
+	))
 
 /obj/item/gun/magnetic/railgun/flechette/ascent
 	name = "mantid flechette rifle"
@@ -61,7 +62,7 @@
 
 /obj/item/gun/magnetic/railgun/flechette/ascent/show_ammo(var/mob/user)
 	var/obj/item/cell/cell = get_cell()
-	to_chat(user, "<span class='notice'>There are [cell ? FLOOR(cell.charge/charge_per_shot) : 0] shot\s remaining.</span>")
+	to_chat(user, "<span class='notice'>There are [cell ? floor(cell.charge/charge_per_shot) : 0] shot\s remaining.</span>")
 
 /obj/item/gun/magnetic/railgun/flechette/ascent/check_ammo()
 	var/obj/item/cell/cell = get_cell()

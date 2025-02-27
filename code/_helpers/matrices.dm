@@ -94,12 +94,33 @@
 /// Changes distance hues have from grey while maintaining the overall lightness. Greys are unaffected.
 /// * 1 is identity, 0 is greyscale, >1 oversaturates colors
 /proc/color_matrix_saturation(value)
-	var/inv = 1 - value
-	var/R = round(LUMA_R * inv, 0.001)
-	var/G = round(LUMA_G * inv, 0.001)
-	var/B = round(LUMA_B * inv, 0.001)
+	var/inv   = 1 - value
+	var/red   = round(LUMA_R * inv, 0.001)
+	var/green = round(LUMA_G * inv, 0.001)
+	var/blue  = round(LUMA_B * inv, 0.001)
 
-	return list(R + value,R,R,0, G,G + value,G,0, B,B,B + value,0, 0,0,0,1, 0,0,0,0)
+	return list(red + value,red,red,0, green,green + value,green,0, blue,blue,blue + value,0, 0,0,0,1, 0,0,0,0)
+
+#define LUMR 0.2126
+#define LUMG 0.7152
+#define LUMB 0.0722
+/proc/legacy_color_saturation(value)
+	if(value == 0)
+		return
+	value = clamp(value, -100, 100)
+	if(value > 0)
+		value *= 3
+	var/x = 1 + value / 100
+
+	var/inv   = 1 - x
+	var/red   = LUMR * inv
+	var/green = LUMG * inv
+	var/blue  = LUMB * inv
+	return list(red + x,red,red, green,green + x,green, blue,blue,blue + x)
+
+#undef LUMR
+#undef LUMG
+#undef LUMB
 
 /// Changes distance colors have from rgb(127,127,127) grey
 /// * 1 is identity. 0 makes everything grey >1 blows out colors and greys

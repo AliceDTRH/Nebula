@@ -7,12 +7,13 @@
 	handle_generic_blending = FALSE
 	tool_interaction_flags = TOOL_INTERACTION_DECONSTRUCT
 	material_alteration = MAT_FLAG_ALTERATION_NAME | MAT_FLAG_ALTERATION_COLOR
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE
+	atom_flags = ATOM_FLAG_CLIMBABLE
 	throwpass = TRUE
 	parts_amount = 2
-	parts_type = /obj/item/stack/material/strut
+	parts_type = /obj/item/stack/material/rods
 	density = TRUE
 	anchored = TRUE
+	structure_flags = STRUCTURE_FLAG_SURFACE
 
 /obj/structure/rack/Initialize()
 	..()
@@ -28,13 +29,19 @@
 			I.pixel_y = max(3-i*3, -3) + 1
 			I.pixel_z = 0
 
-/obj/structure/rack/attackby(obj/item/O, mob/user, click_params)
+/obj/structure/rack/adjust_required_attack_dexterity(mob/user, required_dexterity)
+	// Let people put stuff on tables without necessarily being able to use a gun or such.
+	if(user?.check_intent(I_FLAG_HELP))
+		return DEXTERITY_HOLD_ITEM
+	return ..()
+
+/obj/structure/rack/attackby(obj/item/used_item, mob/user, click_params)
 	. = ..()
-	if(!. && !isrobot(user) && O.loc == user && user.try_unequip(O, loc))
-		auto_align(O, click_params)
+	if(!. && !isrobot(user) && used_item.loc == user && user.try_unequip(used_item, loc))
+		auto_align(used_item, click_params)
 		return TRUE
 
-/obj/structure/rack/holorack/dismantle()
+/obj/structure/rack/holorack/dismantle_structure(mob/user)
 	material = null
 	reinf_material = null
 	parts_type = null
@@ -42,3 +49,15 @@
 
 /obj/structure/rack/dark
 	color = COLOR_GRAY40
+
+/obj/structure/rack/walnut
+	material = /decl/material/solid/organic/wood/walnut
+	color = /decl/material/solid/organic/wood/walnut::color
+
+/obj/structure/rack/ebony
+	material = /decl/material/solid/organic/wood/ebony
+	color = /decl/material/solid/organic/wood/ebony::color
+
+/obj/structure/rack/mahogany
+	material = /decl/material/solid/organic/wood/mahogany
+	color = /decl/material/solid/organic/wood/mahogany::color

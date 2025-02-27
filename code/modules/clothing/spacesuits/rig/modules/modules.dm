@@ -10,12 +10,12 @@
 
 /obj/item/rig_module
 	name = "hardsuit upgrade"
-	desc = "It looks pretty sciency."
+	desc = "It looks pretty science-y."
 	icon = 'icons/obj/rig_modules.dmi'
 	icon_state = "module"
 	material = /decl/material/solid/metal/steel
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_TRACE
 	)
 
@@ -59,59 +59,59 @@
 
 	var/list/stat_rig_module/stat_modules = new()
 
-/obj/item/rig_module/examine(mob/user)
+/obj/item/rig_module/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	switch(damage)
 		if(0)
-			to_chat(user, "It is undamaged.")
+			. += "It is undamaged."
 		if(1)
-			to_chat(user, "It is badly damaged.")
+			. += "It is badly damaged."
 		if(2)
-			to_chat(user, "It is almost completely destroyed.")
+			. += "It is almost completely destroyed."
 
-/obj/item/rig_module/attackby(obj/item/W, mob/user)
+/obj/item/rig_module/attackby(obj/item/used_item, mob/user)
 
-	if(istype(W,/obj/item/stack/nanopaste))
+	if(istype(used_item,/obj/item/stack/nanopaste))
 
 		if(damage == 0)
 			to_chat(user, "There is no damage to mend.")
-			return
+			return TRUE
 
 		to_chat(user, "You start mending the damaged portions of \the [src]...")
 
-		if(!do_after(user,30,src) || !W || !src)
-			return
+		if(!do_after(user,30,src) || !used_item || !src)
+			return TRUE
 
-		var/obj/item/stack/nanopaste/paste = W
+		var/obj/item/stack/nanopaste/paste = used_item
 		damage = 0
-		to_chat(user, "You mend the damage to [src] with [W].")
+		to_chat(user, "You mend the damage to [src] with [used_item].")
 		paste.use(1)
-		return
+		return TRUE
 
-	else if(IS_COIL(W))
+	else if(IS_COIL(used_item))
 
 		switch(damage)
 			if(0)
 				to_chat(user, "There is no damage to mend.")
-				return
+				return TRUE
 			if(2)
 				to_chat(user, "There is no damage that you are capable of mending with such crude tools.")
-				return
+				return TRUE
 
-		var/obj/item/stack/cable_coil/cable = W
+		var/obj/item/stack/cable_coil/cable = used_item
 		if(!cable.can_use(5))
 			to_chat(user, "You need five units of cable to repair \the [src].")
-			return
+			return TRUE
 
 		to_chat(user, "You start mending the damaged portions of \the [src]...")
-		if(!do_after(user,30,src) || !W || !src)
-			return
+		if(!do_after(user,30,src) || !used_item || !src)
+			return TRUE
 
 		damage = 1
-		to_chat(user, "You mend some of damage to [src] with [W], but you will need more advanced tools to fix it completely.")
+		to_chat(user, "You mend some of the damage to [src] with [used_item], but you will need more advanced tools to fix it completely.")
 		cable.use(5)
-		return
-	..()
+		return TRUE
+	return ..()
 
 /obj/item/rig_module/Initialize()
 	. =..()
@@ -163,11 +163,11 @@
 		to_chat(usr, "<span class='warning'>The suit is not initialized.</span>")
 		return 0
 
-	if(usr.lying || usr.incapacitated(INCAPACITATION_DISRUPTED))
+	if(usr.current_posture.prone || usr.incapacitated(INCAPACITATION_DISRUPTED))
 		to_chat(usr, "<span class='warning'>You cannot use the suit in this state.</span>")
 		return 0
 
-	if(holder.wearer && holder.wearer.lying)
+	if(holder.wearer && holder.wearer.current_posture.prone)
 		to_chat(usr, "<span class='warning'>The suit cannot function while the wearer is prone.</span>")
 		return 0
 
@@ -175,7 +175,7 @@
 		to_chat(usr, "<span class='danger'>Access denied.</span>")
 		return 0
 
-	if(!holder.check_power_cost(usr, charge, 0, src, (istype(usr,/mob/living/silicon ? 1 : 0) ) ) )
+	if(!holder.check_power_cost(usr, charge, 0, src, (issilicon(usr) ? 1 : 0) ) )
 		return 0
 
 	return 1
@@ -263,7 +263,7 @@
 /obj/item/rig_module/proc/accepts_item(var/obj/item/input_device)
 	return 0
 
-/mob/living/carbon/human/Stat()
+/mob/living/human/Stat()
 	. = ..()
 
 	var/obj/item/rig/R = get_equipped_item(slot_back_str)

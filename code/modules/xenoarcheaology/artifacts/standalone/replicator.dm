@@ -50,15 +50,15 @@
 	/obj/item/clipboard,
 	/obj/item/cell,
 	/obj/item/circular_saw,
-	/obj/item/hatchet,
+	/obj/item/tool/axe/hatchet,
 	/obj/item/handcuffs,
 	/obj/item/hemostat,
 	/obj/item/knife/kitchen,
-	/obj/item/flame/lighter,
+	/obj/item/flame/fuelled/lighter,
 	/obj/item/light/bulb,
 	/obj/item/light/tube,
-	/obj/item/pickaxe,
-	/obj/item/shovel,
+	/obj/item/tool/pickaxe,
+	/obj/item/tool/shovel,
 	/obj/item/weldingtool,
 	/obj/item/wirecutters,
 	/obj/item/wrench,
@@ -121,15 +121,16 @@
 	var/dat = "The control panel displays an incomprehensible selection of controls, many with unusual markings or text around them.<br>"
 	dat += "<br>"
 	for(var/index=1, index<=construction.len, index++)
-		dat += "<A href='?src=\ref[src];activate=[index]'>\[[construction[index]]\]</a><br>"
+		dat += "<A href='byond://?src=\ref[src];activate=[index]'>\[[construction[index]]\]</a><br>"
 
 	show_browser(user, dat, "window=alien_replicator")
 
-/obj/machinery/replicator/attackby(obj/item/W, mob/user)
-	if(!user.try_unequip(W, src))
-		return
-	stored_materials.Add(W)
-	src.visible_message("<span class='notice'>\The [user] inserts \the [W] into \the [src].</span>")
+/obj/machinery/replicator/attackby(obj/item/used_item, mob/user)
+	if(!user.try_unequip(used_item, src))
+		return FALSE
+	stored_materials.Add(used_item)
+	user.visible_message(SPAN_NOTICE("\The [user] inserts \the [used_item] into \the [src]."), SPAN_NOTICE("You insert \the [used_item] into \the [src]."))
+	return TRUE
 
 /obj/machinery/replicator/OnTopic(user, href_list)
 	if(href_list["activate"])

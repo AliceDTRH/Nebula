@@ -89,7 +89,7 @@
 				if(R.get_file_perms(get_access(usr), usr) & OS_READ_ACCESS)
 					active_record = R
 				else
-					to_chat(usr, SPAN_WARNING("Access Denied"))
+					to_chat(usr, SPAN_WARNING("Access denied."))
 				break
 		return 1
 	if(href_list["new_record"])
@@ -159,11 +159,11 @@
 		return 1
 
 /datum/nano_module/program/records/proc/get_photo(var/mob/user)
-	if(istype(user.get_active_hand(), /obj/item/photo))
-		var/obj/item/photo/photo = user.get_active_hand()
+	if(istype(user.get_active_held_item(), /obj/item/photo))
+		var/obj/item/photo/photo = user.get_active_held_item()
 		return photo.img
-	if(istype(user, /mob/living/silicon))
-		var/mob/living/silicon/tempAI = usr
+	if(issilicon(user))
+		var/mob/living/silicon/tempAI = user
 		var/obj/item/photo/selection = tempAI.GetPicture()
 		if (selection)
 			return selection.img

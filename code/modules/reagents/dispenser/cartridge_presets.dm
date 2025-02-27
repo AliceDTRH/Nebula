@@ -9,7 +9,7 @@
  * CART_TYPE: the type suffix to append to the cartridge type path.
  * REAGENT_TYPE: The reagent decl path to fill the cartridge with.
  */
-#define DEFINE_CARTRIDGE_FOR_CHEM(CART_TYPE, REAGENT_TYPE) /obj/item/chems/chem_disp_cartridge/##CART_TYPE/populate_reagents(){reagents.add_reagent(REAGENT_TYPE, reagents.maximum_volume);}
+#define DEFINE_CARTRIDGE_FOR_CHEM(CART_TYPE, REAGENT_TYPE) /obj/item/chems/chem_disp_cartridge/##CART_TYPE/populate_reagents(){add_to_reagents(REAGENT_TYPE, reagents.maximum_volume);}
 
 // Multiple
 DEFINE_CARTRIDGE_FOR_CHEM(water, /decl/material/liquid/water)
@@ -32,24 +32,24 @@ DEFINE_CARTRIDGE_FOR_CHEM(iron,       /decl/material/solid/metal/iron)
 DEFINE_CARTRIDGE_FOR_CHEM(copper,     /decl/material/solid/metal/copper)
 DEFINE_CARTRIDGE_FOR_CHEM(mercury,    /decl/material/liquid/mercury)
 DEFINE_CARTRIDGE_FOR_CHEM(radium,     /decl/material/solid/metal/radium)
-DEFINE_CARTRIDGE_FOR_CHEM(ethanol,    /decl/material/liquid/ethanol)
+DEFINE_CARTRIDGE_FOR_CHEM(ethanol,    /decl/material/liquid/alcohol/ethanol)
 DEFINE_CARTRIDGE_FOR_CHEM(sacid,      /decl/material/liquid/acid)
 DEFINE_CARTRIDGE_FOR_CHEM(tungsten,   /decl/material/solid/metal/tungsten)
 
 
 // Bar, alcoholic
-DEFINE_CARTRIDGE_FOR_CHEM(beer,     /decl/material/liquid/ethanol/beer)
-DEFINE_CARTRIDGE_FOR_CHEM(kahlua,   /decl/material/liquid/ethanol/coffee)
-DEFINE_CARTRIDGE_FOR_CHEM(whiskey,  /decl/material/liquid/ethanol/whiskey)
-DEFINE_CARTRIDGE_FOR_CHEM(wine,     /decl/material/liquid/ethanol/wine)
-DEFINE_CARTRIDGE_FOR_CHEM(vodka,    /decl/material/liquid/ethanol/vodka)
-DEFINE_CARTRIDGE_FOR_CHEM(gin,      /decl/material/liquid/ethanol/gin)
-DEFINE_CARTRIDGE_FOR_CHEM(rum,      /decl/material/liquid/ethanol/rum)
-DEFINE_CARTRIDGE_FOR_CHEM(tequila,  /decl/material/liquid/ethanol/tequila)
-DEFINE_CARTRIDGE_FOR_CHEM(vermouth, /decl/material/liquid/ethanol/vermouth)
-DEFINE_CARTRIDGE_FOR_CHEM(cognac,   /decl/material/liquid/ethanol/cognac)
-DEFINE_CARTRIDGE_FOR_CHEM(ale,      /decl/material/liquid/ethanol/ale)
-DEFINE_CARTRIDGE_FOR_CHEM(mead,     /decl/material/liquid/ethanol/mead)
+DEFINE_CARTRIDGE_FOR_CHEM(beer,     /decl/material/liquid/alcohol/beer)
+DEFINE_CARTRIDGE_FOR_CHEM(kahlua,   /decl/material/liquid/alcohol/coffee)
+DEFINE_CARTRIDGE_FOR_CHEM(whiskey,  /decl/material/liquid/alcohol/whiskey)
+DEFINE_CARTRIDGE_FOR_CHEM(wine,     /decl/material/liquid/alcohol/wine)
+DEFINE_CARTRIDGE_FOR_CHEM(vodka,    /decl/material/liquid/alcohol/vodka)
+DEFINE_CARTRIDGE_FOR_CHEM(gin,      /decl/material/liquid/alcohol/gin)
+DEFINE_CARTRIDGE_FOR_CHEM(rum,      /decl/material/liquid/alcohol/rum)
+DEFINE_CARTRIDGE_FOR_CHEM(tequila,  /decl/material/liquid/alcohol/tequila)
+DEFINE_CARTRIDGE_FOR_CHEM(vermouth, /decl/material/liquid/alcohol/vermouth)
+DEFINE_CARTRIDGE_FOR_CHEM(cognac,   /decl/material/liquid/alcohol/cognac)
+DEFINE_CARTRIDGE_FOR_CHEM(ale,      /decl/material/liquid/alcohol/ale)
+DEFINE_CARTRIDGE_FOR_CHEM(mead,     /decl/material/liquid/alcohol/mead)
 
 // Bar, soft
 DEFINE_CARTRIDGE_FOR_CHEM(ice,        /decl/material/solid/ice)
@@ -73,6 +73,8 @@ DEFINE_CARTRIDGE_FOR_CHEM(syrup_chocolate, /decl/material/liquid/drink/syrup/cho
 DEFINE_CARTRIDGE_FOR_CHEM(syrup_caramel,   /decl/material/liquid/drink/syrup/caramel)
 DEFINE_CARTRIDGE_FOR_CHEM(syrup_vanilla,   /decl/material/liquid/drink/syrup/vanilla)
 DEFINE_CARTRIDGE_FOR_CHEM(syrup_pumpkin,   /decl/material/liquid/drink/syrup/pumpkin)
+DEFINE_CARTRIDGE_FOR_CHEM(syrup_lavender,  /decl/material/liquid/drink/syrup/lavender)
+DEFINE_CARTRIDGE_FOR_CHEM(cinnamon,        /decl/material/solid/cinnamon)
 
 // Bar, coffee
 DEFINE_CARTRIDGE_FOR_CHEM(coffee,   /decl/material/liquid/drink/coffee)

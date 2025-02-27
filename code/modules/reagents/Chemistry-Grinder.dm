@@ -16,8 +16,8 @@
 	var/list/holdingitems = list()
 
 	var/list/bag_whitelist = list(
-		/obj/item/storage/pill_bottle,
-		/obj/item/storage/plants
+		/obj/item/pill_bottle,
+		/obj/item/plants
 		)
 	var/blacklisted_types = list()
 	var/item_size_limit = ITEM_SIZE_HUGE
@@ -41,23 +41,23 @@
 	else
 		icon_state = "[initial(icon_state)]"
 
-/obj/machinery/reagentgrinder/attackby(var/obj/item/O, var/mob/user)
+/obj/machinery/reagentgrinder/attackby(var/obj/item/used_item, var/mob/user)
 	if((. = ..()))
 		return
 
-	if(!istype(O))
+	if(!istype(used_item))
 		return FALSE
 
-	if (istype(O,/obj/item/chems/glass) || \
-		istype(O,/obj/item/chems/drinks/glass2) || \
-		istype(O,/obj/item/chems/drinks/shaker))
+	if (istype(used_item,/obj/item/chems/glass) || \
+		istype(used_item,/obj/item/chems/drinks/glass2) || \
+		istype(used_item,/obj/item/chems/drinks/shaker))
 
 		if(beaker)
 			return TRUE
 		else
-			if(!user.try_unequip(O, src))
+			if(!user.try_unequip(used_item, src))
 				return FALSE
-			beaker = O
+			beaker = used_item
 			update_icon()
 			SSnano.update_uis(src)
 			return FALSE
@@ -66,52 +66,52 @@
 		to_chat(user, SPAN_NOTICE("\The [src] cannot hold any additional items."))
 		return TRUE
 
-	if(is_type_in_list(O, blacklisted_types))
-		to_chat(user, SPAN_NOTICE("\The [src] cannot grind \the [O]."))
+	if(is_type_in_list(used_item, blacklisted_types))
+		to_chat(user, SPAN_NOTICE("\The [src] cannot grind \the [used_item]."))
 		return FALSE
 
-	if(is_type_in_list(O, bag_whitelist))
-		var/obj/item/storage/bag = O
-		var/failed = TRUE
-		for(var/obj/item/G in O)
-			if(!G.reagents || !G.reagents.total_volume)
-				continue
-			failed = FALSE
-			bag.remove_from_storage(G, src)
-			holdingitems += G
-			if(LAZYLEN(holdingitems) >= limit)
-				break
+	if(is_type_in_list(used_item, bag_whitelist))
+		if(used_item.storage)
+			var/failed = TRUE
+			for(var/obj/item/G in used_item)
+				if(!G.reagents || !G.reagents.total_volume)
+					continue
+				failed = FALSE
+				used_item.storage.remove_from_storage(user, G, src)
+				holdingitems += G
+				if(LAZYLEN(holdingitems) >= limit)
+					break
 
-		if(failed)
-			to_chat(user, SPAN_NOTICE("Nothing in \the [O] is usable."))
-			return TRUE
-		bag.finish_bulk_removal()
+			if(failed)
+				to_chat(user, SPAN_NOTICE("Nothing in \the [used_item] is usable."))
+				return TRUE
+			used_item.storage.finish_bulk_removal()
 
-		if(!length(O.contents))
-			to_chat(user, "You empty \the [O] into \the [src].")
-		else
-			to_chat(user, "You fill \the [src] from \the [O].")
+			if(!length(used_item.contents))
+				to_chat(user, "You empty \the [used_item] into \the [src].")
+			else
+				to_chat(user, "You fill \the [src] from \the [used_item].")
 
-		SSnano.update_uis(src)
-		return FALSE
+			SSnano.update_uis(src)
+			return FALSE
 
-	if(O.w_class > item_size_limit)
-		to_chat(user, SPAN_NOTICE("\The [src] cannot fit \the [O]."))
+	if(used_item.w_class > item_size_limit)
+		to_chat(user, SPAN_NOTICE("\The [src] cannot fit \the [used_item]."))
 		return
 
-	if(istype(O,/obj/item/stack/material))
-		var/decl/material/material = O.get_material()
+	if(istype(used_item,/obj/item/stack/material))
+		var/decl/material/material = used_item.get_material()
 		if(!material)
 			to_chat(user, SPAN_NOTICE("\The [material.solid_name] cannot be ground down to any usable reagents."))
 			return TRUE
 
-	else if(!O.reagents?.total_volume)
-		to_chat(user, SPAN_NOTICE("\The [O] is not suitable for grinding."))
+	else if(!used_item.reagents?.total_volume)
+		to_chat(user, SPAN_NOTICE("\The [used_item] is not suitable for grinding."))
 		return TRUE
 
-	if(!user.try_unequip(O, src))
+	if(!user.try_unequip(used_item, src))
 		return FALSE
-	holdingitems += O
+	holdingitems += used_item
 	SSnano.update_uis(src)
 	return FALSE
 
@@ -128,8 +128,8 @@
 	data["beaker"] = !!beaker
 
 	data["contents"] = list()
-	for(var/obj/item/O in holdingitems)
-		data["contents"] += "<b>[capitalize(O.name)]</b>"
+	for(var/obj/item/thing in holdingitems)
+		data["contents"] += "<b>[capitalize(thing.name)]</b>"
 
 	data["beakercontents"] = list()
 	if(beaker?.reagents)
@@ -171,9 +171,9 @@
 	if (!LAZYLEN(holdingitems))
 		return FALSE
 
-	for(var/obj/item/O in holdingitems)
-		O.dropInto(loc)
-		holdingitems -= O
+	for(var/obj/item/thing in holdingitems)
+		thing.dropInto(loc)
+		holdingitems -= thing
 	holdingitems.Cut()
 
 /obj/machinery/reagentgrinder/proc/grind(mob/user)
@@ -192,41 +192,41 @@
 	update_icon()
 
 	// Reset the machine.
-	addtimer(CALLBACK(src, .proc/end_grind, user), 6 SECONDS, TIMER_UNIQUE)
+	addtimer(CALLBACK(src, PROC_REF(end_grind), user), 6 SECONDS, TIMER_UNIQUE)
 
 	var/skill_factor = CLAMP01(1 + 0.3*(user.get_skill_value(skill_to_check) - SKILL_EXPERT)/(SKILL_EXPERT - SKILL_MIN))
 	// Process.
-	for (var/obj/item/O in holdingitems)
+	for (var/obj/item/thing in holdingitems)
 
 		var/remaining_volume = beaker.reagents.maximum_volume - beaker.reagents.total_volume
 		if(remaining_volume <= 0)
 			break
 
-		var/obj/item/stack/material/stack = O
+		var/obj/item/stack/material/stack = thing
 		if(istype(stack))
 			var/decl/material/material = stack.get_material()
 			if(!material)
 				break
 
-			var/amount_to_take = max(0,min(stack.amount, FLOOR(remaining_volume / REAGENT_UNITS_PER_MATERIAL_SHEET)))
+			var/amount_to_take = max(0,min(stack.amount, floor(remaining_volume / REAGENT_UNITS_PER_MATERIAL_SHEET)))
 			if(amount_to_take)
 				stack.use(amount_to_take)
 				if(QDELETED(stack))
 					holdingitems -= stack
-				beaker.reagents.add_reagent(material.type, (amount_to_take * REAGENT_UNITS_PER_MATERIAL_SHEET * skill_factor))
+				beaker.add_to_reagents(material.type, (amount_to_take * REAGENT_UNITS_PER_MATERIAL_SHEET * skill_factor))
 				continue
 
-		else if(O.reagents)
-			O.reagents.trans_to(beaker, O.reagents.total_volume, skill_factor)
-			holdingitems -= O
-			qdel(O)
+		else if(thing.reagents)
+			thing.reagents.trans_to(beaker, thing.reagents.total_volume, skill_factor)
+			holdingitems -= thing
+			qdel(thing)
 
 /obj/machinery/reagentgrinder/proc/end_grind(mob/user)
 	inuse = FALSE
 	if(CanPhysicallyInteractWith(user, src))
 		interface_interact(user)
 
-/obj/machinery/reagentgrinder/proc/attempt_skill_effect(mob/living/carbon/human/user)
+/obj/machinery/reagentgrinder/proc/attempt_skill_effect(mob/living/human/user)
 	if(!istype(user) || !prob(user.skill_fail_chance(skill_to_check, 50, SKILL_BASIC)))
 		return FALSE
 	var/hand = pick(BP_L_HAND, BP_R_HAND)
@@ -238,13 +238,13 @@
 	user.visible_message(SPAN_DANGER("\The [user]'s hand gets caught in \the [src]!"), SPAN_DANGER("Your hand gets caught in \the [src]!"))
 	user.apply_damage(dam, BRUTE, hand, damage_flags = DAM_SHARP, used_weapon = "grinder")
 	if(BP_IS_PROSTHETIC(hand_organ))
-		beaker.reagents.add_reagent(/decl/material/solid/metal/iron, dam)
+		beaker.add_to_reagents(/decl/material/solid/metal/iron, dam)
 	else
 		user.take_blood(beaker, dam)
 	SET_STATUS_MAX(user, STAT_STUN, 2)
-	shake(user, 40)
+	shake_target(user, 4 SECONDS)
 
-/obj/machinery/reagentgrinder/proc/shake(mob/living/user, duration)
+/obj/machinery/reagentgrinder/proc/shake_target(mob/living/user, duration)
 	if(!user)
 		return
 	for(var/i = 1 to duration)
@@ -266,11 +266,11 @@
 	obj_flags = null
 	grind_sound = 'sound/machines/juicer.ogg'
 	blacklisted_types = list(/obj/item/stack/material)
-	bag_whitelist = list(/obj/item/storage/plants)
+	bag_whitelist = list(/obj/item/plants)
 	item_size_limit = ITEM_SIZE_SMALL
 	skill_to_check = SKILL_COOKING
 
-/obj/machinery/reagentgrinder/juicer/attempt_skill_effect(mob/living/carbon/human/user)
+/obj/machinery/reagentgrinder/juicer/attempt_skill_effect(mob/living/human/user)
 	if(!istype(user) || !prob(user.skill_fail_chance(skill_to_check, 50, SKILL_BASIC)))
 		return
 	visible_message(SPAN_NOTICE("\The [src] whirrs violently and spills its contents all over \the [user]!"))

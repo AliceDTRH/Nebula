@@ -9,19 +9,23 @@
 	icon_state         = "pad_full"
 	item_state         = "paper"
 	w_class            = ITEM_SIZE_SMALL
-	material           = /decl/material/solid/paper
+	material           = /decl/material/solid/organic/paper
 	var/papers         = 50
 	var/tmp/max_papers = 50
 	var/paper_type     = /obj/item/paper/sticky
-	var/obj/item/paper/top                        //The instanciated paper on the top of the pad, if there's one
+	var/obj/item/paper/top                        //The instantiated paper on the top of the pad, if there's one
 
 /obj/item/sticky_pad/Initialize(ml, material_key)
 	. = ..()
 	update_top_paper()
 
+/obj/item/sticky_pad/Destroy()
+	top = null
+	return ..()
+
 /obj/item/sticky_pad/proc/update_matter()
 	matter = list(
-		/decl/material/solid/paper = round((papers * SHEET_MATERIAL_AMOUNT) * 0.2)
+		/decl/material/solid/organic/paper = round((papers * SHEET_MATERIAL_AMOUNT) * 0.2)
 	)
 
 /obj/item/sticky_pad/create_matter()
@@ -39,24 +43,27 @@
 	if(top?.info)
 		icon_state = "[icon_state]_writing"
 
-/obj/item/sticky_pad/attackby(var/obj/item/thing, var/mob/user)
-	if(IS_PEN(thing) || istype(thing, /obj/item/stamp))
-		. = top?.attackby(thing, user)
+/obj/item/sticky_pad/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_PEN(used_item) || istype(used_item, /obj/item/stamp))
+		. = top?.attackby(used_item, user)
 		update_icon()
 		return .
 	return ..()
 
-/obj/item/sticky_pad/examine(mob/user)
+/obj/item/sticky_pad/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, SPAN_NOTICE("It has [papers] sticky note\s left."))
-	to_chat(user, SPAN_NOTICE("You can click it on grab intent to pick it up."))
+	. += SPAN_NOTICE("It has [papers] sticky note\s left.")
+
+/obj/item/sticky_pad/get_examine_hints(mob/user, distance, infix, suffix)
+	. = ..()
+	LAZYADD(., SPAN_NOTICE("You can click it on grab intent to pick it up."))
 
 /obj/item/sticky_pad/dragged_onto(mob/user)
 	user.put_in_hands(top)
 	. = ..()
 
 /obj/item/sticky_pad/attack_hand(var/mob/user)
-	if(user.a_intent == I_GRAB)
+	if(user.check_intent(I_FLAG_GRAB))
 		return ..()
 	if(!top)
 		return TRUE
@@ -80,7 +87,7 @@
 
 /obj/item/sticky_pad/random/Initialize()
 	. = ..()
-	color = pick(COLOR_YELLOW, COLOR_LIME, COLOR_CYAN, COLOR_ORANGE, COLOR_PINK)
+	set_color(pick(COLOR_YELLOW, COLOR_LIME, COLOR_CYAN, COLOR_ORANGE, COLOR_PINK))
 
 ////////////////////////////////////////////////
 // Sticky Note Sheet
@@ -88,7 +95,7 @@
 /obj/item/paper/sticky
 	name            = "sticky note"
 	desc            = "Note to self: buy more sticky notes."
-	icon            = 'icons/obj/stickynotes.dmi'
+	icon            = 'icons/obj/items/paperwork/sticky_note.dmi'
 	color           = COLOR_YELLOW
 	slot_flags      = 0
 	layer           = ABOVE_WINDOW_LAYER
@@ -97,7 +104,7 @@
 
 /obj/item/paper/sticky/Initialize()
 	. = ..()
-	events_repository.register(/decl/observ/moved, src, src, /obj/item/paper/sticky/proc/reset_persistence_tracking)
+	events_repository.register(/decl/observ/moved, src, src, TYPE_PROC_REF(/obj/item/paper/sticky, reset_persistence_tracking))
 
 /obj/item/paper/sticky/proc/reset_persistence_tracking()
 	SSpersistence.forget_value(src, /decl/persistence_handler/paper/sticky)
@@ -109,10 +116,6 @@
 	events_repository.unregister(/decl/observ/moved, src, src)
 	. = ..()
 
-/obj/item/paper/sticky/update_contents_overlays()
-	if(length(info))
-		add_overlay("sticky_words")
-
 // Copied from duct tape.
 /obj/item/paper/sticky/attack_hand()
 	. = ..()
@@ -122,9 +125,9 @@
 /obj/item/paper/sticky/can_bundle()
 	return FALSE // Would otherwise lead to buggy interaction
 
-/obj/item/paper/sticky/afterattack(var/A, var/mob/user, var/flag, var/params)
+/obj/item/paper/sticky/afterattack(var/atom/A, var/mob/user, var/flag, var/params)
 
-	if(!in_range(user, A) || istype(A, /obj/machinery/door) || istype(A, /obj/item/storage) || is_crumpled)
+	if(!in_range(user, A) || istype(A, /obj/machinery/door) || A.storage || is_crumpled)
 		return
 
 	var/turf/target_turf = get_turf(A)

@@ -6,7 +6,6 @@ var/global/list/singularities = list()
 	icon_state = "singularity_s1"
 	anchored =   TRUE
 	density =    TRUE
-	unacidable = TRUE //Don't comment this out.
 	layer = SINGULARITY_LAYER
 	light_power = 1
 	light_range = 6
@@ -14,7 +13,7 @@ var/global/list/singularities = list()
 
 	/// Category used for investigation entries relating to this atom.
 	var/const/investigation_label = "singulo"
-	/// A list of events. Toxins is in here twice to double the chance of proccing.
+	/// A weighted list of events.
 	var/static/list/singularity_events = list(
 		/decl/singularity_event/empulse   = 1,
 		/decl/singularity_event/toxins    = 2,
@@ -42,7 +41,7 @@ var/global/list/singularities = list()
 	var/found_containment = locate(/obj/effect/containment_field) in orange(30, src)
 	if(!found_containment)
 		last_warning = world.time
-		message_admins("A singulo has been created without containment fields active ([x], [y], [z] - <A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>).")
+		message_admins("A singulo has been created without containment fields active ([x], [y], [z] - <A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[x];Y=[y];Z=[z]'>JMP</a>).")
 	investigate_log("was created. [found_containment ? "" : "<font color='red'>No containment fields were active.</font>"]", investigation_label)
 	current_stage = GET_DECL(/decl/singularity_stage/stage_one)
 	energy = starting_energy
@@ -56,15 +55,15 @@ var/global/list/singularities = list()
 	STOP_PROCESSING(SSobj, src)
 	. = ..()
 
-/obj/effect/singularity/Process_Spacemove(allow_movement)
-	return TRUE
+/obj/effect/singularity/is_space_movement_permitted(allow_movement = FALSE)
+	return SPACE_MOVE_PERMITTED
 
 /obj/effect/singularity/proc/consume(atom/A)
 	energy += A.singularity_act(src, current_stage.stage_size)
 
 /obj/effect/singularity/explosion_act(severity)
 	SHOULD_CALL_PARENT(FALSE)
-	if(current_stage.stage_size == STAGE_SUPER)//IT'S UNSTOPPABLE
+	if(!current_stage.explosion_vulnerable)//IT'S UNSTOPPABLE
 		return
 	if(severity == 1)
 		if(prob(25))
@@ -154,16 +153,13 @@ var/global/list/singularities = list()
 
 	// Handle random events.
 	if(prob(current_stage.event_chance))
-		if(current_stage.stage_size >= STAGE_SUPER)
-			var/decl/singularity_event/wave_event = GET_DECL(/decl/singularity_event/supermatter_wave)
-			wave_event.handle_event(src)
-		var/decl/singularity_event/singularity_event = pickweight(singularity_events)
+		var/decl/singularity_event/singularity_event = current_stage.forced_event || pickweight(singularity_events)
 		singularity_event = GET_DECL(singularity_event)
 		singularity_event.handle_event(src)
 
 /obj/effect/singularity/proc/try_move(var/movement_dir, var/vertical_move)
 	set waitfor = FALSE
-	if(current_stage.stage_size >= STAGE_FIVE)//The superlarge one does not care about things in its way
+	if(current_stage.ignore_obstacles)//The superlarge one does not care about things in its way
 		step(src, movement_dir)
 		if(!vertical_move)
 			sleep(1)

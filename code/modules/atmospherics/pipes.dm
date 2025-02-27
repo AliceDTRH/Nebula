@@ -8,13 +8,13 @@
 	stat_immune = NOSCREEN | NOINPUT | NOPOWER
 	interact_offline = TRUE //Needs to be set so that pipes don't say they lack power in their description
 
-	can_buckle = 1
+	can_buckle = TRUE
 	buckle_require_restraints = 1
 	buckle_lying = -1
 	build_icon_state = "simple"
 	build_icon = 'icons/obj/pipe-item.dmi'
 	pipe_class = PIPE_CLASS_BINARY
-	atom_flags = ATOM_FLAG_CAN_BE_PAINTED | ATOM_FLAG_NO_REACT
+	atom_flags = ATOM_FLAG_CAN_BE_PAINTED | ATOM_FLAG_NO_CHEM_CHANGE
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
 
 	frame_type = /obj/item/pipe
@@ -36,13 +36,21 @@
 	return -1
 
 /obj/machinery/atmospherics/pipe/Initialize()
-	if(istype(get_turf(src), /turf/simulated/wall) || istype(get_turf(src), /turf/simulated/shuttle/wall) || istype(get_turf(src), /turf/unsimulated/wall))
-		level = 1
+	var/turf/T = get_turf(src)
+	if(T?.is_wall())
+		level = LEVEL_BELOW_PLATING
 	alpha = 255 // for mapping hidden pipes
 	. = ..()
 
 /obj/machinery/atmospherics/pipe/hides_under_flooring()
-	return level != 2
+	return level == LEVEL_BELOW_PLATING
+
+// Only simple pipes need this override because they handle diagonals weird.
+// We rotate the vertical and horizontal components separately.
+/obj/machinery/atmospherics/pipe/simple/shuttle_rotate(angle)
+	if(angle)
+		set_dir(SAFE_TURN(dir & (NORTH|SOUTH), angle) | SAFE_TURN(dir & (EAST|WEST), angle))
+		return TRUE
 
 /obj/machinery/atmospherics/pipe/proc/set_leaking(var/new_leaking)
 	if(new_leaking && !leaking)
@@ -81,7 +89,7 @@
 	qdel(parent)
 	..()
 	var/turf/T = loc
-	if(level == 1 && isturf(T) && !T.is_plating())
+	if(level == LEVEL_BELOW_PLATING && isturf(T) && !T.is_plating())
 		hide(1)
 
 /obj/machinery/atmospherics/pipe/return_air()
@@ -137,7 +145,7 @@
 /obj/machinery/atmospherics/pipe/cannot_transition_to(state_path, mob/user)
 	if(state_path == /decl/machine_construction/default/deconstructed)
 		var/turf/T = get_turf(src)
-		if (level==1 && isturf(T) && !T.is_plating())
+		if (level == LEVEL_BELOW_PLATING && isturf(T) && !T.is_plating())
 			return SPAN_WARNING("You must remove the plating first.")
 	return ..()
 
@@ -190,19 +198,20 @@
 	set_leaking(missing)
 
 /obj/machinery/atmospherics/pipe/hide(var/i)
-	if(istype(loc, /turf/simulated))
+	var/turf/turf = loc
+	if(istype(turf) && turf.simulated)
 		set_invisibility(i ? 101 : 0)
 	update_icon()
 
 /obj/machinery/atmospherics/pipe/Process()
-	if(!parent) //This should cut back on the overhead calling build_network thousands of times per cycle
+	if(!parent || !loc) //This should cut back on the overhead calling build_network thousands of times per cycle
 		..()
-	else if(parent.air.compare(loc.return_air()))
+	else if(parent.air?.compare(loc.return_air()))
 		update_sound(0)
 		. = PROCESS_KILL
 	else if(leaking)
 		parent.mingle_with_turf(loc, volume)
-		var/air = parent.air && parent.air.return_pressure()
+		var/air = parent.air?.return_pressure()
 		if(!sound_token && air)
 			update_sound(1)
 		else if(sound_token && !air)
@@ -214,14 +223,14 @@
 	icon = 'icons/atmos/pipes.dmi'
 	icon_state = "11"
 	name = "pipe"
-	desc = "A one meter section of regular pipe."
+	desc = "A one-meter section of regular pipe."
 
 	volume = ATMOS_DEFAULT_VOLUME_PIPE
 
 	dir = SOUTH
 	initialize_directions = SOUTH|NORTH
 
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	rotate_class = PIPE_ROTATE_TWODIR
 	connect_dir_type = SOUTH | NORTH // Overridden if dir is not a cardinal for bent pipes. For straight pipes this is correct.
@@ -242,6 +251,7 @@
 		//TODO: leak to turf, doing pfshhhhh
 		if(prob(5))
 			burst()
+		else return 1
 
 	else return 1
 
@@ -255,7 +265,7 @@
 	smoke.start()
 	qdel(src)
 
-/obj/machinery/atmospherics/pipe/simple/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/simple/on_update_icon()
 	if(!atmos_initalized)
 		return
 
@@ -266,17 +276,16 @@
 		integrity_key += "[!!length(nodes_in_dir(direction))]"
 
 	icon_state = "[integrity_key][icon_connect_type]"
-	if(!isnull(pipe_color))
-		color = pipe_color
+	color = get_color()
 
 	try_leak()
 
 /obj/machinery/atmospherics/pipe/simple/visible
-	level = 2
+	level = LEVEL_ABOVE_PLATING
 
 /obj/machinery/atmospherics/pipe/simple/visible/scrubbers
 	name = "scrubbers pipe"
-	desc = "A one meter section of scrubbers pipe."
+	desc = "A one-meter section of scrubbers pipe."
 	icon_state = "11-scrubbers"
 	connect_types = CONNECT_TYPE_SCRUBBER
 	icon_connect_type = "-scrubbers"
@@ -284,7 +293,7 @@
 
 /obj/machinery/atmospherics/pipe/simple/visible/supply
 	name = "air supply pipe"
-	desc = "A one meter section of supply pipe."
+	desc = "A one-meter section of supply pipe."
 	icon_state = "11-supply"
 	connect_types = CONNECT_TYPE_SUPPLY
 	icon_connect_type = "-supply"
@@ -319,12 +328,12 @@
 	connect_types = CONNECT_TYPE_FUEL
 
 /obj/machinery/atmospherics/pipe/simple/hidden
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	alpha = 128		//set for the benefit of mapping - this is reset to opaque when the pipe is spawned in game
 
 /obj/machinery/atmospherics/pipe/simple/hidden/scrubbers
 	name = "scrubbers pipe"
-	desc = "A one meter section of scrubbers pipe."
+	desc = "A one-meter section of scrubbers pipe."
 	icon_state = "11-scrubbers"
 	connect_types = CONNECT_TYPE_SCRUBBER
 	icon_connect_type = "-scrubbers"
@@ -332,7 +341,7 @@
 
 /obj/machinery/atmospherics/pipe/simple/hidden/supply
 	name = "air supply pipe"
-	desc = "A one meter section of supply pipe."
+	desc = "A one-meter section of supply pipe."
 	icon_state = "11-supply"
 	connect_types = CONNECT_TYPE_SUPPLY
 	icon_connect_type = "-supply"
@@ -377,19 +386,19 @@
 	initialize_directions = EAST|NORTH|WEST
 
 	build_icon_state = "manifold"
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	pipe_class = PIPE_CLASS_TRINARY
 	connect_dir_type = NORTH | EAST | WEST
 
-/obj/machinery/atmospherics/pipe/manifold/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/manifold/on_update_icon()
 	if(!atmos_initalized)
 		return
 
 	icon_state = null
 	cut_overlays()
 	var/image/I = image(icon, "core[icon_connect_type]")
-	I.color = pipe_color
+	I.color = get_color()
 	add_overlay(I)
 	add_overlay("clamps[icon_connect_type]")
 
@@ -404,10 +413,10 @@
 
 /obj/machinery/atmospherics/pipe/manifold/visible
 	icon_state = "map"
-	level = 2
+	level = LEVEL_ABOVE_PLATING
 
 /obj/machinery/atmospherics/pipe/manifold/visible/scrubbers
-	name="Scrubbers pipe manifold"
+	name = "scrubbers pipe manifold"
 	desc = "A manifold composed of scrubbers pipes."
 	icon_state = "map-scrubbers"
 	connect_types = CONNECT_TYPE_SCRUBBER
@@ -415,7 +424,7 @@
 	color = PIPE_COLOR_RED
 
 /obj/machinery/atmospherics/pipe/manifold/visible/supply
-	name="Air supply pipe manifold"
+	name = "air supply pipe manifold"
 	desc = "A manifold composed of supply pipes."
 	icon_state = "map-supply"
 	connect_types = CONNECT_TYPE_SUPPLY
@@ -450,11 +459,11 @@
 
 /obj/machinery/atmospherics/pipe/manifold/hidden
 	icon_state = "map"
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	alpha = 128		//set for the benefit of mapping - this is reset to opaque when the pipe is spawned in game
 
 /obj/machinery/atmospherics/pipe/manifold/hidden/scrubbers
-	name="Scrubbers pipe manifold"
+	name = "scrubbers pipe manifold"
 	desc = "A manifold composed of scrubbers pipes."
 	icon_state = "map-scrubbers"
 	connect_types = CONNECT_TYPE_SCRUBBER
@@ -462,7 +471,7 @@
 	color = PIPE_COLOR_RED
 
 /obj/machinery/atmospherics/pipe/manifold/hidden/supply
-	name="Air supply pipe manifold"
+	name = "air supply pipe manifold"
 	desc = "A manifold composed of supply pipes."
 	icon_state = "map-supply"
 	connect_types = CONNECT_TYPE_SUPPLY
@@ -506,20 +515,20 @@
 	initialize_directions = NORTH|SOUTH|EAST|WEST
 
 	build_icon_state = "manifold4w"
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	pipe_class = PIPE_CLASS_QUATERNARY
 	rotate_class = PIPE_ROTATE_ONEDIR
 	connect_dir_type = NORTH | SOUTH | EAST | WEST
 
-/obj/machinery/atmospherics/pipe/manifold4w/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/manifold4w/on_update_icon()
 	if(!atmos_initalized)
 		return
 
 	icon_state = null
 	cut_overlays()
 	var/image/I = image(icon, "4way[icon_connect_type]")
-	I.color = pipe_color
+	I.color = get_color()
 	add_overlay(I)
 	add_overlay("clamps_4way[icon_connect_type]")
 
@@ -534,7 +543,7 @@
 
 /obj/machinery/atmospherics/pipe/manifold4w/visible
 	icon_state = "map_4way"
-	level = 2
+	level = LEVEL_ABOVE_PLATING
 
 /obj/machinery/atmospherics/pipe/manifold4w/visible/scrubbers
 	name="4-way scrubbers pipe manifold"
@@ -577,7 +586,7 @@
 
 /obj/machinery/atmospherics/pipe/manifold4w/hidden
 	icon_state = "map_4way"
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	alpha = 128		//set for the benefit of mapping - this is reset to opaque when the pipe is spawned in game
 
 /obj/machinery/atmospherics/pipe/manifold4w/hidden/scrubbers
@@ -624,7 +633,7 @@
 	desc = "An endcap for pipes."
 	icon = 'icons/atmos/pipes.dmi'
 	icon_state = "cap"
-	level = 2
+	level = LEVEL_ABOVE_PLATING
 	volume = 35
 
 	pipe_class = PIPE_CLASS_UNARY
@@ -632,12 +641,12 @@
 	initialize_directions = SOUTH
 	build_icon_state = "cap"
 
-/obj/machinery/atmospherics/pipe/cap/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/cap/on_update_icon()
 	icon_state = "cap[icon_connect_type]"
-	color = pipe_color
+	color = get_color()
 
 /obj/machinery/atmospherics/pipe/cap/visible
-	level = 2
+	level = LEVEL_ABOVE_PLATING
 	icon_state = "cap"
 
 /obj/machinery/atmospherics/pipe/cap/visible/scrubbers
@@ -663,7 +672,7 @@
 	connect_types = CONNECT_TYPE_FUEL
 
 /obj/machinery/atmospherics/pipe/cap/hidden
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	icon_state = "cap"
 	alpha = 128
 
@@ -690,13 +699,13 @@
 	connect_types = CONNECT_TYPE_FUEL
 
 /obj/machinery/atmospherics/pipe/simple/visible/universal
-	name="Universal pipe adapter"
+	name = "universal pipe adapter"
 	desc = "An adapter for regular, supply, scrubbers, and fuel pipes."
 	connect_types = CONNECT_TYPE_REGULAR|CONNECT_TYPE_SUPPLY|CONNECT_TYPE_SCRUBBER|CONNECT_TYPE_FUEL|CONNECT_TYPE_HE
 	icon_state = "map_universal"
 	build_icon_state = "universal"
 
-/obj/machinery/atmospherics/pipe/simple/visible/universal/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/simple/visible/universal/on_update_icon()
 	if(!atmos_initalized)
 		return
 
@@ -708,13 +717,13 @@
 			universal_underlays(direction)
 
 /obj/machinery/atmospherics/pipe/simple/hidden/universal
-	name="Universal pipe adapter"
-	desc = "An adapter for regular, supply and scrubbers pipes."
+	name = "universal pipe adapter"
+	desc = "An adapter for regular, supply, scrubbers, and fuel pipes."
 	connect_types = CONNECT_TYPE_REGULAR|CONNECT_TYPE_SUPPLY|CONNECT_TYPE_SCRUBBER|CONNECT_TYPE_FUEL|CONNECT_TYPE_HE
 	icon_state = "map_universal"
 	build_icon_state = "universal"
 
-/obj/machinery/atmospherics/pipe/simple/hidden/universal/on_update_icon(var/safety = 0)
+/obj/machinery/atmospherics/pipe/simple/hidden/universal/on_update_icon()
 	if(!atmos_initalized)
 		return
 

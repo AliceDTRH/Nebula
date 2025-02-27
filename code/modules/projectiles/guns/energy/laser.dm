@@ -5,10 +5,10 @@
 	icon_state = ICON_STATE_WORLD
 	slot_flags = SLOT_LOWER_BODY|SLOT_BACK
 	w_class = ITEM_SIZE_LARGE
-	force = 10
+	_base_attack_force = 10
 	one_hand_penalty = 2
 	bulk = GUN_BULK_RIFLE
-	origin_tech = "{'combat':3,'magnets':2}"
+	origin_tech = @'{"combat":3,"magnets":2}'
 	material = /decl/material/solid/metal/steel
 	projectile_type = /obj/item/projectile/beam/midlaser
 	matter = list(
@@ -30,7 +30,7 @@
 
 /obj/item/gun/energy/laser/practice/on_update_icon()
 	. = ..()
-	overlays += mutable_appearance(icon, "[icon_state]_stripe", COLOR_ORANGE)
+	add_overlay(mutable_appearance(icon, "[icon_state]_stripe", COLOR_ORANGE))
 
 /obj/item/gun/energy/laser/practice/proc/hacked()
 	return projectile_type != /obj/item/projectile/beam/practice
@@ -59,7 +59,6 @@
 	icon = 'icons/obj/guns/caplaser.dmi'
 	icon_state = ICON_STATE_WORLD
 	desc = "A rare weapon, handcrafted by a now defunct specialty manufacturer on Luna for a small fortune. It's certainly aged well."
-	force = 5
 	slot_flags = SLOT_LOWER_BODY //too unusually shaped to fit in a holster
 	w_class = ITEM_SIZE_NORMAL
 	projectile_type = /obj/item/projectile/beam
@@ -71,10 +70,9 @@
 /obj/item/gun/energy/lasercannon
 	name = "laser cannon"
 	desc = "With the laser cannon, the lasing medium is enclosed in a tube lined with uranium-235 and subjected to high neutron flux in a nuclear reactor core. This incredible technology may help YOU achieve high excitation rates with small laser volumes!"
-	icon_state = "lasercannon"
 	icon = 'icons/obj/guns/laser_cannon.dmi'
 	icon_state = ICON_STATE_WORLD
-	origin_tech = "{'combat':4,'materials':3,'powerstorage':3}"
+	origin_tech = @'{"combat":4,"materials":3,"powerstorage":3}'
 	slot_flags = SLOT_LOWER_BODY|SLOT_BACK
 	one_hand_penalty = 6 //large and heavy
 	w_class = ITEM_SIZE_HUGE
@@ -98,9 +96,9 @@
 	one_hand_penalty = 0
 	has_safety = FALSE
 
-
 /obj/item/gun/energy/laser/reloadable
 	name = "reloadable laser carbine"
 	desc = "A G40E carbine, designed to kill with concentrated energy blasts. Uses removable energy cells."
-	power_supply = null
-	accepts_cell_type = /obj/item/cell/gun
+
+/obj/item/gun/energy/laser/reloadable/setup_power_supply(loaded_cell_type, accepted_cell_type, power_supply_extension_type, charge_value)
+	return ..(/obj/item/cell/gun, /obj/item/cell/gun, /datum/extension/loaded_cell, charge_value)

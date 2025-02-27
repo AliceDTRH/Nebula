@@ -1,5 +1,5 @@
 /datum/inventory_slot/handcuffs
-	slot_id = "Handcuffs"
+	slot_name = "Handcuffs"
 	slot_id = slot_handcuffed_str
 	skip_on_inventory_display = TRUE // Handcuffs have their own logic on examine.
 	skip_on_strip_display = TRUE // Handcuffs are removed with their own button in the strip menu.
@@ -7,9 +7,7 @@
 		BP_L_HAND,
 		BP_R_HAND
 	)
-
-/datum/inventory_slot/handcuffs/update_overlay(var/mob/living/user, var/obj/item/prop, var/redraw_mob = TRUE)
-	user.update_inv_handcuffed(redraw_mob)
+	mob_overlay_layer = HO_HANDCUFF_LAYER
 
 /datum/inventory_slot/handcuffs/equipped(mob/living/user, obj/item/prop, var/silent = FALSE)
 	. = ..()

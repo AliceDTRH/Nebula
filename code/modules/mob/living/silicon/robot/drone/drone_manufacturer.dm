@@ -64,22 +64,22 @@
 
 	icon_state = "drone_fab_active"
 	var/elapsed = world.time - time_last_drone
-	drone_progress = round((elapsed/config.drone_build_time)*100)
+	drone_progress = round((elapsed/get_config_value(/decl/config/num/drone_build_time))*100)
 
 	if(drone_progress >= 100)
 		visible_message("\The [src] voices a strident beep, indicating a drone chassis is prepared.")
 
-/obj/machinery/drone_fabricator/examine(mob/user)
+/obj/machinery/drone_fabricator/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	if(produce_drones && drone_progress >= 100 && isghost(user) && config.allow_drone_spawn && count_drones() < config.max_maint_drones)
-		to_chat(user, "<BR><B>A drone is prepared. Select 'Join As Drone' from the Ghost tab to spawn as a maintenance drone.</B>")
+	if(produce_drones && drone_progress >= 100 && isghost(user) && get_config_value(/decl/config/toggle/on/allow_drone_spawn) && count_drones() < get_config_value(/decl/config/num/max_maint_drones))
+		. += "<B>A drone is prepared. Select 'Join As Drone' from the Ghost tab to spawn as a maintenance drone.</B>"
 
 /obj/machinery/drone_fabricator/proc/create_drone(var/client/player)
 
 	if(stat & NOPOWER)
 		return
 
-	if(!produce_drones || !config.allow_drone_spawn || count_drones() >= config.max_maint_drones)
+	if(!produce_drones || !get_config_value(/decl/config/toggle/on/allow_drone_spawn) || count_drones() >= get_config_value(/decl/config/num/max_maint_drones))
 		return
 
 	if(player && !isghost(player.mob))
@@ -107,20 +107,24 @@
 /proc/try_drone_spawn(var/mob/user, var/obj/machinery/drone_fabricator/fabricator)
 
 	if(GAME_STATE < RUNLEVEL_GAME)
-		to_chat(user, "<span class='danger'>The game hasn't started yet!</span>")
+		to_chat(user, SPAN_WARNING("The game hasn't started yet!"))
 		return
 
-	if(!(config.allow_drone_spawn))
-		to_chat(user, "<span class='danger'>That verb is not currently permitted.</span>")
+	if(get_config_value(/decl/config/enum/server_whitelist) == CONFIG_SERVER_JOIN_WHITELIST && !check_server_whitelist(user))
+		to_chat(user, SPAN_WARNING("Non-whitelisted players cannot join rounds except as observers."))
+		return
+
+	if(!get_config_value(/decl/config/toggle/on/allow_drone_spawn))
+		to_chat(user, SPAN_WARNING("That verb is not currently permitted."))
 		return
 
 	if(jobban_isbanned(user,ASSIGNMENT_ROBOT))
-		to_chat(user, "<span class='danger'>You are banned from playing synthetics and cannot spawn as a drone.</span>")
+		to_chat(user, SPAN_WARNING("You are banned from playing synthetics and cannot spawn as a drone."))
 		return
 
-	if(config.use_age_restriction_for_jobs && isnum(user.client.player_age))
+	if(get_config_value(/decl/config/num/use_age_restriction_for_jobs) && isnum(user.client.player_age))
 		if(user.client.player_age <= 3)
-			to_chat(user, "<span class='danger'> Your account is not old enough to play as a maintenance drone.</span>")
+			to_chat(user, SPAN_WARNING("Your account is not old enough to play as a maintenance drone."))
 			return
 
 	if(!user.MayRespawn(1, DRONE_SPAWN_DELAY))
@@ -135,7 +139,7 @@
 			all_fabricators[DF.fabricator_tag] = DF
 
 		if(!all_fabricators.len)
-			to_chat(user, "<span class='danger'>There are no available drone spawn points, sorry.</span>")
+			to_chat(user, SPAN_WARNING("There are no available drone spawn points, sorry."))
 			return
 
 		var/choice = input(user,"Which fabricator do you wish to use?") as null|anything in all_fabricators

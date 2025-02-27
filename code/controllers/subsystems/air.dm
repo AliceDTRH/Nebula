@@ -134,10 +134,17 @@ SUBSYSTEM_DEF(air)
 
 	var/simulated_turf_count = 0
 	for(var/turf/T in world)
+		// Although update_air_properties can be called on non-ZAS participating turfs for convenience, it is unnecessary on roundstart/reboot.
 		if(!SHOULD_PARTICIPATE_IN_ZONES(T))
 			continue
 		simulated_turf_count++
+		// We also skip anything already queued, since it'll be settled when fire() runs anyway.
+		if(T.needs_air_update)
+			continue
 		T.update_air_properties()
+		// air state is necessarily globally incomplete during this
+		// so we can't do T.post_update_air_properties(), which needs
+		// connections to have been settled already.
 		CHECK_TICK
 
 	report_progress({"Total Simulated Turfs: [simulated_turf_count]
@@ -172,6 +179,7 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	var/list/curr_hotspot = processing_hotspots
 	var/list/curr_zones = zones_to_update
 
+	var/airblock // zeroed by ATMOS_CANPASS_TURF, declared early as microopt
 	while (curr_tiles.len)
 		var/turf/T = curr_tiles[curr_tiles.len]
 		curr_tiles.len--
@@ -185,9 +193,8 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			continue
 
 		//check if the turf is self-zone-blocked
-		var/c_airblock
-		ATMOS_CANPASS_TURF(c_airblock, T, T)
-		if(c_airblock & ZONE_BLOCKED)
+		ATMOS_CANPASS_TURF(airblock, T, T)
+		if(airblock & ZONE_BLOCKED)
 			deferred += T
 			if (no_mc_tick)
 				CHECK_TICK
@@ -197,9 +204,9 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 
 		T.update_air_properties()
 		T.post_update_air_properties()
-		T.needs_air_update = 0
+		T.needs_air_update = FALSE
 		#ifdef ZASDBG
-		remove_vis_contents(T, zasdbgovl_mark)
+		T.remove_vis_contents(zasdbgovl_mark)
 		#endif
 
 		if (no_mc_tick)
@@ -213,9 +220,9 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 
 		T.update_air_properties()
 		T.post_update_air_properties()
-		T.needs_air_update = 0
+		T.needs_air_update = FALSE
 		#ifdef ZASDBG
-		remove_vis_contents(T, zasdbgovl_mark)
+		T.remove_vis_contents(zasdbgovl_mark)
 		#endif
 
 		if (no_mc_tick)
@@ -337,8 +344,13 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 			merge(A.zone,B.zone)
 			return
 
+	#ifdef MULTIZAS
+	var/a_to_b = get_dir_multiz(A,B)
+	var/b_to_a = get_dir_multiz(B,A)
+	#else
 	var/a_to_b = get_dir(A,B)
 	var/b_to_a = get_dir(B,A)
+	#endif
 
 	if(!A.connections) A.connections = new
 	if(!B.connections) B.connections = new
@@ -362,13 +374,15 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 	#ifdef ZASDBG
 	ASSERT(isturf(T))
 	#endif
-	if(T.needs_air_update || !SHOULD_PARTICIPATE_IN_ZONES(T))
+	// don't queue us if we've already been queued
+	// and if SSair hasn't run, every turf in the world will get updated soon anyway
+	if(T.needs_air_update || !SSair.initialized)
 		return
 	tiles_to_update += T
 	#ifdef ZASDBG
-	add_vis_contents(T, zasdbgovl_mark)
+	T.add_vis_contents(zasdbgovl_mark)
 	#endif
-	T.needs_air_update = 1
+	T.needs_air_update = TRUE
 
 /datum/controller/subsystem/air/proc/mark_zone_update(zone/Z)
 	#ifdef ZASDBG
@@ -411,29 +425,14 @@ Total Unsimulated Turfs: [world.maxx*world.maxy*world.maxz - simulated_turf_coun
 		return edge
 	else
 		for(var/connection_edge/unsimulated/edge in A.edges)
-			if(has_same_air(edge.B,B))
+			var/datum/gas_mixture/opponent_air = edge.B.return_air()
+			var/turf/our_turf = B
+			if(opponent_air.compare(our_turf.return_air()))
 				return edge
 		var/connection_edge/edge = new/connection_edge/unsimulated(A,B)
 		edges += edge
 		edge.recheck()
 		return edge
-
-/datum/controller/subsystem/air/proc/has_same_air(turf/A, turf/B)
-	if(A.initial_gas)
-		if(!B.initial_gas)
-			return 0
-		for(var/g in A.initial_gas)
-			if(A.initial_gas[g] != B.initial_gas[g])
-				return 0
-	if(B.initial_gas)
-		if(!A.initial_gas)
-			return 0
-		for(var/g in B.initial_gas)
-			if(A.initial_gas[g] != B.initial_gas[g])
-				return 0
-	if(A.temperature != B.temperature)
-		return 0
-	return 1
 
 /datum/controller/subsystem/air/proc/remove_edge(connection_edge/E)
 	edges -= E

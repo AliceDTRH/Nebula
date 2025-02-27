@@ -1,10 +1,10 @@
 /obj/machinery/atmospherics/binary/pump/high_power
 	icon = 'icons/atmos/volume_pump.dmi'
 	icon_state = "map_off"
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	name = "high power gas pump"
-	desc = "A pump. Has double the power rating of the standard gas pump."
+	desc = "A pump that can pressurize gas and restrict flow to one direction. Has double the power rating of the standard gas pump."
 
 	idle_power_usage = 450	// oversized pumps means oversized idle use
 	power_rating = 45000	// 45000 W ~ 60 HP

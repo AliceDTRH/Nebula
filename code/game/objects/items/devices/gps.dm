@@ -1,10 +1,10 @@
 var/global/list/all_gps_units = list()
 /obj/item/gps
 	name = "global coordinate system"
-	desc = "A handheld relay used to triangulates the approximate co-ordinates of the device."
+	desc = "A handheld relay used to triangulate the approximate coordinates of the device in spacetime."
 	icon = 'icons/obj/items/device/locator.dmi'
 	icon_state = ICON_STATE_WORLD
-	origin_tech = "{'materials':2,'programming':2,'wormholes':2}"
+	origin_tech = @'{"materials":2,"programming":2,"wormholes":2}'
 	material = /decl/material/solid/metal/aluminium
 	matter = list(
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT,
@@ -35,15 +35,15 @@ var/global/list/all_gps_units = list()
 	global.all_gps_units += src
 	. = ..()
 	name = "[initial(name)] ([gps_tag])"
-	events_repository.register(/decl/observ/moved, src, src, .proc/update_holder)
+	events_repository.register(/decl/observ/moved, src, src, PROC_REF(update_holder))
 	compass = new(src)
 	update_holder()
 	update_icon()
 
-/obj/item/gps/examine(mob/user, distance)
+/obj/item/gps/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
-		to_chat(user, SPAN_NOTICE("\The [src]'s screen shows: <i>[get_coordinates()]</i>."))
+		. += SPAN_NOTICE("\The [src]'s screen shows: <i>[get_coordinates()]</i>.")
 
 /obj/item/gps/proc/get_coordinates()
 	var/turf/T = get_turf(src)
@@ -63,10 +63,10 @@ var/global/list/all_gps_units = list()
 		holder.client?.screen -= compass
 		holder = null
 
-	if(!force_clear && istype(loc, /mob))
+	if(!force_clear && ismob(loc))
 		holder = loc
-		moved_event.register(holder, src, .proc/update_compass)
-		dir_set_event.register(holder, src, .proc/update_compass)
+		moved_event.register(holder, src, PROC_REF(update_compass))
+		dir_set_event.register(holder, src, PROC_REF(update_compass))
 
 	if(!force_clear && holder && tracking)
 		if(!is_in_processing_list)
@@ -103,7 +103,7 @@ var/global/list/all_gps_units = list()
 	STOP_PROCESSING(SSobj, src)
 	is_in_processing_list = FALSE
 	global.all_gps_units -= src
-	events_repository.unregister(/decl/observ/moved, src, src, .proc/update_holder)
+	events_repository.unregister(/decl/observ/moved, src, src, PROC_REF(update_holder))
 	update_holder(force_clear = TRUE)
 	QDEL_NULL(compass)
 	return ..()
@@ -187,7 +187,7 @@ var/global/list/all_gps_units = list()
 	var/duration = 5 MINUTES / severity_modifier
 	emped = TRUE
 	update_icon()
-	addtimer(CALLBACK(src, .proc/reset_emp), duration)
+	addtimer(CALLBACK(src, PROC_REF(reset_emp)), duration)
 
 /obj/item/gps/proc/reset_emp()
 	emped = FALSE
@@ -377,8 +377,9 @@ var/global/list/all_gps_units = list()
 /decl/interaction_handler/gps_toggle
 	name = "Toggle Tracking"
 	expected_target_type = /obj/item/gps
+	examine_desc = "toggle GPS tracking"
 
-/decl/interaction_handler/gps_toggle/invoked(atom/target, mob/user)
+/decl/interaction_handler/gps_toggle/invoked(atom/target, mob/user, obj/item/prop)
 	var/obj/item/gps/G = target
 	G.toggle_tracking(user)
 

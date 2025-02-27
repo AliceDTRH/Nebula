@@ -6,7 +6,7 @@
 	anchored               = TRUE
 	density                = FALSE                                  //Plants usually have no collisions
 	w_class                = ITEM_SIZE_NORMAL                       //Size determines material yield
-	material               = /decl/material/solid/plantmatter       //Generic plantstuff
+	material               = /decl/material/solid/organic/plantmatter       //Generic plantstuff
 	tool_interaction_flags = 0
 	hitsound               = 'sound/effects/hit_bush.ogg'
 	var/tmp/snd_cut        = 'sound/effects/plants/brush_leaves.ogg' //Sound to play when cutting the plant down
@@ -20,20 +20,30 @@
 /obj/structure/flora/proc/init_appearance()
 	return
 
-/obj/structure/flora/attackby(obj/item/O, mob/user)
-	if(can_cut_down(O, user))
-		return cut_down(O, user)
+// We rely on overrides to spawn appropriate materials for flora structures.
+/obj/structure/flora/create_dismantled_products(turf/T)
+	clear_materials()
+	return ..()
+
+/obj/structure/flora/attackby(obj/item/used_item, mob/user)
+	if(!user.check_intent(I_FLAG_HARM) && can_cut_down(used_item, user))
+		play_cut_sound(user)
+		cut_down(used_item, user)
+		return TRUE
 	. = ..()
 
 /**Whether the item used by user can cause cut_down to be called. Used to bypass default attack proc for some specific items/tools. */
-/obj/structure/flora/proc/can_cut_down(var/obj/item/I, var/mob/user)
-	return (I.force >= 5) && I.sharp //Anything sharp and relatively strong can cut us instantly
+/obj/structure/flora/proc/can_cut_down(var/obj/item/used_item, var/mob/user)
+	return (used_item.expend_attack_force(user) >= 5) && used_item.is_sharp() //Anything sharp and relatively strong can cut us instantly
 
 /**What to do when the can_cut_down check returns true. Normally simply calls dismantle. */
-/obj/structure/flora/proc/cut_down(var/obj/item/I, var/mob/user)
+/obj/structure/flora/proc/play_cut_sound(mob/user)
+	set waitfor = FALSE
 	if(snd_cut)
 		playsound(src, snd_cut, 40, TRUE)
-	dismantle()
+
+/obj/structure/flora/proc/cut_down(var/obj/item/used_item, var/mob/user)
+	dismantle_structure(user)
 	return TRUE
 
 //Drop some bits when destroyed
@@ -51,7 +61,10 @@
 
 /**Returns an instance of the object the plant leaves behind when destroyed. Null means it leaves nothing. */
 /obj/structure/flora/proc/create_remains()
-	return new remains_type(get_turf(src), material, reinf_material)
+	var/obj/item/remains = new remains_type(get_turf(src), material, reinf_material)
+	if((istype(remains) || istype(remains, /obj/structure)) && paint_color)
+		remains.set_color(paint_color)
+	return remains
 
 ////////////////////////////////////////
 // Floral Remains

@@ -1,7 +1,8 @@
-#define SPECIES_VOX   "Vox"
-#define BODYTYPE_VOX  "reptoavian body"
-#define BP_HINDTONGUE "hindtongue"
-#define BODY_FLAG_VOX BITFLAG(8)
+#define SPECIES_VOX        "Vox"
+#define BODYTYPE_VOX       "reptoavian body"
+#define BODYTYPE_VOX_LARGE "large reptoavian body"
+#define BP_HINDTONGUE      "hindtongue"
+#define BODY_EQUIP_FLAG_VOX      BITFLAG(8)
 
 /decl/modpack/vox
 	name = "Vox Content"
@@ -9,10 +10,11 @@
 	credits_crew_names = list("THE VOX")
 	credits_topics = list("VOX RITUAL DUELS", "NECK MARKINGS", "ANCIENT SUPERCOMPUTERS")
 
-/mob/living/carbon/human/vox/Initialize(mapload, new_species)
-	h_style = /decl/sprite_accessory/hair/vox/short
-	hair_colour = COLOR_BEASTY_BROWN
-	. = ..(mapload, SPECIES_VOX)
+/mob/living/human/vox/Initialize(mapload, species_name, datum/mob_snapshot/supplied_appearance)
+	SET_HAIR_STYLE(src, /decl/sprite_accessory/hair/vox/short, TRUE)
+	SET_HAIR_COLOR(src, COLOR_BEASTY_BROWN, TRUE)
+	species_name = SPECIES_VOX
+	. = ..()
 
 /datum/follow_holder/voxstack
 	sort_order = 14

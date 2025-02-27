@@ -8,9 +8,9 @@
 	var/basetype = /obj/item/magnetic_ammo
 	w_class = ITEM_SIZE_SMALL
 	material = /decl/material/solid/metal/steel
-	origin_tech = "{'combat':1}"
+	origin_tech = @'{"combat":1}'
 	var/remaining = 9
 
-/obj/item/magnetic_ammo/examine(mob/user)
+/obj/item/magnetic_ammo/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "There [(remaining == 1)? "is" : "are"] [remaining] [projectile_name]\s left!")
+	. += "There [(remaining == 1)? "is" : "are"] [remaining] [projectile_name]\s left!"

@@ -4,13 +4,12 @@
 	icon                    = 'icons/obj/items/clipboard.dmi'
 	icon_state              = "clipboard"
 	item_state              = "clipboard"
-	throwforce              = 0
 	w_class                 = ITEM_SIZE_SMALL
 	throw_speed             = 3
 	throw_range             = 10
 	slot_flags              = SLOT_LOWER_BODY
 	material_alteration     = MAT_FLAG_ALTERATION_COLOR
-	material                = /decl/material/solid/wood
+	material                = /decl/material/solid/organic/wood/oak
 	drop_sound              = 'sound/foley/tooldrop5.ogg'
 	pickup_sound            = 'sound/foley/paperpickup2.ogg'
 
@@ -27,23 +26,14 @@
 	stored_pen = null
 	return ..()
 
-/obj/item/clipboard/handle_mouse_drop(atom/over, mob/user)
-	if(ishuman(user) && istype(over, /obj/screen/inventory))
-		var/obj/screen/inventory/inv = over
-		add_fingerprint(user)
-		if(user.try_unequip(src))
-			user.equip_to_slot_if_possible(src, inv.slot_id)
-			return TRUE
-	. = ..()
-
-/obj/item/clipboard/examine(mob/user, distance, infix, suffix)
+/obj/item/clipboard/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(stored_pen)
-		to_chat(user, "It's holding \a [stored_pen].")
+		. += "It's holding \a [stored_pen]."
 	if(!LAZYLEN(papers))
-		to_chat(user, "It contains [length(papers)] / [max_papers] paper\s.")
+		. += "It contains [length(papers)] / [max_papers] paper\s."
 	else
-		to_chat(user, "It has room for [max_papers] paper\s.")
+		. += "It has room for [max_papers] paper\s."
 
 /obj/item/clipboard/proc/top_paper()
 	return LAZYACCESS(papers, 1)
@@ -66,6 +56,7 @@
 		var/mutable_appearance/I = new /mutable_appearance(top_paper)
 		I.appearance_flags |= RESET_COLOR
 		I.plane = FLOAT_PLANE
+		I.layer = FLOAT_LAYER
 		I.pixel_x = 0
 		I.pixel_y = 0
 		I.pixel_w = 0
@@ -75,28 +66,24 @@
 		add_overlay(overlay_image(icon, "clipboard_pen", stored_pen.color, RESET_COLOR))
 	add_overlay(overlay_image(icon, "clipboard_over", flags=RESET_COLOR))
 
-/obj/item/clipboard/attackby(obj/item/W, mob/user)
+/obj/item/clipboard/attackby(obj/item/used_item, mob/user)
 	var/obj/item/top_paper = top_paper()
-	if(istype(W, /obj/item/paper) || istype(W, /obj/item/photo))
-		if(!user.try_unequip(W, src))
-			return
-		push_paper(W)
-		to_chat(user, SPAN_NOTICE("You clip the [W] onto \the [src]."))
+	if(istype(used_item, /obj/item/paper) || istype(used_item, /obj/item/photo))
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		push_paper(used_item)
+		to_chat(user, SPAN_NOTICE("You clip the [used_item] onto \the [src]."))
 		return TRUE
 
-	else if(top_paper?.attackby(W, user))
+	else if(top_paper?.attackby(used_item, user))
 		updateUsrDialog()
 		update_icon()
 		return TRUE
 
-	else if(IS_PEN(W) && add_pen(W, user)) //If we don't have any paper, and hit it with a pen, try slotting it in
+	else if(IS_PEN(used_item) && add_pen(used_item, user)) //If we don't have any paper, and hit it with a pen, try slotting it in
 		return TRUE
 
 	return ..()
-
-/obj/item/clipboard/AltClick(mob/user)
-	if(stored_pen)
-		remove_pen(user)
 
 /obj/item/clipboard/attack_self(mob/user)
 	if(CanPhysicallyInteractWith(user, src))
@@ -106,25 +93,25 @@
 /obj/item/clipboard/interact(mob/user)
 	var/dat = "<title>Clipboard</title>"
 	if(stored_pen)
-		dat += "<A href='?src=\ref[src];pen=1'>Remove Pen</A><BR><HR>"
+		dat += "<A href='byond://?src=\ref[src];pen=1'>Remove Pen</A><BR><HR>"
 	else
-		dat += "<A href='?src=\ref[src];addpen=1'>Add Pen</A><BR><HR>"
+		dat += "<A href='byond://?src=\ref[src];addpen=1'>Add Pen</A><BR><HR>"
 
 	dat += "<TABLE style='table-layout:fixed; white-space:nowrap;'>"
 	for(var/i = 1 to LAZYLEN(papers))
 		var/obj/item/P = papers[i]
-		dat += "<TR><TD style='width:45%; overflow:hidden; text-overflow:ellipsis;'><A href='?src=\ref[src];examine=\ref[P]'>[P.name]</A></TD>"
+		dat += "<TR><TD style='width:45%; overflow:hidden; text-overflow:ellipsis;'><A href='byond://?src=\ref[src];examine=\ref[P]'>[P.name]</A></TD>"
 		if(i == 1)
-			dat += "<TD/><TD><A href='?src=\ref[src];write=\ref[P]'>Write</A></TD>"
+			dat += "<TD/><TD><A href='byond://?src=\ref[src];write=\ref[P]'>Write</A></TD>"
 		else
 			dat += "<TD/><TD/>"
-		dat += "<TD><A href='?src=\ref[src];remove=\ref[P]'>Remove</A></TD><TD><A href='?src=\ref[src];rename=\ref[P]'>Rename</A></TD></TR>"
+		dat += "<TD><A href='byond://?src=\ref[src];remove=\ref[P]'>Remove</A></TD><TD><A href='byond://?src=\ref[src];rename=\ref[P]'>Rename</A></TD></TR>"
 	dat += "</TABLE>"
 
 	user.set_machine(src)
 	show_browser(user, dat, "window=[initial(name)]")
 	onclose(user, initial(name))
-	add_fingerprint(usr)
+	add_fingerprint(user)
 	return
 
 /obj/item/clipboard/proc/add_pen(var/obj/item/I, var/mob/user)
@@ -203,8 +190,30 @@
 	else
 		close_browser(user, initial(name))
 
+/obj/item/clipboard/get_alt_interactions(mob/user)
+	. = ..()
+	if(stored_pen)
+		LAZYADD(., /decl/interaction_handler/clipboard_remove_pen)
+
+/decl/interaction_handler/clipboard_remove_pen
+	name = "Remove Pen"
+	expected_target_type = /obj/item/clipboard
+	examine_desc = "remove the pen"
+
+/decl/interaction_handler/clipboard_remove_pen/is_possible(atom/target, mob/user, obj/item/prop)
+	. = ..()
+	if(.)
+		var/obj/item/clipboard/clipboard = target
+		return !!clipboard.stored_pen
+
+/decl/interaction_handler/clipboard_remove_pen/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/item/clipboard/clipboard = target
+	if(clipboard.stored_pen)
+		clipboard.remove_pen(user)
+
+// Subtypes below.
 /obj/item/clipboard/ebony
-	material = /decl/material/solid/wood/ebony
+	material = /decl/material/solid/organic/wood/ebony
 
 /obj/item/clipboard/steel
 	material = /decl/material/solid/metal/steel
@@ -216,4 +225,4 @@
 	material = /decl/material/solid/glass
 
 /obj/item/clipboard/plastic
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic

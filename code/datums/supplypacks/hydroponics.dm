@@ -6,13 +6,13 @@
 	name = "Gear - Hydroponics Supplies"
 	contains = list(/obj/item/chems/spray/plantbgone = 4,
 					/obj/item/chems/glass/bottle/ammonia = 2,
-					/obj/item/hatchet,
-					/obj/item/minihoe,
+					/obj/item/tool/axe/hatchet,
+					/obj/item/tool/hoe/mini,
 					/obj/item/scanner/plant,
 					/obj/item/clothing/gloves/thick/botany,
 					/obj/item/clothing/suit/apron,
-					/obj/item/minihoe,
-					/obj/item/storage/box/botanydisk
+					/obj/item/tool/hoe/mini,
+					/obj/item/box/botanydisk
 					)
 	containername = "hydroponics supply crate"
 	access = access_hydroponics
@@ -41,7 +41,7 @@
 
 /decl/hierarchy/supply_pack/hydroponics/weedcontrol
 	name = "Gear - Weed control"
-	contains = list(/obj/item/hatchet = 2,
+	contains = list(/obj/item/tool/axe/hatchet = 2,
 					/obj/item/chems/spray/plantbgone = 4,
 					/obj/item/clothing/mask/gas = 2,
 					/obj/item/grenade/chem_grenade/antiweed = 2)
@@ -57,15 +57,6 @@
 	containertype = /obj/structure/closet/crate/secure
 	containername = "exotic Seeds crate"
 	access = access_xenobiology
-
-/decl/hierarchy/supply_pack/hydroponics/bee_keeper
-	name = "Equipment - Beekeeping"
-	contains = list(/obj/item/beehive_assembly,
-					/obj/item/bee_smoker,
-					/obj/item/honey_frame = 5,
-					/obj/item/bee_pack)
-	containername = "beekeeping crate"
-	access = access_hydroponics
 
 /decl/hierarchy/supply_pack/hydroponics/hydrotray
 	name = "Equipment - Hydroponics tray"
