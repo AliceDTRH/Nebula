@@ -26,53 +26,69 @@
 	name = "gizzard"
 	color = "#0033cc"
 	var/static/list/gains_nutriment_from_inedible_reagents = list(
-		/decl/material/solid/wood =           3,
-		/decl/material/liquid/cleaner =       1,
-		/decl/material/liquid/foaming_agent = 1,
-		/decl/material/liquid/surfactant =    1,
-		/decl/material/liquid/paint =         1
+		/decl/material/solid/organic/wood/oak                = 3,
+		/decl/material/solid/organic/wood/mahogany           = 3,
+		/decl/material/solid/organic/wood/maple              = 3,
+		/decl/material/solid/organic/wood/ebony              = 3,
+		/decl/material/solid/organic/wood/walnut             = 3,
+		/decl/material/solid/organic/wood/chipboard          = 2,
+		/decl/material/solid/organic/wood/chipboard/mahogany = 2,
+		/decl/material/solid/organic/wood/chipboard/maple    = 2,
+		/decl/material/solid/organic/wood/chipboard/ebony    = 2,
+		/decl/material/solid/organic/wood/chipboard/walnut   = 2,
+		/decl/material/liquid/cleaner                        = 1,
+		/decl/material/liquid/foaming_agent                  = 1,
+		/decl/material/liquid/surfactant                     = 1,
+		/decl/material/liquid/paint                          = 1
 	)
 	var/static/list/can_digest_matter = list(
-		/decl/material/solid/wood =                   TRUE,
-		/decl/material/solid/wood/mahogany =          TRUE,
-		/decl/material/solid/wood/maple =             TRUE,
-		/decl/material/solid/wood/ebony =             TRUE,
-		/decl/material/solid/wood/walnut =            TRUE,
-		/decl/material/solid/leather =                TRUE,
-		/decl/material/solid/plastic =                TRUE,
-		/decl/material/solid/cardboard =              TRUE,
-		/decl/material/solid/cloth =                  TRUE,
-		/decl/material/solid/slag =                   TRUE,
-		/decl/material/solid/sodiumchloride = TRUE
+		/decl/material/solid/organic/wood/oak                = TRUE,
+		/decl/material/solid/organic/wood/mahogany           = TRUE,
+		/decl/material/solid/organic/wood/maple              = TRUE,
+		/decl/material/solid/organic/wood/ebony              = TRUE,
+		/decl/material/solid/organic/wood/walnut             = TRUE,
+		/decl/material/solid/organic/wood/chipboard          = TRUE,
+		/decl/material/solid/organic/wood/chipboard/mahogany = TRUE,
+		/decl/material/solid/organic/wood/chipboard/maple    = TRUE,
+		/decl/material/solid/organic/wood/chipboard/ebony    = TRUE,
+		/decl/material/solid/organic/wood/chipboard/walnut   = TRUE,
+		/decl/material/solid/organic/leather                 = TRUE,
+		/decl/material/solid/organic/plastic                 = TRUE,
+		/decl/material/solid/organic/cardboard               = TRUE,
+		/decl/material/solid/organic/paper                   = TRUE,
+		/decl/material/solid/organic/cloth                   = TRUE,
+		/decl/material/solid/slag                            = TRUE,
+		/decl/material/solid/sodiumchloride                  = TRUE
 	)
 	var/static/list/can_process_matter = list(
-		/decl/material/solid/glass =               TRUE,
-		/decl/material/solid/gemstone/diamond =    TRUE,
-		/decl/material/solid/stone/sandstone =     TRUE,
-		/decl/material/solid/stone/marble =        TRUE,
-		/decl/material/solid/metal/steel =         TRUE,
-		/decl/material/solid/metal/gold =          TRUE,
-		/decl/material/solid/metal/silver =        TRUE,
-		/decl/material/solid/metal/uranium =       TRUE,
-		/decl/material/solid/metal/iron =          TRUE,
-		/decl/material/solid/metal/platinum =      TRUE,
-		/decl/material/solid/metal/bronze =        TRUE,
-		/decl/material/solid/metal/titanium =      TRUE,
-		/decl/material/solid/metal/osmium =        TRUE,
-		/decl/material/solid/metal/copper =        TRUE,
-		/decl/material/solid/metal/aluminium =     TRUE,
-		/decl/material/solid/sand =        TRUE,
-		/decl/material/solid/graphite =    TRUE,
-		/decl/material/solid/pitchblende = TRUE,
-		/decl/material/solid/hematite =    TRUE,
-		/decl/material/solid/quartz =      TRUE,
-		/decl/material/solid/pyrite =      TRUE,
-		/decl/material/solid/spodumene =   TRUE,
-		/decl/material/solid/cinnabar =    TRUE,
-		/decl/material/solid/phosphorite = TRUE,
-		/decl/material/solid/potash =      TRUE,
-		/decl/material/solid/bauxite =     TRUE,
-		/decl/material/solid/rutile = 	   TRUE
+		/decl/material/solid/glass                 = TRUE,
+		/decl/material/solid/gemstone/diamond      = TRUE,
+		/decl/material/solid/stone/sandstone       = TRUE,
+		/decl/material/solid/stone/marble          = TRUE,
+		/decl/material/solid/metal/steel           = TRUE,
+		/decl/material/solid/metal/gold            = TRUE,
+		/decl/material/solid/metal/silver          = TRUE,
+		/decl/material/solid/metal/uranium         = TRUE,
+		/decl/material/solid/metal/iron            = TRUE,
+		/decl/material/solid/metal/platinum        = TRUE,
+		/decl/material/solid/metal/bronze          = TRUE,
+		/decl/material/solid/metal/titanium        = TRUE,
+		/decl/material/solid/metal/osmium          = TRUE,
+		/decl/material/solid/metal/copper          = TRUE,
+		/decl/material/solid/metal/aluminium       = TRUE,
+		/decl/material/solid/sand                  = TRUE,
+		/decl/material/solid/clay                  = TRUE,
+		/decl/material/solid/graphite              = TRUE,
+		/decl/material/solid/pitchblende           = TRUE,
+		/decl/material/solid/hematite              = TRUE,
+		/decl/material/solid/quartz                = TRUE,
+		/decl/material/solid/pyrite                = TRUE,
+		/decl/material/solid/spodumene             = TRUE,
+		/decl/material/solid/cinnabar              = TRUE,
+		/decl/material/solid/phosphorite           = TRUE,
+		/decl/material/solid/potash                = TRUE,
+		/decl/material/solid/bauxite               = TRUE,
+		/decl/material/solid/rutile                = TRUE
 	)
 	var/list/stored_matter = list()
 
@@ -107,7 +123,7 @@
 
 				// Process it.
 				if(can_digest_matter[mat])
-					owner.adjust_nutrition(max(1, FLOOR(digested/100)))
+					owner.adjust_nutrition(max(1, floor(digested/100)))
 					updated_stacks = TRUE
 				else if(can_process_matter[mat])
 					LAZYDISTINCTADD(check_materials, mat)
@@ -119,7 +135,7 @@
 			if(M && stored_matter[mat] >= SHEET_MATERIAL_AMOUNT)
 
 				// Remove as many sheets as possible from the gizzard.
-				var/sheets = FLOOR(stored_matter[mat]/SHEET_MATERIAL_AMOUNT)
+				var/sheets = floor(stored_matter[mat]/SHEET_MATERIAL_AMOUNT)
 				stored_matter[mat] -= SHEET_MATERIAL_AMOUNT * sheets
 				if(stored_matter[mat] <= 0)
 					stored_matter -= mat
@@ -153,32 +169,31 @@
 	icon_state = "cortical-stack"
 	organ_tag = BP_STACK
 	organ_properties = ORGAN_PROP_PROSTHETIC
-	origin_tech = @"{'biotech':4,'materials':4,'magnets':2,'programming':3}"
+	origin_tech = @'{"biotech":4,"materials":4,"magnets":2,"programming":3}'
 	relative_size = 10
 
-	var/ownerckey
+	var/stored_ckey
 	var/default_language
 	var/list/languages = list()
 	var/datum/mind/backup
 	var/prompting = FALSE // Are we waiting for a user prompt?
 
-/obj/item/organ/internal/voxstack/Initialize(mapload, material_key, datum/dna/given_dna, decl/bodytype/new_bodytype)
-	var/decl/species/dna_species = given_dna && get_species_by_key(given_dna.species)
-	. = ..(mapload, material_key, given_dna, dna_species?.base_prosthetics_model)
+/obj/item/organ/internal/voxstack/Initialize(mapload, material_key, datum/mob_snapshot/supplied_appearance, decl/bodytype/new_bodytype)
+	var/decl/species/dna_species = supplied_appearance && supplied_appearance.root_species
+	. = ..(mapload, material_key, supplied_appearance, dna_species?.base_internal_prosthetics_model)
 	do_backup()
 
-/obj/item/organ/internal/voxstack/examine(mob/user)
+/obj/item/organ/internal/voxstack/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-
-	var/user_vox = isspecies(user, SPECIES_VOX)
+	var/user_vox = user.get_species_name() == SPECIES_VOX // TODO use bodytype flags instead so subspecies are included
 	if (istype(backup))
-		var/owner_viable = find_dead_player(ownerckey, TRUE)
+		var/owner_viable = find_dead_player(stored_ckey, TRUE)
 		if (user_vox)
-			to_chat(user, SPAN_NOTICE("The integrity light on [src] blinks [owner_viable ? "rapidly. It can be implanted." : "slowly. It is dormant."]"))
+			. += SPAN_NOTICE("The integrity light on [src] blinks [owner_viable ? "rapidly. It can be implanted." : "slowly. It is dormant."]")
 		else
-			to_chat(user, SPAN_NOTICE("A light on [src] blinks [owner_viable ? "rapidly" : "slowly"]."))
+			. += SPAN_NOTICE("A light on [src] blinks [owner_viable ? "rapidly" : "slowly"].")
 	else if (user_vox)
-		to_chat(user, SPAN_NOTICE("The integrity light on [src] is off. It is empty and lifeless."))
+		. += SPAN_NOTICE("The integrity light on [src] is off. It is empty and lifeless.")
 
 /obj/item/organ/internal/voxstack/emp_act()
 	return
@@ -192,27 +207,27 @@
 		backup = owner.mind
 		default_language = owner.default_language
 		if(owner.ckey)
-			ownerckey = owner.ckey
+			stored_ckey = owner.ckey
 
 /obj/item/organ/internal/voxstack/proc/backup_inviable()
 	return 	(!istype(backup) || backup == owner.mind || (backup.current && backup.current.stat != DEAD))
 
 /obj/item/organ/internal/voxstack/on_add_effects()
-	if(!..() || prompting) // Don't spam the player with twenty dialogs because someone doesn't know what they're doing or panicking.
+	. = ..()
+	if(prompting) // Don't spam the player with twenty dialogs because someone doesn't know what they're doing or panicking.
 		return FALSE
-
 	//Need spawn here so that this interactive bit doesn't lock up init
 	if(owner && !backup_inviable())
 		prompt_revive_callback(owner)
 	return TRUE
 
-/obj/item/organ/internal/voxstack/proc/prompt_revive_callback(var/mob/living/carbon/C)
+/obj/item/organ/internal/voxstack/proc/prompt_revive_callback(var/mob/living/target)
 	set waitfor = FALSE
-	if(C && !backup_inviable())
+	if(istype(target) && !backup_inviable())
 		prompting = TRUE
-		var/response = alert(find_dead_player(ownerckey, 1), "Your neural backup has been placed into a new body. Do you wish to return to life as the mind of [backup.name]?", "Resleeving", "Yes", "No")
+		var/response = alert(find_dead_player(stored_ckey, 1), "Your neural backup has been placed into a new body. Do you wish to return to life as the mind of [backup.name]?", "Resleeving", "Yes", "No")
 		prompting = FALSE
-		if(src && response == "Yes" && owner == C)
+		if(src && response == "Yes" && owner == target)
 			overwrite()
 	sleep(-1)
 	do_backup()
@@ -220,9 +235,9 @@
 /obj/item/organ/internal/voxstack/on_remove_effects(mob/living/last_owner)
 	var/obj/item/organ/external/head = GET_EXTERNAL_ORGAN(last_owner, parent_organ)
 	last_owner.visible_message(SPAN_DANGER("\The [src] rips gaping holes in \the [last_owner]'s [head.name] as it is torn loose!"))
-	head.take_external_damage(rand(15,20))
+	head.take_damage(rand(15,20))
 	for(var/obj/item/organ/internal/O in head.contents)
-		O.take_internal_damage(rand(30,70))
+		O.take_damage(rand(30,70))
 	do_backup()
 	..()
 

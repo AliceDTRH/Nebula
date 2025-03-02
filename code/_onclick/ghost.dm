@@ -28,14 +28,14 @@
 	if(!canClick()) return
 	setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 
-	// You are responsible for checking config.ghost_interaction when you override this function
+	// You are responsible for checking ghost_interaction when you override this function
 	// Not all of them require checking, see below
 	var/list/modifiers = params2list(params)
 	if(modifiers["alt"])
 		AltClickOn(A)
 		return
 	if(modifiers["shift"])
-		examinate(A)
+		examine_verb(A)
 		return
 	A.attack_ghost(src)
 
@@ -44,7 +44,10 @@
 	if(!istype(user))
 		return
 	if(user.client && user.client.inquisitive_ghost)
-		user.examinate(src)
+		user.examine_verb(src)
+		return
+	if(user.client?.holder || user.antagHUD)
+		storage?.show_to(user)
 	return
 
 // ---------------------------------------

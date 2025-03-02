@@ -46,8 +46,8 @@
 	var/thrust_cost = 750
 	var/thrust_effectiveness = 1
 
-/obj/machinery/ion_thruster/attackby(obj/item/I, mob/user)
-	if(IS_MULTITOOL(I) && !panel_open)
+/obj/machinery/ion_thruster/attackby(obj/item/used_item, mob/user)
+	if(IS_MULTITOOL(used_item) && !panel_open)
 		var/datum/extension/ship_engine/engine = get_extension(src, /datum/extension/ship_engine)
 		if(engine.sync_to_ship())
 			to_chat(user, SPAN_NOTICE("\The [src] emits a ping as it syncs its controls to a nearby ship."))
@@ -83,7 +83,7 @@
 	board_type = "machine"
 	icon = 'icons/obj/modules/module_controller.dmi'
 	build_path = /obj/machinery/ion_thruster
-	origin_tech = "{'powerstorage':1,'engineering':2}"
+	origin_tech = @'{"powerstorage":1,"engineering":2}'
 	req_components = list(
 							/obj/item/stack/cable_coil = 2,
 							/obj/item/stock_parts/matter_bin = 1,

@@ -4,7 +4,7 @@
 	name = "reactive teleport armor"
 	desc = "Someone separated our Chief Science Officer from their own head!"
 	icon_state = ICON_STATE_WORLD
-	icon = 'icons/clothing/suit/armor/reactive.dmi'
+	icon = 'icons/clothing/suits/armor/reactive.dmi'
 	blood_overlay_type = "armor"
 	armor = null
 	var/active = 0
@@ -48,7 +48,7 @@
 	. = ..()
 	icon_state = "[get_world_inventory_state()][active ? "_on" : ""]"
 
-/obj/item/clothing/suit/armor/reactive/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/suit/armor/reactive/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && active && check_state_in_icon("[overlay.icon_state]_on", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]_on"
 	. = ..()

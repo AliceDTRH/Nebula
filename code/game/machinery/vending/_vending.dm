@@ -4,8 +4,8 @@
 /obj/machinery/vending
 	name = "Vendomat"
 	desc = "A generic vending machine."
-	icon = 'icons/obj/vending.dmi'
-	icon_state = "generic"
+	icon = 'icons/obj/machines/vending/generic.dmi'
+	icon_state = ICON_STATE_WORLD
 	layer = BELOW_OBJ_LAYER
 	anchored = TRUE
 	density = TRUE
@@ -19,9 +19,6 @@
 	emagged = 0 //Ignores if somebody doesn't have card access to that machine.
 	wires = /datum/wires/vending
 	required_interaction_dexterity = DEXTERITY_SIMPLE_MACHINES
-
-	var/icon_vend //Icon_state when vending
-	var/icon_deny //Icon_state when denying access
 
 	// Power
 	var/vend_power_usage = 150 //actuators and stuff
@@ -70,7 +67,7 @@
 	var/scan_id = 1
 
 /obj/machinery/vending/Initialize(mapload, d=0, populate_parts = TRUE)
-	. = ..()
+	..()
 	if(isnull(markup))
 		markup = 1.1 + (rand() * 0.4)
 	if(!ispath(vendor_currency, /decl/currency))
@@ -87,6 +84,11 @@
 		ads_list += splittext(product_ads, ";")
 
 	build_inventory(populate_parts)
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/vending/LateInitialize()
+	..()
+	update_icon()
 
 /**
  *  Build produdct_records from the products lists
@@ -96,9 +98,6 @@
  *  product_records.
  */
 
-/obj/machinery/vending/proc/get_product_name(var/entry)
-	return
-
 /obj/machinery/vending/proc/build_inventory(populate_parts = FALSE)
 	var/list/all_products = list(
 		list(products, CAT_NORMAL),
@@ -107,8 +106,8 @@
 	for(var/current_list in all_products)
 		var/category = current_list[2]
 		for(var/entry in current_list[1])
-			var/datum/stored_items/vending_products/product = new(src, entry, get_product_name(entry))
-			product.price = atom_info_repository.get_combined_worth_for(entry) * markup
+			var/datum/stored_items/vending_products/product = new(src, entry)
+			product.price = ceil(atom_info_repository.get_combined_worth_for(entry) * markup)
 			product.category = category
 			if(product && populate_parts)
 				product.amount = (current_list[1][entry]) ? current_list[1][entry] : 1
@@ -121,8 +120,8 @@
 			product_records.Add(product)
 
 /obj/machinery/vending/Destroy()
-	for(var/datum/stored_items/vending_products/R in product_records)
-		qdel(R)
+	for(var/datum/stored_items/vending_products/product_record in product_records)
+		qdel(product_record)
 	product_records = null
 	return ..()
 
@@ -141,9 +140,13 @@
 		to_chat(user, "You short out the product lock on \the [src].")
 		return 1
 
-/obj/machinery/vending/attackby(obj/item/W, mob/user)
+/obj/machinery/vending/receive_mouse_drop(atom/dropping, mob/user, params)
+	if(!(. = ..()) && isitem(dropping) && istype(user) && user.check_intent(I_FLAG_HELP) && CanPhysicallyInteract(user))
+		return attempt_to_stock(dropping, user)
 
-	var/obj/item/charge_stick/CS = W.GetChargeStick()
+/obj/machinery/vending/attackby(obj/item/used_item, mob/user)
+
+	var/obj/item/charge_stick/CS = used_item.GetChargeStick()
 	if (currently_vending && vendor_account && !vendor_account.suspended)
 
 		if(!vend_ready)
@@ -156,8 +159,8 @@
 		if (CS)
 			paid = pay_with_charge_card(CS)
 			handled = 1
-		else if (istype(W, /obj/item/cash))
-			var/obj/item/cash/C = W
+		else if (istype(used_item, /obj/item/cash))
+			var/obj/item/cash/C = used_item
 			paid = pay_with_cash(C)
 			handled = 1
 
@@ -168,19 +171,23 @@
 			SSnano.update_uis(src)
 			return TRUE // don't smack that machine with your $2
 
-	if (istype(W, /obj/item/cash))
+	if (istype(used_item, /obj/item/cash))
 		attack_hand_with_interaction_checks(user)
 		return TRUE
-	if(IS_MULTITOOL(W) || IS_WIRECUTTER(W))
+
+	if(IS_MULTITOOL(used_item) || IS_WIRECUTTER(used_item))
 		if(panel_open)
 			attack_hand_with_interaction_checks(user)
 			return TRUE
-	if((user.a_intent == I_HELP) && attempt_to_stock(W, user))
-		return TRUE
-	if((. = component_attackby(W, user)))
+
+	if((. = component_attackby(used_item, user)))
 		return
-	if((obj_flags & OBJ_FLAG_ANCHORABLE) && IS_WRENCH(W))
-		wrench_floor_bolts(user)
+
+	if((user.check_intent(I_FLAG_HELP)) && attempt_to_stock(used_item, user))
+		return TRUE
+
+	if((obj_flags & OBJ_FLAG_ANCHORABLE) && (IS_WRENCH(used_item) || IS_HAMMER(used_item)))
+		wrench_floor_bolts(user, null, used_item)
 		power_change()
 		return
 
@@ -188,15 +195,10 @@
 	. = ..()
 	SSnano.update_uis(src)
 
-/obj/machinery/vending/receive_mouse_drop(atom/dropping, var/mob/user)
-	. = ..()
-	if(!. && dropping.loc == user && attempt_to_stock(dropping, user))
-		return TRUE
-
 /obj/machinery/vending/proc/attempt_to_stock(var/obj/item/I, var/mob/user)
-	for(var/datum/stored_items/vending_products/R in product_records)
-		if(I.type == R.item_path)
-			stock(I, R, user)
+	for(var/datum/stored_items/vending_products/product_record in product_records)
+		if(I.type == product_record.item_path)
+			stock(I, product_record, user)
 			return 1
 
 /**
@@ -206,9 +208,9 @@
 	if(currently_vending.price > cashmoney.absolute_worth)
 		// This is not a status display message, since it's something the character
 		// themselves is meant to see BEFORE putting the money in
-		to_chat(usr, "[html_icon(cashmoney)] <span class='warning'>That is not enough money.</span>")
+		to_chat(usr, SPAN_WARNING("[html_icon(cashmoney)] That is not enough money."))
 		return 0
-	visible_message("<span class='info'>\The [usr] inserts some cash into \the [src].</span>")
+	visible_message(SPAN_INFO("\The [usr] inserts some cash into \the [src]."))
 	cashmoney.adjust_worth(-(currently_vending.price))
 	// Vending machines have no idea who paid with cash
 	credit_purchase("(cash)")
@@ -221,7 +223,7 @@
  * successful, 0 if failed.
  */
 /obj/machinery/vending/proc/pay_with_charge_card(var/obj/item/charge_stick/wallet)
-	visible_message("<span class='info'>\The [usr] plugs \the [wallet] into \the [src].</span>")
+	visible_message(SPAN_INFO("\The [usr] plugs \the [wallet] into \the [src]."))
 	if(wallet.is_locked())
 		status_message = "Unlock \the [wallet] before using it."
 		status_error = TRUE
@@ -249,6 +251,7 @@
 	if(seconds_electrified != 0)
 		if(shock(user, 100))
 			return TRUE
+	return FALSE
 
 /obj/machinery/vending/interface_interact(mob/user)
 	ui_interact(user)
@@ -267,7 +270,7 @@
 		data["mode"] = 1
 		data["product"] = currently_vending.item_name
 		data["price"] = cur.format_value(currently_vending.price)
-		data["price_num"] = FLOOR(currently_vending.price / cur.absolute_value)
+		data["price_num"] = floor(currently_vending.price / cur.absolute_value)
 		data["message"] = status_message
 		data["message_err"] = status_error
 	else
@@ -284,7 +287,7 @@
 				"key" =    key,
 				"name" =   I.item_name,
 				"price" =  cur.format_value(I.price),
-				"price_num" = FLOOR(I.price / cur.absolute_value),
+				"price_num" = floor(I.price / cur.absolute_value),
 				"color" =  I.display_color,
 				"amount" = I.get_amount())))
 
@@ -306,22 +309,20 @@
 
 	if (href_list["vend"] && !currently_vending)
 		var/key = text2num(href_list["vend"])
-		if(!is_valid_index(key, product_records))
-			return TOPIC_REFRESH
-		var/datum/stored_items/vending_products/R = product_records[key]
-		if(!istype(R))
+		var/datum/stored_items/vending_products/product_record = LAZYACCESS(product_records, key)
+		if(!product_record)
 			return TOPIC_REFRESH
 
 		// This should not happen unless the request from NanoUI was bad
-		if(!(R.category & categories))
+		if(!(product_record.category & categories))
 			return TOPIC_REFRESH
 
-		if(R.price <= 0)
-			vend(R, user)
-		else if(istype(user,/mob/living/silicon)) //If the item is not free, provide feedback if a synth is trying to buy something.
-			to_chat(user, "<span class='danger'>Artificial unit recognized.  Artificial units cannot complete this transaction.  Purchase canceled.</span>")
+		if(product_record.price <= 0)
+			vend(product_record, user)
+		else if(issilicon(user)) //If the item is not free, provide feedback if a synth is trying to buy something.
+			to_chat(user, SPAN_DANGER("Artificial unit recognized.  Artificial units cannot complete this transaction.  Purchase canceled."))
 		else
-			currently_vending = R
+			currently_vending = product_record
 			if(!vendor_account || vendor_account.suspended)
 				status_message = "This machine is currently unable to process payments due to problems with the associated account."
 				status_error = 1
@@ -343,13 +344,16 @@
 		return list()
 	return ..()
 
-/obj/machinery/vending/proc/vend(var/datum/stored_items/vending_products/R, mob/user)
+/obj/machinery/vending/proc/vend(var/datum/stored_items/vending_products/product_record, mob/user)
 	if(!vend_ready)
 		return
 	if((!allowed(user)) && !emagged && scan_id)	//For SECURE VENDING MACHINES YEAH
-		to_chat(user, "<span class='warning'>Access denied.</span>")//Unless emagged of course
-		flick(icon_deny,src)
+		to_chat(user, SPAN_WARNING("Access denied."))//Unless emagged of course
+		var/deny_state = "[icon_state]-deny"
+		if(check_state_in_icon(deny_state, icon))
+			flick(deny_state, src)
 		return
+
 	vend_ready = 0 //One thing at a time!!
 	status_message = "Vending..."
 	status_error = 0
@@ -358,9 +362,10 @@
 	do_vending_reply()
 
 	use_power_oneoff(vend_power_usage)	//actuators and stuff
-	if (icon_vend) //Show the vending animation if needed
-		flick(icon_vend,src)
-	addtimer(CALLBACK(src, /obj/machinery/vending/proc/finish_vending, R), vend_delay)
+	var/vend_state = "[icon_state]-vend"
+	if (check_state_in_icon(vend_state, icon)) //Show the vending animation if needed
+		flick(vend_state, src)
+	addtimer(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/vending, finish_vending), product_record), vend_delay)
 
 /obj/machinery/vending/proc/do_vending_reply()
 	set waitfor = FALSE
@@ -378,7 +383,7 @@
 	if(prob(1)) //The vending gods look favorably upon you
 		sleep(3)
 		if(product.get_product(get_turf(src)))
-			visible_message("<span class='notice'>\The [src] clunks as it vends an additional [product.item_name].</span>")
+			visible_message(SPAN_NOTICE("\The [src] clunks as it vends an additional [product.item_name]."))
 	status_message = ""
 	status_error = 0
 	vend_ready = 1
@@ -389,14 +394,14 @@
  * Add item to the machine
  *
  * Checks if item is vendable in this machine should be performed before
- * calling. W is the item being inserted, R is the associated vending_product entry.
+ * calling. used_item is the item being inserted, product_record is the associated vending_product entry.
  */
-/obj/machinery/vending/proc/stock(obj/item/W, var/datum/stored_items/vending_products/R, var/mob/user)
-	if(!user.try_unequip(W))
+/obj/machinery/vending/proc/stock(obj/item/used_item, var/datum/stored_items/vending_products/product_record, var/mob/user)
+	if(!user.try_unequip(used_item))
 		return
 
-	if(R.add_product(W))
-		to_chat(user, "<span class='notice'>You insert \the [W] in the product receptor.</span>")
+	if(product_record.add_product(used_item))
+		to_chat(user, SPAN_NOTICE("You insert \the [used_item] in the product receptor."))
 		SSnano.update_uis(src)
 		return 1
 
@@ -437,7 +442,7 @@
 	return anchored && ..()
 
 /obj/machinery/vending/on_update_icon()
-	overlays.Cut()
+	cut_overlays()
 	if(stat & BROKEN)
 		icon_state = "[initial(icon_state)]-broken"
 	else if( !(stat & NOPOWER) )
@@ -446,14 +451,14 @@
 		spawn(rand(0, 15))
 			icon_state = "[initial(icon_state)]-off"
 	if(panel_open)
-		overlays += image(icon, "[initial(icon_state)]-panel")
+		add_overlay("[initial(icon_state)]-panel")
 
 //Oh no we're malfunctioning!  Dump out some product and break.
 /obj/machinery/vending/proc/malfunction()
 	set waitfor = FALSE
-	for(var/datum/stored_items/vending_products/R in product_records)
-		while(R.get_amount()>0)
-			R.get_product(loc)
+	for(var/datum/stored_items/vending_products/product_record in product_records)
+		while(product_record.get_amount()>0)
+			product_record.get_product(loc)
 		break
 	set_broken(TRUE)
 
@@ -464,13 +469,13 @@
 	if(!target)
 		return 0
 
-	for(var/datum/stored_items/vending_products/R in shuffle(product_records))
-		throw_item = R.get_product(loc)
+	for(var/datum/stored_items/vending_products/product_record in shuffle(product_records))
+		throw_item = product_record.get_product(loc)
 		if(!QDELETED(throw_item))
 			break
 	if(QDELETED(throw_item))
 		return 0
 	spawn(0)
 		throw_item.throw_at(target, rand(1,2), 3)
-	visible_message("<span class='warning'>\The [src] launches \a [throw_item] at \the [target]!</span>")
+	visible_message(SPAN_WARNING("\The [src] launches \a [throw_item] at \the [target]!"))
 	return 1

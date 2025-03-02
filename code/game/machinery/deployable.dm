@@ -12,16 +12,15 @@
 	anchored = FALSE
 	density = TRUE
 	icon_state = "barrier0"
-	var/health = 100.0
-	var/maxhealth = 100.0
+	max_health = 100
 	var/locked = 0.0
 
 /obj/machinery/deployable/barrier/Initialize()
 	. = ..()
 	icon_state = "barrier[src.locked]"
 
-/obj/machinery/deployable/barrier/attackby(obj/item/W, mob/user)
-	if (istype(W, /obj/item/card/id))
+/obj/machinery/deployable/barrier/attackby(obj/item/used_item, mob/user)
+	if (istype(used_item, /obj/item/card/id))
 		if (src.allowed(user))
 			if	(src.emagged < 2.0)
 				src.locked = !src.locked
@@ -29,47 +28,46 @@
 				src.icon_state = "barrier[src.locked]"
 				if ((src.locked == 1.0) && (src.emagged < 2.0))
 					to_chat(user, "Barrier lock toggled on.")
-					return
+					return TRUE
 				else if ((src.locked == 0.0) && (src.emagged < 2.0))
 					to_chat(user, "Barrier lock toggled off.")
-					return
+					return TRUE
 			else
 				spark_at(src, amount=2, cardinal_only = TRUE)
 				visible_message("<span class='warning'>BZZzZZzZZzZT</span>")
-				return
-		return
-	else if(IS_WRENCH(W))
-		if (src.health < src.maxhealth)
-			src.health = src.maxhealth
-			src.emagged = 0
-			src.req_access = list(access_security)
+				return TRUE
+	else if(IS_WRENCH(used_item))
+		var/current_max_health = get_max_health()
+		if (current_health < current_max_health)
+			current_health = current_max_health
+			emagged = 0
+			req_access = list(access_security)
 			visible_message("<span class='warning'>[user] repairs \the [src]!</span>")
-			return
+			return TRUE
 		else if (src.emagged > 0)
 			src.emagged = 0
 			src.req_access = list(access_security)
 			visible_message("<span class='warning'>[user] repairs \the [src]!</span>")
-			return
-		return
+			return TRUE
 	else
-		switch(W.damtype)
+		switch(used_item.atom_damage_type)
 			if(BURN)
-				src.health -= W.force * 0.75
+				current_health -= used_item.expend_attack_force(user) * 0.75
 			if(BRUTE)
-				src.health -= W.force * 0.5
-			else
-		if (src.health <= 0)
-			src.explode()
-		..()
+				current_health -= used_item.expend_attack_force(user) * 0.5
+		if (current_health <= 0)
+			explode()
+		return TRUE
+	return ..()
 
 /obj/machinery/deployable/barrier/explosion_act(severity)
 	. = ..()
 	if(. && !QDELETED(src))
 		if(severity == 1)
-			health = 0
+			current_health = 0
 		else if(severity == 2)
-			health -= 25
-		if(health <= 0)
+			current_health -= 25
+		if(current_health <= 0)
 			explode()
 
 /obj/machinery/deployable/barrier/emp_act(severity)

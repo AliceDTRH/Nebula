@@ -1,4 +1,5 @@
 /datum/keybinding/mob
+	abstract_type = /datum/keybinding/mob
 	category = CATEGORY_MOB
 
 /datum/keybinding/mob/can_use(client/user)
@@ -11,7 +12,7 @@
 	description = "Toggle throwing the current item or not."
 
 /datum/keybinding/mob/toggle_throw_mode/down(client/user)
-	user.mob.toggle_throw_mode()
+	user.toggle_throw_mode_verb()
 	return TRUE
 
 /datum/keybinding/mob/hold_throw_mode
@@ -21,11 +22,11 @@
 	description = "Hold this to turn on throw mode, and release it to turn off throw mode"
 
 /datum/keybinding/mob/hold_throw_mode/down(client/user)
-	user.mob.throw_mode_on()
+	user.mob.toggle_throw_mode(TRUE)
 	return TRUE
 
 /datum/keybinding/mob/hold_throw_mode/up(client/user)
-	user.mob.throw_mode_off()
+	user.mob.toggle_throw_mode(FALSE)
 	return TRUE
 
 /datum/keybinding/mob/swap_hands
@@ -52,7 +53,7 @@
 	full_name = "Select Help Intent"
 
 /datum/keybinding/mob/select_help_intent/down(client/user)
-	user.mob.a_intent_change(I_HELP)
+	user.mob.set_intent(I_FLAG_HELP)
 	return TRUE
 
 /datum/keybinding/mob/select_disarm_intent
@@ -61,7 +62,7 @@
 	full_name = "Select Disarm Intent"
 
 /datum/keybinding/mob/select_disarm_intent/down(client/user)
-	user.mob.a_intent_change(I_DISARM)
+	user.mob.set_intent(I_FLAG_DISARM)
 	return TRUE
 
 /datum/keybinding/mob/select_grab_intent
@@ -70,7 +71,7 @@
 	full_name = "Select Grab Intent"
 
 /datum/keybinding/mob/select_grab_intent/down(client/user)
-	user.mob.a_intent_change(I_GRAB)
+	user.mob.set_intent(I_FLAG_GRAB)
 	return TRUE
 
 /datum/keybinding/mob/select_harm_intent
@@ -79,7 +80,7 @@
 	full_name = "Select Harm Intent"
 
 /datum/keybinding/mob/select_harm_intent/down(client/user)
-	user.mob.a_intent_change(I_HURT)
+	user.mob.set_intent(I_FLAG_HARM)
 	return TRUE
 
 /datum/keybinding/mob/cycle_intent_right
@@ -88,7 +89,7 @@
 	full_name = "Сycle Intent: Right"
 
 /datum/keybinding/mob/cycle_intent_right/down(client/user)
-	user.mob.a_intent_change(INTENT_HOTKEY_RIGHT)
+	user.mob.cycle_intent(INTENT_HOTKEY_RIGHT)
 	return TRUE
 
 /datum/keybinding/mob/cycle_intent_left
@@ -97,7 +98,7 @@
 	full_name = "Сycle Intent: Left"
 
 /datum/keybinding/mob/cycle_intent_left/down(client/user)
-	user.mob.a_intent_change(INTENT_HOTKEY_LEFT)
+	user.mob.cycle_intent(INTENT_HOTKEY_LEFT)
 	return TRUE
 
 /datum/keybinding/mob/activate_inhand

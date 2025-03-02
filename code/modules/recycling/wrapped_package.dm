@@ -11,7 +11,7 @@
 	icon              = 'icons/obj/items/storage/deliverypackage.dmi'
 	icon_state        = "parcel"
 	obj_flags         = OBJ_FLAG_HOLLOW
-	material          = /decl/material/solid/paper
+	material          = /decl/material/solid/organic/paper
 	attack_verb       = list("delivered a hit", "expedited on", "shipped at", "went postal on")
 	base_parry_chance = 40 //Boxes tend to be good at parrying
 	///A text note attached to the parcel that shows on examine
@@ -35,10 +35,10 @@
 
 /obj/item/parcel/on_update_icon()
 	. = ..()
-	if(w_class < ITEM_SIZE_NO_CONTAINER)
+	if(w_class < ITEM_SIZE_STRUCTURE)
 		icon_state = "[icon_state_prefix]_[clamp(round(w_class), ITEM_SIZE_MIN, ITEM_SIZE_HUGE)]"
 	else
-		//If its none of the smaller items, default to crate-sized package
+		//If it's none of the smaller items, default to crate-sized package
 		icon_state = "[icon_state_prefix]_crate"
 		//Try to see if we got a better icon state for whatever we contain
 		if(length(contents))
@@ -72,14 +72,14 @@
 		var/image/I = image('icons/obj/items/storage/deliverypackage.dmi', "delivery_label", pixel_x = off_x, pixel_y = off_y)
 		add_overlay(I)
 
-/obj/item/parcel/examine(mob/user, distance)
+/obj/item/parcel/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance < 3)
 		var/datum/extension/sorting_tag/S = get_extension(src, /datum/extension/sorting_tag)
 		if(S)
-			to_chat(user, S.tag_description())
+			. += S.tag_description()
 		if(length(attached_note))
-			to_chat(user, "It has a note attached, which reads:'[attached_note]'.")
+			. += "It has a note attached, which reads:'[attached_note]'."
 
 /obj/item/parcel/get_mechanics_info()
 	. = ..()
@@ -141,10 +141,9 @@
 		if(M == user)
 			user.put_in_hands(src)
 
-	if(istype(AM.loc, /obj/item/storage))
-		var/obj/item/storage/S = AM.loc
-		S.remove_from_storage(AM, src)
-		S.handle_item_insertion(src, TRUE)
+	if(AM.loc?.storage)
+		AM.loc.storage.remove_from_storage(user, AM, src)
+		AM.loc.storage.handle_item_insertion(null, src, TRUE)
 	else
 		AM.forceMove(src)
 
@@ -173,14 +172,14 @@
 	unwrap(user)
 
 /obj/item/parcel/attack_hand(mob/user)
-	if(w_class >= ITEM_SIZE_NO_CONTAINER)
+	if(w_class >= ITEM_SIZE_STRUCTURE)
 		return TRUE
 	return ..()
 
-/obj/item/parcel/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/destTagger))
+/obj/item/parcel/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/destTagger))
 		user.setClickCooldown(attack_cooldown)
-		var/obj/item/destTagger/O = W
+		var/obj/item/destTagger/O = used_item
 		if(length(O.current_tag))
 			to_chat(user, SPAN_NOTICE("You have labeled the destination as '[O.current_tag]'."))
 			attach_destination_tag(O, user)
@@ -188,15 +187,15 @@
 			to_chat(user, SPAN_WARNING("You need to set a destination tag first!"))
 		return TRUE
 
-	else if(IS_PEN(W))
+	else if(IS_PEN(used_item))
 		var/old_note = attached_note
 		var/new_note = sanitize(input(user, "What note would you like to add to \the [src]?", "Add Note", attached_note))
-		if((new_note != old_note) && user.Adjacent(src) && W.do_tool_interaction(TOOL_PEN, user, src, 2 SECONDS) && user.Adjacent(src))
+		if((new_note != old_note) && user.Adjacent(src) && used_item.do_tool_interaction(TOOL_PEN, user, src, 2 SECONDS) && user.Adjacent(src))
 			attached_note = new_note
 			update_icon()
 		return TRUE
 
-	else if(W.sharp && user.a_intent == I_HELP)
+	else if(used_item.is_sharp() && user.check_intent(I_FLAG_HELP))
 		//You can alternative cut the wrapper off with a sharp item
 		unwrap(user)
 		return TRUE
@@ -245,7 +244,7 @@
 			C.set_color(trash_color)
 	. = ..()
 
-/obj/item/parcel/dump_contents()
+/obj/item/parcel/dump_contents(atom/forced_loc = loc, mob/user)
 	for(var/thing in get_contained_external_atoms())
 		var/atom/movable/AM = thing
 
@@ -253,11 +252,11 @@
 		if(ismob(loc))
 			var/mob/M = loc
 			M.put_in_hands(AM)
-		else if(istype(loc, /obj/item/storage))
-			var/obj/item/storage/S = loc
-			S.handle_item_insertion(AM, TRUE)
 		else
-			AM.dropInto(loc)
+			if(forced_loc?.storage)
+				forced_loc.storage.handle_item_insertion(null, AM, TRUE)
+			else
+				AM.dropInto(forced_loc)
 
 		if(ismob(AM))
 			var/mob/M = AM
@@ -269,7 +268,7 @@
 		/obj/item,
 		/obj/structure,
 		/obj/machinery,
-		/mob/living/carbon/human,
+		/mob/living/human,
 	)
 	return type_whitelist
 

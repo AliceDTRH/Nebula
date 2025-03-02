@@ -1,28 +1,42 @@
-/turf/proc/ReplaceWithLattice(var/material)
+/turf/proc/switch_to_base_turf(keep_air)
 	var/base_turf = get_base_turf_by_area(src)
 	if(base_turf && type != base_turf)
-		. = ChangeTurf(base_turf)
-	else
-		. = src
-	if(!(locate(/obj/structure/lattice) in .))
-		new /obj/structure/lattice(., material)
+		return ChangeTurf(base_turf, keep_air = keep_air)
+	return src
 
-// Removes all signs of lattice on the pos of the turf -Donkieyo
-/turf/proc/RemoveLattice()
-	var/obj/structure/lattice/L = locate(/obj/structure/lattice, src)
-	if(L)
-		qdel(L)
+/turf/proc/dismantle_turf(devastated, explode, no_product, keep_air = TRUE)
+	var/turf/new_turf = switch_to_base_turf(keep_air)
+	if(!no_product && istype(new_turf) && !new_turf.is_open() && !(locate(/obj/structure/lattice) in new_turf))
+		new /obj/structure/lattice(new_turf)
+	return !!new_turf
+
+/turf/physically_destroyed(var/skip_qdel)
+	SHOULD_CALL_PARENT(FALSE)
+	return dismantle_turf(TRUE)
+
 // Called after turf replaces old one
 /turf/proc/post_change()
 	levelupdate()
 	if (above)
 		above.update_mimic()
 
-/turf/physically_destroyed(var/skip_qdel)
-	SHOULD_CALL_PARENT(FALSE)
-	. = TRUE
+// Updates open turfs above this one to use its open_turf_type
+/turf/proc/update_open_above(var/restrict_type, var/respect_area = TRUE)
+	if(!HasAbove(src.z))
+		return
+	var/turf/above = src
+	while ((above = GetAbove(above)))
+		if(!above.is_open())
+			break
+		if(!restrict_type || istype(above, restrict_type))
+			if(respect_area)
+				var/area/A = get_area(above)
+				above.ChangeTurf(A?.open_turf || open_turf_type, keep_air = TRUE, update_open_turfs_above = FALSE)
+			else
+				above.ChangeTurf(open_turf_type, keep_air = TRUE, update_open_turfs_above = FALSE)
 
-/turf/proc/ChangeTurf(var/turf/N, var/tell_universe = TRUE, var/force_lighting_update = FALSE, var/keep_air = FALSE)
+/turf/proc/ChangeTurf(var/turf/N, var/tell_universe = TRUE, var/force_lighting_update = FALSE, var/keep_air = FALSE, var/update_open_turfs_above = TRUE, var/keep_height = FALSE)
+
 	if (!N)
 		return
 
@@ -31,14 +45,16 @@
 		var/turf/below = GetBelow(src)
 		if(istype(below) && !isspaceturf(below))
 			var/area/A = get_area(src)
-			N = A?.open_turf || open_turf_type || /turf/simulated/open
+			N = A?.open_turf || open_turf_type || /turf/open
 
 	if (!(atom_flags & ATOM_FLAG_INITIALIZED))
 		return new N(src)
 
+	// Rebuilt on next call.
+	supporting_platform = null
+
 	// Track a number of old values for the purposes of raising
 	// state change events after changing the turf to the new type.
-	var/old_air =              air
 	var/old_fire =             fire
 	var/old_above =            above
 	var/old_opacity =          opacity
@@ -51,7 +67,12 @@
 	var/old_flooded =          flooded
 	var/old_outside =          is_outside
 	var/old_is_open =          is_open()
+	var/old_open_turf_type =   open_turf_type
 	var/old_affecting_heat_sources = affecting_heat_sources
+	var/old_height =           get_physical_height()
+	var/old_alpha_mask_state = get_movable_alpha_mask_state(null)
+	var/old_event_listeners =  event_listeners
+	var/old_listening_to =     _listening_to
 
 	var/old_ambience =         ambient_light
 	var/old_ambience_mult =    ambient_light_multiplier
@@ -59,43 +80,54 @@
 	var/old_ambient_light_old_g = ambient_light_old_g
 	var/old_ambient_light_old_b = ambient_light_old_b
 
-	changing_turf = TRUE
+	var/old_zone_membership_candidate = zone_membership_candidate
 
+	// Create a copy of the old air value to apply.
+	var/datum/gas_mixture/old_air
+	if(keep_air)
+		// Bypass calling return_air to avoid creating a direct reference to zone air.
+		if(zone)
+			c_copy_air()
+			old_air = air
+		else
+			old_air = return_air()
+
+	changing_turf = TRUE
 
 	qdel(src)
 	. = new N(src)
 
-	var/turf/W = .
-	W.above =            old_above     // Multiz ref tracking.
-	W.prev_type =        old_prev_type // Shuttle transition turf tracking.
+	var/turf/changed_turf = .
+	changed_turf.above =            old_above     // Multiz ref tracking.
+	changed_turf.prev_type =        old_prev_type // Shuttle transition turf tracking.
+	// Set our observation bookkeeping lists back.
+	changed_turf.event_listeners =  old_event_listeners
+	changed_turf._listening_to =    old_listening_to
 
-	W.affecting_heat_sources = old_affecting_heat_sources
+	changed_turf.affecting_heat_sources = old_affecting_heat_sources
 
 	if (permit_ao)
 		regenerate_ao()
 
 	// Update ZAS, atmos and fire.
-	if(keep_air)
-		W.air = old_air
+	if(keep_air && changed_turf.can_inherit_air)
+		changed_turf.air = old_air
 	if(old_fire)
-		if(istype(W, /turf/simulated))
-			W.fire = old_fire
+		if(changed_turf.simulated)
+			changed_turf.fire = old_fire
 		else if(old_fire)
 			qdel(old_fire)
 
-	if(isnull(W.flooded) && old_flooded != W.flooded)
-		if(old_flooded && !W.density)
-			W.make_flooded()
-		else
-			W.make_unflooded()
+	if(old_flooded != changed_turf.flooded)
+		set_flooded(old_flooded)
 
 	// Raise appropriate events.
-	W.post_change()
+	changed_turf.post_change()
 	if(tell_universe)
-		global.universe.OnTurfChange(W)
+		global.universe.OnTurfChange(changed_turf)
 
-	if(W.density != old_density)
-		RAISE_EVENT(/decl/observ/density_set, W, old_density, W.density)
+	if(changed_turf.density != old_density && changed_turf.event_listeners?[/decl/observ/density_set])
+		changed_turf.raise_event_non_global(/decl/observ/density_set, old_density, changed_turf.density)
 
 	// lighting stuff
 
@@ -117,7 +149,7 @@
 	if ((old_opacity != opacity) || (tidlu != old_dynamic_lighting) || force_lighting_update)
 		reconsider_lights()
 
-	if (tidlu != old_dynamic_lighting)
+	if (tidlu != old_dynamic_lighting && SSlighting.initialized) // don't fuck with lighting before lighting flush
 		if (tidlu)
 			lighting_build_overlay()
 		else
@@ -126,17 +158,42 @@
 	// end of lighting stuff
 
 	// we check the var rather than the proc, because area outside values usually shouldn't be set on turfs
-	W.last_outside_check = OUTSIDE_UNCERTAIN
-	if(W.is_outside != old_outside)
-		W.set_outside(old_outside, skip_weather_update = TRUE)
-	W.update_weather(force_update_below = W.is_open() != old_is_open)
+	changed_turf.last_outside_check = OUTSIDE_UNCERTAIN
+	if(changed_turf.is_outside != old_outside)
+		// This will check the exterior atmos participation of this turf and all turfs connected by open space below.
+		changed_turf.set_outside(old_outside, skip_weather_update = TRUE)
+	else // We didn't already update our external atmos participation in set_outside.
+		if(HasBelow(z) && (changed_turf.is_open() != old_is_open)) // Otherwise, we do it here if the open status of the turf has changed.
+			var/turf/checking = src
+			while(HasBelow(checking.z))
+				checking = GetBelow(checking)
+				if(!isturf(checking))
+					break
+				checking.update_external_atmos_participation()
+				if(!checking.is_open())
+					break
+		// In case the turf isn't marked for update in Initialize (e.g. space), we call this to create any unsimulated edges necessary.
+		if(changed_turf.zone_membership_candidate != old_zone_membership_candidate)
+			update_external_atmos_participation()
 
-/turf/proc/transport_properties_from(turf/other)
-	if(other.zone)
+	changed_turf.update_weather(force_update_below = changed_turf.is_open() != old_is_open)
+
+	if(keep_height)
+		changed_turf.set_physical_height(old_height)
+
+	if(update_open_turfs_above)
+		update_open_above(old_open_turf_type)
+
+	if(old_alpha_mask_state != get_movable_alpha_mask_state(null))
+		for(var/atom/movable/AM as anything in changed_turf)
+			AM.update_turf_alpha_mask()
+
+/turf/proc/transport_properties_from(turf/other, transport_air)
+	if(transport_air && can_inherit_air && (other.zone || other.air))
 		if(!air)
 			make_air()
-		air.copy_from(other.zone.air)
-		other.zone.remove(other)
+		air.copy_from(other.zone ? other.zone.air : other.air)
+		other.zone?.remove(other)
 	if(!istype(other, src.type))
 		return 0
 	src.set_dir(other.dir)
@@ -149,18 +206,20 @@
 		src.update_icon()
 	return 1
 
-/turf/simulated/floor/transport_properties_from(turf/simulated/floor/other)
+/turf/floor/transport_properties_from(turf/floor/other)
 	if(!..())
 		return FALSE
 
-	broken = other.broken
-	burnt = other.burnt
-	if(broken || burnt)
-		queue_icon_update()
-	set_flooring(other.flooring)
+	// Unlint this to copy the actual raw vars.
+	UNLINT(_flooring = other._flooring)
+	if(islist(_flooring))
+		_flooring = _flooring.Copy()
+	UNLINT(_base_flooring = other._base_flooring)
+	set_floor_broken(other._floor_broken, TRUE)
+	set_floor_burned(other._floor_burned)
 	return TRUE
 
-/turf/simulated/wall/transport_properties_from(turf/simulated/wall/other)
+/turf/wall/transport_properties_from(turf/wall/other)
 	if(!..())
 		return FALSE
 
@@ -168,7 +227,7 @@
 	stripe_color = other.stripe_color
 
 	material = other.material
-	reinf_material = other.material
+	reinf_material = other.reinf_material
 	girder_material = other.girder_material
 
 	floor_type = other.floor_type
@@ -182,8 +241,3 @@
 
 	update_material()
 	return TRUE
-
-//No idea why resetting the base appearance from New() isn't enough, but without this it doesn't work
-/turf/simulated/shuttle/wall/corner/transport_properties_from(turf/simulated/other)
-	. = ..()
-	reset_base_appearance()

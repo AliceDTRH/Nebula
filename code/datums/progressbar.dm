@@ -21,6 +21,7 @@
 		goal = goal_number
 	bar = image('icons/effects/progressbar.dmi', target, "prog_bar_0")
 	bar.appearance_flags = APPEARANCE_UI_IGNORE_ALPHA
+	bar.blend_mode = BLEND_OVERLAY
 	bar.plane = HUD_PLANE
 	bar.layer = HUD_ABOVE_ITEM_LAYER
 
@@ -83,7 +84,7 @@
 		LAZYREMOVE(user.progressbars, bar.loc)
 
 	animate(bar, alpha = 0, time = PROGRESSBAR_ANIMATION_TIME)
-	addtimer(CALLBACK(src, .proc/remove_from_client), PROGRESSBAR_ANIMATION_TIME, TIMER_CLIENT_TIME)
+	addtimer(CALLBACK(src, PROC_REF(remove_from_client)), PROGRESSBAR_ANIMATION_TIME, TIMER_CLIENT_TIME)
 	QDEL_IN(bar, PROGRESSBAR_ANIMATION_TIME * 2) //for garbage collection safety
 	. = ..()
 

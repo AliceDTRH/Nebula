@@ -14,7 +14,7 @@
 	name = "[value_name] [currency.name_singular] [name || "piece"]"
 	state = state || "cash"
 	marked_value = value
-	overlay = image(currency, state)
+	overlay = image(currency.icon, state)
 	overlay.color = colour
 	overlay.appearance_flags |= RESET_COLOR
 	overlay.plane = FLOAT_PLANE
@@ -45,7 +45,7 @@
 	var/name_prefix
 	var/name_suffix
 	var/icon = 'icons/obj/items/money.dmi'
-	var/material = /decl/material/solid/plastic
+	var/material = /decl/material/solid/organic/plastic
 	var/absolute_value = 1 // Divisor for cash pile worth. Should never be <1 or non-integer (think of it like cents).
 	var/list/denominations = list()
 	var/list/denominations_by_value = list()
@@ -70,26 +70,42 @@
 	if(!name_singular)
 		. += "No singular name set."
 
-	var/list/coinage_states = icon_states(icon)
+	var/list/coinage_states = get_states_in_icon_cached(icon) // cache this to avoid excessive ref() usage
 	for(var/datum/denomination/denomination in denominations)
 		if(!istext(denomination.name))
 			. += "Non-text name found for '[denomination.type]'."
 		else if(!(denomination.state in coinage_states))
 			. += "State '[denomination.state]' not found in icon file for '[denomination.type]'."
-		else if(denomination.mark && !(denomination.mark in coinage_states))
+		else if(denomination.mark && !coinage_states[denomination.mark])
 			. += "Mark state '[denomination.mark]' not found in icon file for '[denomination.type]'."
 		else if(!isnum(denomination.marked_value))
 			. += "Non-numerical denomination marked value found for '[denomination]'."
 		else if(!denomination.overlay)
 			. += "Null overlay found for '[denomination]'."
 
+	// Get all coin denominations.
+	var/list/validating_denominations = denominations?.Copy()
+	for(var/datum/denomination/denomination in validating_denominations)
+		if(!denomination.faces)
+			validating_denominations -= denomination
+
+	// Remove all coin recipes that create our denomination.
+	var/list/all_coin_recipes = decls_repository.get_decls_of_type(/decl/stack_recipe/coin)
+	for(var/recipe_type in all_coin_recipes)
+		var/decl/stack_recipe/coin/recipe = all_coin_recipes[recipe_type]
+		validating_denominations -= recipe.denomination
+
+	// If any are left, someone has forgotten a denomination.
+	if(length(validating_denominations))
+		. += "missing coin crafting recipes: [english_list(validating_denominations)]"
+
 /decl/currency/proc/format_value(var/amt)
-	. = "[name_prefix][FLOOR(amt / absolute_value)][name_suffix]"
+	. = "[name_prefix][floor(amt / absolute_value)][name_suffix]"
 
 /decl/currency/proc/build_denominations()
+	denominations = sortTim(denominations, /proc/cmp_currency_denomination_des)
 	for(var/datum/denomination/denomination in denominations)
 		denominations_by_value["[denomination.marked_value]"] = denomination
-	sortTim(denominations, /proc/cmp_currency_denomination_des)
 
 /decl/currency/credits
 	name =          "credits"
@@ -110,6 +126,13 @@
 	)
 	..()
 
+/decl/stack_recipe/coin/credits
+	name = "two credit coin"
+	currency = /decl/currency/credits
+
+/decl/stack_recipe/coin/credits/one
+	name = "one credit coin"
+
 /datum/denomination/coin/mid
 	state = "coin_medium"
 
@@ -128,6 +151,16 @@
 		new /datum/denomination/coin(src,       1,  "one",  COLOR_BRONZE)
 	)
 	..()
+
+/decl/stack_recipe/coin/trader
+	currency = /decl/currency/trader
+	name = "ten scrip coin"
+
+/decl/stack_recipe/coin/trader/mid
+	name = "five scrip coin"
+
+/decl/stack_recipe/coin/trader/small
+	name = "one scrip coin"
 
 /decl/currency/scav
 	name = "scavbucks"

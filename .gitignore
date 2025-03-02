@@ -1,5 +1,4 @@
 # ignore misc BYOND files
-Thumbs.db
 *.log
 *.int
 *.rsc
@@ -21,10 +20,18 @@ atupdate
 config/*
 sql/test_db
 
+# misc OS garbage
+Thumbs.db
+Thumbs.db:encryptable
+.DS_Store
+
 # vscode
 .vscode/*
 *.code-workspace
 .history
+
+# git/kdiff4
+*.orig
 
 # swap
 [._]*.s[a-v][a-z]
@@ -50,3 +57,6 @@ lib/*.so
 # python
 *.pyc
 __pycache__
+
+# Running OpenDream locally
+nebula.json

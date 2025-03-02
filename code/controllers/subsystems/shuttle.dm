@@ -125,13 +125,14 @@ SUBSYSTEM_DEF(shuttle)
 
 /datum/controller/subsystem/shuttle/proc/initialize_shuttle(var/shuttle_type, var/map_hash, var/list/add_args)
 	var/datum/shuttle/shuttle = shuttle_type
-	if(initial(shuttle.category) != shuttle_type)
-		var/list/shuttle_args = list(map_hash)
-		if(length(add_args))
-			shuttle_args += add_args
-		shuttle = new shuttle(arglist(shuttle_args))
-		shuttle_areas |= shuttle.shuttle_area
-		return shuttle
+	if(TYPE_IS_ABSTRACT(shuttle))
+		return null
+	var/list/shuttle_args = list(map_hash)
+	if(length(add_args))
+		shuttle_args += add_args
+	shuttle = new shuttle(arglist(shuttle_args))
+	shuttle_areas |= shuttle.shuttle_area
+	return shuttle
 
 /datum/controller/subsystem/shuttle/proc/hook_up_motherships(shuttles_list)
 	for(var/datum/shuttle/S in shuttles_list)
@@ -160,6 +161,11 @@ SUBSYSTEM_DEF(shuttle)
 	for (var/obj/effect/overmap/visitable/ship/ship in ships)
 		if (ship.type == type)
 			return ship
+
+/datum/controller/subsystem/shuttle/proc/ship_by_shuttle(shuttle)
+	for(var/obj/effect/overmap/visitable/ship/landable/landable in SSshuttle.ships)
+		if(landable.shuttle == shuttle)
+			return landable
 
 /datum/controller/subsystem/shuttle/proc/docking_beacons_by_z(z_levels)
 	. = list()

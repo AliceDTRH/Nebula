@@ -5,13 +5,17 @@
 	var/list/instances		//What items are actually stored
 	var/atom/storing_object
 
-/datum/stored_items/New(var/atom/storing_object, var/path, var/name = null, var/amount = 0)
+/datum/stored_items/New(atom/_storing_object, _path, _name, _amount = 0)
+	if(_storing_object)
+		storing_object = _storing_object
 	if(!istype(storing_object))
-		CRASH("Unexpected storing object.")
-	src.storing_object = storing_object
-	src.item_path = path
-	src.amount = amount
-	src.item_name = name || atom_info_repository.get_name_for(path)
+		CRASH("Unexpected storing object: [storing_object]")
+	if(_path)
+		item_path = _path
+	if(!ispath(item_path))
+		CRASH("Unexpected item path: [item_path || "NULL"]")
+	item_name = _name || atom_info_repository.get_name_for(item_path)
+	amount = _amount
 	..()
 
 /datum/stored_items/Destroy()
@@ -77,3 +81,15 @@
 	storing_object = new_storing_obj
 	for(var/atom/movable/thing in instances)
 		thing.forceMove(new_storing_obj)
+
+/datum/stored_items/proc/get_combined_matter(include_instances = TRUE)
+	var/virtual_amount = amount - length(instances)
+	if(virtual_amount)
+		. = atom_info_repository.get_matter_for(item_path)?.Copy()
+		for(var/key in .)
+			.[key] *= virtual_amount
+	else
+		. = list()
+	if(include_instances)
+		for(var/atom/instance in instances)
+			. = MERGE_ASSOCS_WITH_NUM_VALUES(., instance.get_contained_matter())

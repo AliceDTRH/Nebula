@@ -1,7 +1,6 @@
 /*
  * Holds procs designed to change one type of value, into another.
  * Contains:
- *			hex2num & num2hex
  *			text2list & list2text
  *			file2list
  *			angle2dir
@@ -9,51 +8,9 @@
  *			worldtime2text
  */
 
-// Returns the hex value of a number given a value assumed to be a base-ten value
-/proc/num2hex(num, len=2)
-	if(!isnum(num))
-		num = 0
-	num = round(abs(num))
-	. = ""
-	var/i=0
-	while(1)
-		if(len<=0)
-			if(!num)
-				break
-		else
-			if(i>=len)
-				break
-		var/remainder = num/16
-		num = round(remainder)
-		remainder = (remainder - num) * 16
-		switch(remainder)
-			if(9,8,7,6,5,4,3,2,1)
-				. = "[remainder]" + .
-			if(10,11,12,13,14,15)
-				. = ascii2text(remainder+87) + .
-			else
-				. = "0" + .
-		i++
-
-/proc/text2numlist(text, delimiter="\n")
-	var/list/num_list = list()
-	for(var/x in splittext(text, delimiter))
-		num_list += text2num(x)
-	return num_list
-
 // Splits the text of a file at seperator and returns them in a list.
 /proc/file2list(filename, seperator = "\n")
 	return splittext(safe_file2text(filename), seperator)
-
-// Turns a direction into text
-/proc/num2dir(direction)
-	switch (direction)
-		if (1.0) return NORTH
-		if (2.0) return SOUTH
-		if (4.0) return EAST
-		if (8.0) return WEST
-		else
-			to_world_log("UNKNOWN DIRECTION: [direction]")
 
 // Turns a direction into text
 /proc/dir2text(direction)
@@ -73,14 +30,14 @@
 // Turns text into proper directions
 /proc/text2dir(direction)
 	switch (uppertext(direction))
-		if ("NORTH")     return 1
-		if ("SOUTH")     return 2
-		if ("EAST")      return 4
-		if ("WEST")      return 8
-		if ("NORTHEAST") return 5
-		if ("NORTHWEST") return 9
-		if ("SOUTHEAST") return 6
-		if ("SOUTHWEST") return 10
+		if ("NORTH")     return NORTH
+		if ("SOUTH")     return SOUTH
+		if ("EAST")      return EAST
+		if ("WEST")      return WEST
+		if ("NORTHEAST") return NORTHEAST
+		if ("NORTHWEST") return NORTHWEST
+		if ("SOUTHEAST") return SOUTHEAST
+		if ("SOUTHWEST") return SOUTHWEST
 
 // Converts an angle (degrees) into an ss13 direction
 /proc/angle2dir(var/degree)
@@ -117,6 +74,13 @@
 		if (BLEND_ADD)      return ICON_ADD
 		if (BLEND_SUBTRACT) return ICON_SUBTRACT
 		else                return ICON_OVERLAY
+
+/proc/iconMode2blendMode(icon_mode)
+	switch (icon_mode)
+		if (ICON_MULTIPLY) return BLEND_MULTIPLY
+		if (ICON_ADD)      return BLEND_ADD
+		if (ICON_SUBTRACT) return BLEND_SUBTRACT
+		else               return BLEND_OVERLAY
 
 // Converts a rights bitfield into a string
 /proc/rights2text(rights,seperator="")
@@ -218,30 +182,6 @@
 /proc/atomtype2nameassoclist(var/atom_type)
 	return atomtypes2nameassoclist(typesof(atom_type))
 
-/proc/str2hex(str)
-	if(!istext(str)||!str)
-		return
-	var/r
-	var/c
-	for(var/i = 1 to length(str))
-		c= text2ascii(str,i)
-		r+= num2hex(c)
-	return r
-
-// Decodes hex to raw byte string.
-// If safe=TRUE, returns null on incorrect input strings instead of CRASHing
-/proc/hex2str(str)
-	if(!istext(str)||!str)
-		return
-	var/r
-	var/c
-	for(var/i = 1 to length(str)/2)
-		c = hex2num(copytext(str,i*2-1,i*2+1))
-		if(isnull(c))
-			return null
-		r += ascii2text(c)
-	return r
-
 //checks if a file exists and contains text
 //returns text as a string if these conditions are met
 /proc/safe_file2text(filename, error_on_invalid_return = TRUE)
@@ -254,4 +194,4 @@
 			error("File not found ([filename])")
 	catch(var/exception/E)
 		if(error_on_invalid_return)
-			error("Exception when loading file as string: [E]")
+			error("Exception when loading file as string: [EXCEPTION_TEXT(E)]")

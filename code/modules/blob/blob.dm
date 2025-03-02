@@ -12,23 +12,22 @@
 
 	layer = BLOB_SHIELD_LAYER
 
-	var/maxHealth = 30
-	var/health
-	var/regen_rate = 5
-	var/brute_resist = 4.3
-	var/fire_resist = 0.8
-	var/laser_resist = 2	// Special resist for laser based weapons - Emitters or handheld energy weaponry. Damage is divided by this and THEN by fire_resist.
+	max_health = 15
+
+	var/regen_rate = 2.5
+	var/brute_damage_divisor = 4.3
+	var/fire_damage_divisor = 1.1
+	var/laser_damage_divisor = 2	// Special resist for laser based weapons - Emitters or handheld energy weaponry. Damage is divided by this and THEN by fire_damage_divisor.
 	var/expandType = /obj/effect/blob
-	var/secondary_core_growth_chance = 5 //% chance to grow a secondary blob core instead of whatever was suposed to grown. Secondary cores are considerably weaker, but still nasty.
+	var/secondary_core_growth_chance = 2.5 //% chance to grow a secondary blob core instead of whatever was suposed to grown. Secondary cores are considerably weaker, but still nasty.
 	var/damage_min = 15
 	var/damage_max = 30
 	var/pruned = FALSE
 	var/product = /obj/item/blob_tendril
-	var/attack_freq = 5 //see proc/attempt_attack; lower is more often, min 1
+	var/attack_freq = 7.5 //see proc/attempt_attack; lower is more often, min 1
 
 /obj/effect/blob/Initialize()
 	. = ..()
-	health = maxHealth
 	update_icon()
 	START_PROCESSING(SSblob, src)
 
@@ -43,10 +42,10 @@
 
 /obj/effect/blob/explosion_act(var/severity)
 	SHOULD_CALL_PARENT(FALSE)
-	take_damage(rand(140 - (severity * 40), 140 - (severity * 20)) / brute_resist)
+	take_damage(rand(140 - (severity * 40), 140 - (severity * 20)) / brute_damage_divisor)
 
 /obj/effect/blob/on_update_icon()
-	if(health > maxHealth / 2)
+	if(current_health > get_max_health() / 2)
 		icon_state = "blob"
 	else
 		icon_state = "blob_damaged"
@@ -57,33 +56,33 @@
 		return
 	attempt_attack(global.alldirs)
 
-/obj/effect/blob/proc/take_damage(var/damage)
-	health -= damage
-	if(health < 0)
+/obj/effect/blob/take_damage(damage, damage_type = BRUTE, damage_flags, inflicter, armor_pen = 0, silent, do_update_health)
+	current_health -= damage
+	if(current_health < 0)
 		playsound(loc, 'sound/effects/splat.ogg', 50, 1)
 		qdel(src)
 	else
 		update_icon()
 
 /obj/effect/blob/proc/regen()
-	health = min(health + regen_rate, maxHealth)
+	current_health = min(current_health + regen_rate, get_max_health())
 	update_icon()
 
 /obj/effect/blob/proc/expand(var/turf/T)
 	if(istype(T, /turf/unsimulated/) || isspaceturf(T))
 		return
-	if(istype(T, /turf/simulated/wall))
-		var/turf/simulated/wall/SW = T
+	if(istype(T, /turf/wall))
+		var/turf/wall/SW = T
 		SW.take_damage(80)
 		return
 	var/obj/structure/girder/G = locate() in T
 	if(G)
 		if(prob(40))
-			G.dismantle()
+			G.dismantle_structure()
 		return
-	var/obj/structure/window/W = locate() in T
-	if(W)
-		W.shatter()
+	var/obj/structure/window/used_item = locate() in T
+	if(used_item)
+		used_item.shatter()
 		return
 	var/obj/structure/grille/GR = locate() in T
 	if(GR)
@@ -120,16 +119,16 @@
 	if(!(locate(/obj/effect/blob/core) in range(T, 2)) && prob(secondary_core_growth_chance))
 		new/obj/effect/blob/core/secondary(T)
 	else
-		new expandType(T, min(health, 30))
+		new expandType(T, min(current_health, 30))
 
 /obj/effect/blob/proc/do_pulse(var/forceLeft, var/list/dirs)
 	set waitfor = FALSE
-	sleep(4)
+	sleep(8)
 	var/pushDir = pick(dirs)
 	var/turf/T = get_step(src, pushDir)
 	var/obj/effect/blob/B = (locate() in T)
 	if(!B)
-		if(prob(health))
+		if(prob(current_health))
 			expand(T)
 		return
 	if(forceLeft)
@@ -155,48 +154,48 @@
 	if(!Proj)
 		return
 
-	switch(Proj.damage_type)
+	switch(Proj.atom_damage_type)
 		if(BRUTE)
-			take_damage(Proj.damage / brute_resist)
+			take_damage(Proj.damage / brute_damage_divisor, Proj.atom_damage_type)
 		if(BURN)
-			take_damage((Proj.damage / laser_resist) / fire_resist)
+			take_damage((Proj.damage / laser_damage_divisor) / fire_damage_divisor, Proj.atom_damage_type)
 	return 0
 
-/obj/effect/blob/attackby(var/obj/item/W, var/mob/user)
+/obj/effect/blob/attackby(var/obj/item/used_item, var/mob/user)
 	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	user.do_attack_animation(src)
 	playsound(loc, 'sound/effects/attackblob.ogg', 50, 1)
-	if(IS_WIRECUTTER(W))
+	if(IS_WIRECUTTER(used_item))
 		if(prob(user.skill_fail_chance(SKILL_SCIENCE, 90, SKILL_EXPERT)))
 			to_chat(user, SPAN_WARNING("You fail to collect a sample from \the [src]."))
-			return
+			return TRUE
 		else
 			if(!pruned)
 				to_chat(user, SPAN_NOTICE("You collect a sample from \the [src]."))
 				new product(user.loc)
 				pruned = TRUE
-				return
+				return TRUE
 			else
 				to_chat(user, SPAN_WARNING("\The [src] has already been pruned."))
-				return
+				return TRUE
 
 	var/damage = 0
-	switch(W.damtype)
+	switch(used_item.atom_damage_type)
 		if(BURN)
-			damage = (W.force / fire_resist)
-			if(IS_WELDER(W))
+			damage = (used_item.expend_attack_force(user) / fire_damage_divisor)
+			if(IS_WELDER(used_item))
 				playsound(loc, 'sound/items/Welder.ogg', 100, 1)
 		if(BRUTE)
-			damage = (W.force / brute_resist)
+			damage = (used_item.expend_attack_force(user) / brute_damage_divisor)
 
-	take_damage(damage)
-	return
+	take_damage(damage, used_item.atom_damage_type)
+	return TRUE
 
 /obj/effect/blob/core
 	name = "master nucleus"
 	desc = "A massive, fragile nucleus guarded by a shield of thick tendrils."
 	icon_state = "blob_core"
-	maxHealth = 450
+	max_health = 225
 	damage_min = 30
 	damage_max = 40
 	expandType = /obj/effect/blob/shield
@@ -209,9 +208,6 @@
 	var/reported_low_damage = FALSE
 	var/times_to_pulse = 0
 
-/obj/effect/blob/core/proc/get_health_percent()
-	return ((health / maxHealth) * 100)
-
 /*
 the master core becomes more vulnereable to damage as it weakens,
 but it also becomes more aggressive, and channels more of its energy into regenerating rather than spreading
@@ -220,28 +216,28 @@ regen() will cover update_icon() for this proc
 /obj/effect/blob/core/proc/process_core_health()
 	switch(get_health_percent())
 		if(75 to INFINITY)
-			brute_resist = 3.5
-			fire_resist = 2
+			brute_damage_divisor = 3.5
+			fire_damage_divisor = 2.5
 			attack_freq = 5
 			regen_rate = 2
 			times_to_pulse = 4
 			if(reported_low_damage)
 				report_shield_status("high")
 		if(50 to 74)
-			brute_resist = 2.5
-			fire_resist = 1.5
+			brute_damage_divisor = 2.5
+			fire_damage_divisor = 2
 			attack_freq = 4
 			regen_rate = 3
 			times_to_pulse = 3
 		if(34 to 49)
-			brute_resist = 1
-			fire_resist = 0.8
+			brute_damage_divisor = 1
+			fire_damage_divisor = 1.1
 			attack_freq = 3
 			regen_rate = 4
 			times_to_pulse = 2
 		if(-INFINITY to 33)
-			brute_resist = 0.5
-			fire_resist = 0.3
+			brute_damage_divisor = 0.5
+			fire_damage_divisor = 0.35
 			regen_rate = 5
 			times_to_pulse = 1
 			if(!reported_low_damage)
@@ -249,13 +245,13 @@ regen() will cover update_icon() for this proc
 
 /obj/effect/blob/core/proc/report_shield_status(var/status)
 	if(status == "low")
-		visible_message(SPAN_DANGER("The [src]'s tendril shield fails, leaving the nucleus vulnerable!"), 3)
+		visible_message(SPAN_DANGER("\The [src]'s tendril shield fails, leaving the nucleus vulnerable!"), 3)
 		reported_low_damage = TRUE
 	if(status == "high")
-		visible_message(SPAN_NOTICE("The [src]'s tendril shield seems to have fully reformed."), 3)
+		visible_message(SPAN_NOTICE("\The [src]'s tendril shield seems to have fully reformed."), 3)
 		reported_low_damage = FALSE
 
-// Rough icon state changes that reflect the core's health
+// Rough icon state changes that reflect the core's current_health
 /obj/effect/blob/core/on_update_icon()
 	switch(get_health_percent())
 		if(66 to INFINITY)
@@ -282,7 +278,7 @@ regen() will cover update_icon() for this proc
 	name = "auxiliary nucleus"
 	desc = "An interwoven mass of tendrils. A glowing nucleus pulses at its center."
 	icon_state = "blob_node"
-	maxHealth = 125
+	max_health = 65
 	regen_rate = 1
 	damage_min = 15
 	damage_max = 20
@@ -294,16 +290,16 @@ regen() will cover update_icon() for this proc
 	return
 
 /obj/effect/blob/core/secondary/on_update_icon()
-	icon_state = (health / maxHealth >= 0.5) ? "blob_node" : "blob_factory"
+	icon_state = (current_health / get_max_health() >= 0.5) ? "blob_node" : "blob_factory"
 
 /obj/effect/blob/shield
 	name = "shielding mass"
 	desc = "A pulsating mass of interwoven tendrils. These seem particularly robust, but not quite as active."
 	icon_state = "blob_idle"
-	maxHealth = 120
+	max_health = 60
 	damage_min = 13
 	damage_max = 25
-	attack_freq = 7
+	attack_freq = 8
 	regen_rate = 4
 	expandType = /obj/effect/blob/ravaging
 	light_color = BLOB_COLOR_SHIELD
@@ -318,9 +314,10 @@ regen() will cover update_icon() for this proc
 	return ..()
 
 /obj/effect/blob/shield/on_update_icon()
-	if(health > maxHealth * 2 / 3)
+	var/current_max_health = get_max_health()
+	if(current_health > current_max_health * 2 / 3)
 		icon_state = "blob_idle"
-	else if(health > maxHealth / 3)
+	else if(current_health > current_max_health / 3)
 		icon_state = "blob"
 	else
 		icon_state = "blob_damaged"
@@ -331,7 +328,7 @@ regen() will cover update_icon() for this proc
 /obj/effect/blob/ravaging
 	name = "ravaging mass"
 	desc = "A mass of interwoven tendrils. They thrash around haphazardly at anything in reach."
-	maxHealth = 20
+	max_health = 10
 	damage_min = 27
 	damage_max = 36
 	attack_freq = 3
@@ -347,12 +344,12 @@ regen() will cover update_icon() for this proc
 	item_state = "blob_tendril"
 	w_class = ITEM_SIZE_LARGE
 	attack_verb = list("smacked", "smashed", "whipped")
-	material = /decl/material/solid/plantmatter
+	material = /decl/material/solid/organic/plantmatter
 	var/is_tendril = TRUE
 	var/types_of_tendril = list("solid", "fire")
 
 /obj/item/blob_tendril/get_heat()
-	. = max(..(), damtype == BURN ? 1000 : 0)
+	. = max(..(), atom_damage_type == BURN ? 1000 : 0)
 
 /obj/item/blob_tendril/Initialize()
 	. = ..()
@@ -362,22 +359,22 @@ regen() will cover update_icon() for this proc
 		switch(tendril_type)
 			if("solid")
 				desc = "An incredibly dense, yet flexible, tendril, removed from an asteroclast."
-				force = 10
+				set_base_attack_force(10)
 				color = COLOR_BRONZE
-				origin_tech = "{'materials':2}"
+				origin_tech = @'{"materials":2}'
 			if("fire")
 				desc = "A tendril removed from an asteroclast. It's hot to the touch."
-				damtype = BURN
-				force = 15
+				atom_damage_type = BURN
+				set_base_attack_force(15)
 				color = COLOR_AMBER
-				origin_tech = "{'powerstorage':2}"
+				origin_tech = @'{"powerstorage":2}'
 
 /obj/item/blob_tendril/afterattack(obj/O, mob/user, proximity)
 	if(!proximity)
 		return
 	if(is_tendril && prob(50))
-		force--
-		if(force <= 0)
+		set_base_attack_force(get_base_attack_force()-1)
+		if(get_base_attack_force() <= 0)
 			visible_message(SPAN_NOTICE("\The [src] crumbles apart!"))
 			user.drop_from_inventory(src)
 			new /obj/effect/decal/cleanable/ash(src.loc)
@@ -389,11 +386,11 @@ regen() will cover update_icon() for this proc
 	icon_state = "core_sample"
 	item_state = "blob_core"
 	w_class = ITEM_SIZE_NORMAL
-	origin_tech = "{'materials':4,'wormholes':5,'biotech':7}"
+	origin_tech = @'{"materials":4,"wormholes":5,"biotech":7}'
 	is_tendril = FALSE
 
 /obj/item/blob_tendril/core/aux
 	name = "asteroclast auxiliary nucleus sample"
 	desc = "A sample taken from an asteroclast's auxiliary nucleus."
 	icon_state = "core_sample_2"
-	origin_tech = "{'materials':2,'wormholes':3,'biotech':4}"
+	origin_tech = @'{"materials":2,"wormholes":3,"biotech":4}'

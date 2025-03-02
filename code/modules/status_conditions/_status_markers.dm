@@ -1,3 +1,12 @@
+var/global/list/_status_marker_decls
+/proc/get_status_marker_decls()
+	if(!global._status_marker_decls)
+		global._status_marker_decls = list()
+		for(var/decl/status_condition/cond as anything in decls_repository.get_decls_of_subtype_unassociated(/decl/status_condition))
+			if(cond.status_marker_icon && cond.status_marker_state)
+				global._status_marker_decls += cond
+	return global._status_marker_decls
+
 /obj/status_marker
 	name = ""
 	mouse_opacity = MOUSE_OPACITY_UNCLICKABLE
@@ -43,7 +52,7 @@
 
 	mob_image = new /image
 	mob_image.loc = owner
-	mob_image.appearance_flags |= (RESET_COLOR|RESET_TRANSFORM|KEEP_TOGETHER)
+	mob_image.appearance_flags |= (RESET_ALPHA|RESET_COLOR|RESET_TRANSFORM|KEEP_APART)
 	mob_image.plane = DEFAULT_PLANE
 	mob_image.layer = POINTER_LAYER
 
@@ -53,25 +62,21 @@
 
 	mob_image_personal = new /image
 	mob_image_personal.loc = owner
-	mob_image_personal.appearance_flags |= (RESET_COLOR|RESET_TRANSFORM|KEEP_TOGETHER)
+	mob_image_personal.appearance_flags |= (RESET_ALPHA|RESET_COLOR|RESET_TRANSFORM|KEEP_APART)
 	mob_image_personal.plane = DEFAULT_PLANE
 	mob_image_personal.layer = POINTER_LAYER
 
 	animate(mob_image_personal, pixel_z =  1, time = 3, easing = (SINE_EASING | EASE_OUT), loop = -1)
-	animate(           pixel_z = -1, time = 6, easing =  SINE_EASING,             loop = -1)
-	animate(           pixel_z =  0, time = 3, easing = (SINE_EASING | EASE_IN),  loop = -1)
+	animate(                    pixel_z = -1, time = 6, easing =  SINE_EASING,             loop = -1)
+	animate(                    pixel_z =  0, time = 3, easing = (SINE_EASING | EASE_IN),  loop = -1)
 
-	var/list/all_status = decls_repository.get_decls_of_subtype(/decl/status_condition)
-	for(var/status_type in all_status)
-		var/decl/status_condition/status = all_status[status_type]
+	for(var/decl/status_condition/status in get_status_marker_decls())
 		if(status.status_marker_icon && status.status_marker_state)
-
 			var/obj/status_marker/marker = new(null, status)
-			add_vis_contents(mob_image, marker)
+			mob_image.add_vis_contents(marker)
 			LAZYSET(markers, status, marker)
-
 			marker = new(null, status)
-			add_vis_contents(mob_image_personal, marker)
+			mob_image_personal.add_vis_contents(marker)
 			LAZYSET(markers_personal, status, marker)
 
 	global.status_marker_holders += src
@@ -88,10 +93,10 @@
 		C.images -= mob_image_personal
 	global.status_marker_holders -= src
 	if(mob_image)
-		clear_vis_contents(mob_image)
+		mob_image.clear_vis_contents()
 		mob_image = null
 	if(mob_image_personal)
-		clear_vis_contents(mob_image_personal)
+		mob_image_personal.clear_vis_contents()
 		mob_image_personal = null
 	for(var/key in markers)
 		qdel(markers[key])

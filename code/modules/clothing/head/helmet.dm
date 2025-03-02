@@ -2,8 +2,9 @@
 	name = "helmet"
 	desc = "Reinforced headgear. Protects the head from impacts."
 	icon = 'icons/clothing/head/armor/helmet.dmi'
-	valid_accessory_slots = list(ACCESSORY_SLOT_HELM_C)
-	restricted_accessory_slots = list(ACCESSORY_SLOT_HELM_C)
+	accessory_slot = null // you can't equip helmets over other helmets
+	valid_accessory_slots = list(ACCESSORY_SLOT_HELM_C, ACCESSORY_SLOT_OVER_HELMET)
+	restricted_accessory_slots = list(ACCESSORY_SLOT_HELM_C, ACCESSORY_SLOT_OVER_HELMET)
 	item_flags = ITEM_FLAG_THICKMATERIAL
 	body_parts_covered = SLOT_HEAD
 	armor = list(
@@ -22,8 +23,10 @@
 	w_class = ITEM_SIZE_NORMAL
 	material = /decl/material/solid/metal/steel
 	matter = list(/decl/material/solid/metal/plasteel = MATTER_AMOUNT_TRACE)
-	origin_tech = "{'materials':1,'engineering':1,'combat':1}"
+	origin_tech = @'{"materials":1,"engineering":1,"combat":1}'
 	protects_against_weather = TRUE
+	replaced_in_loadout = FALSE
+	_base_attack_force = 8
 
 /obj/item/clothing/head/helmet/tactical
 	name = "tactical helmet"
@@ -38,7 +41,7 @@
 		)
 	siemens_coefficient = 0.6
 	material = /decl/material/solid/metal/plasteel
-	origin_tech = "{'materials':2,'engineering':2,'combat':2}"
+	origin_tech = @'{"materials":2,"engineering":2,"combat":2}'
 
 /obj/item/clothing/head/helmet/merc
 	name = "combat helmet"
@@ -54,7 +57,7 @@
 	siemens_coefficient = 0.5
 	material = /decl/material/solid/metal/plasteel
 	matter = list(/decl/material/solid/gemstone/diamond = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'materials':2,'engineering':2,'combat':2}"
+	origin_tech = @'{"materials":2,"engineering":2,"combat":2}'
 
 /obj/item/clothing/head/helmet/riot
 	name = "riot helmet"
@@ -69,24 +72,24 @@
 	siemens_coefficient = 0.7
 	action_button_name = "Toggle Visor"
 	var/up = 0
-	matter = list(/decl/material/solid/cloth = MATTER_AMOUNT_SECONDARY)
+	matter = list(/decl/material/solid/organic/cloth = MATTER_AMOUNT_SECONDARY)
 
 /obj/item/clothing/head/helmet/riot/attack_self(mob/user)
 	up = !up
 	if(up)
-		to_chat(user, "You raise the visor on the [src].")
+		to_chat(user, "You raise the visor on \the [src].")
 	else
-		to_chat(user, "You lower the visor on the [src].")
+		to_chat(user, "You lower the visor on \the [src].")
 	update_icon()
 
-/obj/item/clothing/head/helmet/riot/on_update_icon(mob/user)
+/obj/item/clothing/head/helmet/riot/on_update_icon()
 	. = ..()
 	icon_state = get_world_inventory_state()
 	if(up && check_state_in_icon("[icon_state]_up", icon))
 		icon_state = "[icon_state]_up"
 	update_clothing_icon()
 
-/obj/item/clothing/head/helmet/riot/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/head/helmet/riot/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && up && check_state_in_icon("[overlay.icon_state]_up", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]_up"
 	. = ..()
@@ -122,7 +125,7 @@
 		/decl/material/solid/metal/titanium = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/gemstone/diamond = MATTER_AMOUNT_TRACE
 		)
-	origin_tech = "{'materials':3,'engineering':2,'combat':3}"
+	origin_tech = @'{"materials":3,"engineering":2,"combat":3}'
 
 /obj/item/clothing/head/helmet/swat
 	name = "\improper SWAT helmet"
@@ -140,7 +143,7 @@
 	siemens_coefficient = 0.5
 	material = /decl/material/solid/metal/plasteel
 	matter = list(/decl/material/solid/metal/titanium = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'materials':4,'engineering':2,'combat':4}"
+	origin_tech = @'{"materials":4,"engineering":2,"combat":4}'
 
 /obj/item/clothing/head/helmet/thunderdome
 	name = "\improper Thunderdome helmet"
@@ -159,7 +162,7 @@
 	siemens_coefficient = 1
 	material = /decl/material/solid/metal/plasteel
 	matter = list(/decl/material/solid/metal/titanium = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'materials':4,'engineering':2,'combat':4}"
+	origin_tech = @'{"materials":4,"engineering":2,"combat":4}'
 
 /obj/item/clothing/head/helmet/gladiator
 	name = "gladiator helmet"

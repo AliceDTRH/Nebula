@@ -8,7 +8,7 @@
 		remove_antagonist(target)
 		return 0
 	if(flags & ANTAG_CHOOSE_NAME)
-		INVOKE_ASYNC(src, .proc/set_antag_name, target.current)
+		INVOKE_ASYNC(src, PROC_REF(set_antag_name), target.current)
 	if(move)
 		place_mob(target.current)
 	update_leader()
@@ -23,7 +23,7 @@
 	if(mob_path)
 		M = new mob_path(get_turf(source))
 	else
-		M = new /mob/living/carbon/human(get_turf(source))
+		M = new /mob/living/human(get_turf(source))
 	M.ckey = source.ckey
 	add_antagonist(M.mind, 1, 0, 1) // Equip them and move them to spawn.
 	return M
@@ -75,7 +75,7 @@
 		to_chat(player.current, "<span class='antagdesc'>[get_leader_welcome_text(player.current)]</span>")
 	else
 		to_chat(player.current, "<span class='antagdesc'>[get_welcome_text(player.current)]</span>")
-	if (config.objectives_disabled == CONFIG_OBJECTIVE_NONE || !player.objectives.len)
+	if (get_config_value(/decl/config/enum/objectives_disabled) == CONFIG_OBJECTIVE_NONE || !player.objectives.len)
 		to_chat(player.current, get_antag_text(player.current))
 
 	if((flags & ANTAG_HAS_NUKE) && !spawned_nuke)
@@ -90,8 +90,6 @@
 	if (newname)
 		player.real_name = newname
 		player.SetName(player.real_name)
-		if(player.dna)
-			player.dna.real_name = newname
 	if(player.mind) player.mind.name = player.name
 	// Update any ID cards.
 	update_access(player)

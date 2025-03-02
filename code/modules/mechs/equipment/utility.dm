@@ -4,7 +4,7 @@
 	icon_state = "mech_clamp"
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND)
 	restricted_software = list(MECH_SOFTWARE_UTILITY)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 	var/carrying_capacity = 5
 	var/list/obj/carrying = list()
 
@@ -16,7 +16,13 @@
 /obj/item/mech_equipment/clamp/attack_hand(mob/user)
 	if(!owner || !LAZYISIN(owner.pilots, user) || owner.hatch_closed || !length(carrying) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
 		return ..()
-	var/obj/chosen_obj = input(user, "Choose an object to grab.", "Clamp Claw") as null|anything in carrying
+	// Filter out non-items.
+	var/list/carrying_items = list()
+	for(var/obj/item/thing in carrying)
+		carrying_items += thing
+	if(!length(carrying_items))
+		return TRUE
+	var/obj/item/chosen_obj = input(user, "Choose an object to grab.", "Clamp Claw") as null|anything in carrying_items
 	if(chosen_obj && do_after(user, 20, owner) && !owner.hatch_closed && !QDELETED(chosen_obj) && (chosen_obj in carrying))
 		owner.visible_message(SPAN_NOTICE("\The [user] carefully grabs \the [chosen_obj] from \the [src]."))
 		playsound(src, 'sound/mecha/hydraulic.ogg', 50, 1)
@@ -49,7 +55,7 @@
 							playsound(FD, 'sound/effects/meteorimpact.ogg', 100, 1)
 							playsound(FD, 'sound/machines/airlock_creaking.ogg', 100, 1)
 							FD.blocked = FALSE
-							addtimer(CALLBACK(FD, /obj/machinery/door/firedoor/.proc/open, TRUE), 0)
+							addtimer(CALLBACK(FD, TYPE_PROC_REF(/obj/machinery/door/firedoor, open), TRUE), 0)
 							FD.set_broken(TRUE)
 							FD.visible_message(SPAN_WARNING("\The [owner] tears \the [FD] open!"))
 					else
@@ -58,10 +64,10 @@
 							playsound(FD, 'sound/machines/airlock_creaking.ogg', 100, 1)
 							if(FD.density)
 								FD.visible_message(SPAN_DANGER("\The [owner] forces \the [FD] open!"))
-								addtimer(CALLBACK(FD, /obj/machinery/door/firedoor/.proc/open, TRUE), 0)
+								addtimer(CALLBACK(FD, TYPE_PROC_REF(/obj/machinery/door/firedoor, open), TRUE), 0)
 							else
 								FD.visible_message(SPAN_WARNING("\The [owner] forces \the [FD] closed!"))
-								addtimer(CALLBACK(FD, /obj/machinery/door/firedoor/.proc/close, TRUE), 0)
+								addtimer(CALLBACK(FD, TYPE_PROC_REF(/obj/machinery/door/firedoor, close), TRUE), 0)
 					return
 				else if(istype(O, /obj/machinery/door/airlock))
 					var/obj/machinery/door/airlock/AD = O
@@ -74,7 +80,7 @@
 								playsound(AD, 'sound/effects/meteorimpact.ogg', 100, 1)
 								playsound(AD, 'sound/machines/airlock_creaking.ogg', 100, 1)
 								AD.visible_message(SPAN_DANGER("\The [owner] tears \the [AD] open!"))
-								addtimer(CALLBACK(AD, /obj/machinery/door/airlock/.proc/open, TRUE), 0)
+								addtimer(CALLBACK(AD, TYPE_PROC_REF(/obj/machinery/door/airlock, open), TRUE), 0)
 								AD.set_broken(TRUE)
 								return
 						else
@@ -82,12 +88,12 @@
 							if((AD.is_broken(NOPOWER) || do_after(owner, 5 SECONDS,AD)) && !(AD.operating || AD.welded || AD.locked))
 								playsound(AD, 'sound/machines/airlock_creaking.ogg', 100, 1)
 								if(AD.density)
-									addtimer(CALLBACK(AD, /obj/machinery/door/airlock/.proc/open, TRUE), 0)
+									addtimer(CALLBACK(AD, TYPE_PROC_REF(/obj/machinery/door/airlock, open), TRUE), 0)
 									if(!AD.is_broken(NOPOWER))
 										AD.set_broken(TRUE)
 									AD.visible_message(SPAN_DANGER("\The [owner] forces \the [AD] open!"))
 								else
-									addtimer(CALLBACK(AD, /obj/machinery/door/airlock/.proc/close, TRUE), 0)
+									addtimer(CALLBACK(AD, TYPE_PROC_REF(/obj/machinery/door/airlock, close), TRUE), 0)
 									if(!AD.is_broken(NOPOWER))
 										AD.set_broken(TRUE)
 									AD.visible_message(SPAN_DANGER("\The [owner] forces \the [AD] closed!"))
@@ -100,7 +106,7 @@
 
 			owner.visible_message(SPAN_NOTICE("\The [owner] begins loading \the [O]."))
 			if(do_after(owner, 20, O, 0, 1))
-				if(O in carrying || O.buckled_mob || O.anchored || (locate(/mob/living) in O)) //Repeat checks
+				if((O in carrying) || O.buckled_mob || O.anchored || (locate(/mob/living) in O)) //Repeat checks
 					return
 				if(length(carrying) >= carrying_capacity)
 					to_chat(user, SPAN_WARNING("\The [src] is fully loaded!"))
@@ -111,9 +117,9 @@
 				playsound(src, 'sound/mecha/hydraulic.ogg', 50, 1)
 
 		//attacking - Cannot be carrying something, cause then your clamp would be full
-		else if(istype(target,/mob/living))
+		else if(isliving(target))
 			var/mob/living/M = target
-			if(user.a_intent == I_HURT)
+			if(user.check_intent(I_FLAG_HARM))
 				admin_attack_log(user, M, "attempted to clamp [M] with [src] ", "Was subject to a clamping attempt.", ", using \a [src], attempted to clamp")
 				owner.setClickCooldown(owner.arms ? owner.arms.action_delay * 3 : 30) //This is an inefficient use of your powers
 				if(prob(33))
@@ -133,11 +139,9 @@
 	if(.)
 		drop_carrying(user, TRUE)
 
-/obj/item/mech_equipment/clamp/CtrlClick(mob/user)
-	if(owner)
-		drop_carrying(user, FALSE)
-	else
-		..()
+/obj/item/mech_equipment/clamp/get_alt_interactions(mob/user)
+	. = ..()
+	LAZYADD(., /decl/interaction_handler/mech_equipment/clamp)
 
 /obj/item/mech_equipment/clamp/proc/drop_carrying(var/mob/user, var/choose_object)
 	if(!length(carrying))
@@ -189,6 +193,15 @@
 			carrying -= load
 	. = ..()
 
+/decl/interaction_handler/mech_equipment/clamp
+	name = "Release Clamp"
+	expected_target_type = /obj/item/mech_equipment/clamp
+	examine_desc = "release $TARGET_THEM$"
+
+/decl/interaction_handler/mech_equipment/clamp/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/item/mech_equipment/clamp/clamp = target
+	clamp.drop_carrying(user, FALSE)
+
 // A lot of this is copied from floodlights.
 /obj/item/mech_equipment/light
 	name = "floodlight"
@@ -197,7 +210,7 @@
 	item_state = "mech_floodlight"
 	restricted_hardpoints = list(HARDPOINT_HEAD, HARDPOINT_LEFT_SHOULDER, HARDPOINT_RIGHT_SHOULDER)
 	mech_layer = MECH_INTERMEDIATE_LAYER
-	origin_tech = "{'materials':1,'engineering':1}"
+	origin_tech = @'{"materials":1,"engineering":1}'
 
 	var/on = 0
 	var/l_power = 0.9
@@ -251,7 +264,7 @@
 	var/mode = CATAPULT_SINGLE
 	var/atom/movable/locked
 	equipment_delay = 30 //Stunlocks are not ideal
-	origin_tech = "{'materials':4,'engineering':4,'magnets':4}"
+	origin_tech = @'{"materials":4,"engineering":4,"magnets":4}'
 	require_adjacent = FALSE
 
 /obj/item/mech_equipment/catapult/get_hardpoint_maptext()
@@ -292,9 +305,9 @@
 						log_and_message_admins("used [src] to throw [locked] at [target].", user, owner.loc)
 						locked = null
 
-						var/obj/item/cell/C = owner.get_cell()
-						if(istype(C))
-							C.use(active_power_use * CELLRATE)
+						var/obj/item/cell/cell = owner.get_cell()
+						if(istype(cell))
+							cell.use(active_power_use * CELLRATE)
 
 					else
 						locked = null
@@ -313,9 +326,9 @@
 
 
 				log_and_message_admins("used [src]'s area throw on [target].", user, owner.loc)
-				var/obj/item/cell/C = owner.get_cell()
-				if(istype(C))
-					C.use(active_power_use * CELLRATE * 2) //bit more expensive to throw all
+				var/obj/item/cell/cell = owner.get_cell()
+				if(istype(cell))
+					cell.use(active_power_use * CELLRATE * 2) //bit more expensive to throw all
 
 
 
@@ -342,9 +355,9 @@
 		if (10 to 50) . = "is very worn"
 		else . = "looks close to breaking"
 
-/obj/item/drill_head/examine(mob/user, distance)
+/obj/item/drill_head/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It [get_visible_durability()].")
+	. += "It [get_visible_durability()]."
 
 /obj/item/drill_head/steel
 	material = /decl/material/solid/metal/steel
@@ -372,7 +385,7 @@
 
 	//Drill can have a head
 	var/obj/item/drill_head/drill_head
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/mech_equipment/drill/Initialize()
 	. = ..()
@@ -391,14 +404,14 @@
 		return "Integrity: [drill_head.get_percent_durability()]%"
 	return
 
-/obj/item/mech_equipment/drill/examine(mob/user, distance)
+/obj/item/mech_equipment/drill/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (drill_head)
-		to_chat(user, "It has a[distance > 3 ? "" : " [drill_head.material.name]"] drill head installed.")
+		. += "It has a[distance > 3 ? "" : " [drill_head.material.name]"] drill head installed."
 		if (distance < 4)
-			to_chat(user, "The drill head [drill_head.get_visible_durability()].")
+			. += "The drill head [drill_head.get_visible_durability()]."
 	else
-		to_chat(user, "It does not have a drill head installed.")
+		. += "It does not have a drill head installed."
 
 /obj/item/mech_equipment/drill/proc/attach_head(obj/item/drill_head/DH, mob/user)
 	if (user && !user.try_unequip(DH))
@@ -410,9 +423,9 @@
 	DH.forceMove(src)
 	drill_head = DH
 
-/obj/item/mech_equipment/drill/attackby(obj/item/I, mob/user)
-	if (istype(I, /obj/item/drill_head))
-		attach_head(I, user)
+/obj/item/mech_equipment/drill/attackby(obj/item/used_item, mob/user)
+	if (istype(used_item, /obj/item/drill_head))
+		attach_head(used_item, user)
 		return TRUE
 	. = ..()
 
@@ -435,26 +448,24 @@
 	if (!..()) // /obj/item/mech_equipment/afterattack implements a usage guard
 		return
 
-	if (istype(target, /obj/item/drill_head))
-		attach_head(target, user)
+	if(!target.simulated)
 		return
 
 	if (!drill_head)
-		to_chat(user, SPAN_WARNING("\The [src] doesn't have a head!"))
+		if (istype(target, /obj/item/drill_head))
+			attach_head(target, user)
+		else
+			to_chat(user, SPAN_WARNING("\The [src] doesn't have a head!"))
 		return
 
 	if (ismob(target))
-		var/mob/tmob = target
-		if (tmob.unacidable)
-			to_chat(user, SPAN_WARNING("\The [target] can't be drilled away."))
-			return
-		else
-			to_chat(tmob, FONT_HUGE(SPAN_DANGER("You're about to get drilled - dodge!")))
+		to_chat(target, FONT_HUGE(SPAN_DANGER("You're about to get drilled - dodge!")))
 
 	else if (isobj(target))
 		var/obj/tobj = target
-		if (tobj.unacidable)
-			to_chat(user, SPAN_WARNING("\The [target] can't be drilled away."))
+		var/decl/material/mat = tobj.get_material()
+		if (mat && mat.hardness < drill_head.material?.hardness)
+			to_chat(user, SPAN_WARNING("\The [target] is too hard to be destroyed by [drill_head.material ? "a [drill_head.material.adjective_name]" : "this"] drill."))
 			return
 
 	else if (istype(target, /turf/unsimulated))
@@ -486,34 +497,34 @@
 		drill_head = null
 		return
 
-	if (istype(target, /turf/exterior/wall))
-		for (var/turf/exterior/wall/M in RANGE_TURFS(target, 1))
+	if (istype(target, /turf/wall/natural))
+		for (var/turf/wall/natural/M in RANGE_TURFS(target, 1))
 			if (!(get_dir(owner, M) & owner.dir))
 				continue
 			drill_head.durability -= 1
-			M.dismantle_wall()
+			M.dismantle_turf()
 		scoop_ore(target)
 		return
 
-	if (istype(target, /turf/simulated/floor/asteroid))
-		for (var/turf/simulated/floor/asteroid/asteroid in RANGE_TURFS(target, 1))
-			if (!(get_dir(owner, asteroid) & owner.dir))
-				continue
-			drill_head.durability -= 1
-			asteroid.gets_dug()
-		scoop_ore(target)
-		return
-
-	if (istype(target, /turf/simulated/wall))
-		var/turf/simulated/wall/wall = target
+	if (istype(target, /turf/wall))
+		var/turf/wall/wall = target
 		var/wall_hardness = max(wall.material.hardness, wall.reinf_material ? wall.reinf_material.hardness : 0)
 		if (wall_hardness > drill_head.material.hardness)
 			to_chat(user, SPAN_WARNING("\The [wall] is too hard to drill through with \the [drill_head]."))
 			drill_head.durability -= 2
 			return
 
+	if(istype(target, /turf))
+		for(var/turf/asteroid as anything in RANGE_TURFS(target, 1))
+			if (!(get_dir(owner, asteroid) & owner.dir))
+				continue
+			if(asteroid.can_be_dug(drill_head.material?.hardness) && asteroid.drop_diggable_resources(user))
+				drill_head.durability -= 1
+				scoop_ore(asteroid)
+		return
+
 	var/audible = "loudly grinding machinery"
-	if (iscarbon(target)) //splorch
+	if (isliving(target)) //splorch
 		audible = "a terrible rending of metal and flesh"
 
 	owner.visible_message(
@@ -546,27 +557,27 @@
 	name = "mounted plasma cutter"
 	desc = "An industrial plasma cutter mounted onto the chassis of the mech. "
 	icon_state = "mech_plasma"
-	holding_type = /obj/item/gun/energy/plasmacutter/mounted/mech
+	holding = /obj/item/gun/energy/plasmacutter/mounted/mech
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND, HARDPOINT_LEFT_SHOULDER, HARDPOINT_RIGHT_SHOULDER)
 	restricted_software = list(MECH_SOFTWARE_UTILITY)
-	origin_tech = "{'materials':4,'engineering':6,'exoticmatter':4,'combat':3}"
+	origin_tech = @'{"materials":4,"engineering":6,"exoticmatter":4,"combat":3}'
 
 /obj/item/mech_equipment/mounted_system/taser/autoplasma
 	icon_state = "mech_energy"
-	holding_type = /obj/item/gun/energy/plasmacutter/mounted/mech/auto
+	holding = /obj/item/gun/energy/plasmacutter/mounted/mech/auto
 	restricted_hardpoints = list(HARDPOINT_LEFT_HAND, HARDPOINT_RIGHT_HAND)
 	restricted_software = list(MECH_SOFTWARE_UTILITY)
-	origin_tech = "{'materials':5,'engineering':6,'exoticmatter':4,'combat':4}"
+	origin_tech = @'{"materials":5,"engineering":6,"exoticmatter":4,"combat":4}'
 
 /obj/item/gun/energy/plasmacutter/mounted/mech/auto
 	charge_cost = 13
 	name = "rotatory plasma cutter"
-	desc = "A state of the art rotating, variable intensity, sequential-cascade plasma cutter. Resist the urge to aim this at your coworkers."
+	desc = "A state-of-the-art rotating, variable intensity, sequential-cascade plasma cutter. Resist the urge to aim this at your coworkers."
 	max_shots = 15
 	firemodes = list(
-		list(mode_name="single shot",	can_autofire=0, burst=1, fire_delay=6,  dispersion = list(0.0)),
-		list(mode_name="full auto",		can_autofire=1, burst=1, fire_delay=1, burst_accuracy = list(0,-1,-1,-1,-1,-2,-2,-2), dispersion = list(1.0, 1.0, 1.0, 1.0, 1.1)),
-		)
+		list(mode_name="single shot", autofire_enabled=0, burst=1, fire_delay=6, dispersion = list(0.0)),
+		list(mode_name="full auto",   autofire_enabled=1, burst=1, fire_delay=1, burst_accuracy = list(0,-1,-1,-1,-1,-2,-2,-2), dispersion = list(1.0, 1.0, 1.0, 1.0, 1.1)),
+	)
 
 /obj/item/mech_equipment/ionjets
 	name = "\improper exosuit manouvering unit"
@@ -578,7 +589,7 @@
 	passive_power_use = 0 KILOWATTS
 	var/activated_passive_power = 2 KILOWATTS
 	var/movement_power = 75
-	origin_tech = "{'magnets':3,'engineering':3,'exoticmatter':3}"
+	origin_tech = @'{"magnets":3,"engineering":3,"exoticmatter":3}'
 	var/datum/effect/effect/system/trail/ion/ion_trail
 	require_adjacent = FALSE
 	var/stabilizers = FALSE
@@ -593,17 +604,14 @@
 	QDEL_NULL(ion_trail)
 	return ..()
 
-/obj/item/mech_equipment/ionjets/proc/allowSpaceMove()
-	if (!active)
+/obj/item/mech_equipment/ionjets/proc/provides_thrust()
+	if(!active)
 		return FALSE
-
-	var/obj/item/cell/C = owner.get_cell()
-	if (istype(C))
-		if (C.checked_use(movement_power * CELLRATE))
+	var/obj/item/cell/cell = owner?.get_cell()
+	if(istype(cell))
+		if(cell.checked_use(movement_power * CELLRATE))
 			return TRUE
-		else
-			deactivate()
-
+		deactivate()
 	return FALSE
 
 /obj/item/mech_equipment/ionjets/attack_self(mob/user)
@@ -615,14 +623,6 @@
 		deactivate()
 	else
 		activate()
-
-/obj/item/mech_equipment/ionjets/CtrlClick(mob/user)
-	if (owner && ((user in owner.pilots) || user == owner))
-		if (active)
-			stabilizers = !stabilizers
-			to_chat(user, SPAN_NOTICE("You toggle the stabilizers [stabilizers ? "on" : "off"]"))
-	else
-		..()
 
 /obj/item/mech_equipment/ionjets/proc/activate()
 	passive_power_use = activated_passive_power
@@ -684,6 +684,27 @@
 		else
 			to_chat(user, SPAN_WARNING("You cannot slide there!"))
 
+/obj/item/mech_equipment/ionjets/get_alt_interactions(mob/user)
+	. = ..()
+	LAZYADD(., /decl/interaction_handler/mech_equipment/ionjets)
+
+/decl/interaction_handler/mech_equipment/ionjets
+	name = "Toggle Stabilizers"
+	expected_target_type = /obj/item/mech_equipment/ionjets
+	examine_desc = "toggle the stabilizers"
+
+/decl/interaction_handler/mech_equipment/ionjets/is_possible(atom/target, mob/user, obj/item/prop)
+	. = ..()
+	if(.)
+		var/obj/item/mech_equipment/ionjets/jets = target
+		return jets.active
+
+/decl/interaction_handler/mech_equipment/ionjets/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/item/mech_equipment/ionjets/jets = target
+	jets.stabilizers = !jets.stabilizers
+	to_chat(user, SPAN_NOTICE("You toggle the stabilizers [jets.stabilizers ? "on" : "off"]"))
+	return TRUE
+
 //Exosuit camera
 /datum/extension/network_device/camera/mech
 	expected_type = /obj/item/mech_equipment/camera
@@ -702,7 +723,7 @@
 	restricted_software = list(MECH_SOFTWARE_UTILITY)
 	equipment_delay = 10
 
-	origin_tech = "{'materials':1,'engineering':1,'magnets':2}"
+	origin_tech = @'{"materials":1,"engineering":1,"magnets":2}'
 
 
 /obj/item/mech_equipment/camera/Initialize()
@@ -721,10 +742,10 @@
 	var/datum/extension/network_device/camera/mech/D = get_extension(src, /datum/extension/network_device)
 	D.display_name = "unregistered exocamera"
 
-/obj/item/mech_equipment/camera/examine(mob/user)
+/obj/item/mech_equipment/camera/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	var/datum/extension/network_device/camera/mech/D = get_extension(src, /datum/extension/network_device)
-	to_chat(user, "Channel: [english_list(D.channels)]; Feed is currently: [active ? "Online" : "Offline"].")
+	. += "Channel: [english_list(D.channels)]; Feed is currently: [active ? "Online" : "Offline"]."
 
 /obj/item/mech_equipment/camera/proc/activate()
 	passive_power_use = 0.2 KILOWATTS
@@ -734,10 +755,10 @@
 	passive_power_use = 0
 	. = ..()
 
-/obj/item/mech_equipment/camera/attackby(obj/item/W, mob/user)
+/obj/item/mech_equipment/camera/attackby(obj/item/used_item, mob/user)
 	. = ..()
 
-	if(IS_SCREWDRIVER(W))
+	if(IS_SCREWDRIVER(used_item))
 		var/datum/extension/network_device/camera/mech/D = get_extension(src, /datum/extension/network_device)
 		D.ui_interact(user)
 

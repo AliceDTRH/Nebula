@@ -43,7 +43,7 @@
 		/obj/item/shockpaddles/robot,
 		/obj/item/crowbar,
 		/obj/item/stack/nanopaste,
-		/obj/item/stack/medical/advanced/bruise_pack,
+		/obj/item/stack/medical/bandage/advanced,
 		/obj/item/chems/dropper
 	)
 	synths = list(
@@ -62,7 +62,7 @@
 	. = ..()
 	for(var/thing in list(
 		 /obj/item/stack/nanopaste,
-		 /obj/item/stack/medical/advanced/bruise_pack
+		 /obj/item/stack/medical/bandage/advanced
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
 		stack.uses_charge = 1
@@ -70,7 +70,7 @@
 
 /obj/item/robot_module/medical/surgeon/finalize_emag()
 	. = ..()
-	emag.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 250)
+	emag.add_to_reagents(/decl/material/liquid/acid/polyacid, 250)
 	emag.SetName("Polyacid spray")
 
 /obj/item/robot_module/medical/surgeon/finalize_synths()
@@ -78,15 +78,15 @@
 	var/datum/matter_synth/medicine/medicine = locate() in synths
 	for(var/thing in list(
 		 /obj/item/stack/nanopaste,
-		 /obj/item/stack/medical/advanced/bruise_pack
+		 /obj/item/stack/medical/bandage/advanced
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
 		stack.synths = list(medicine)
 
-/obj/item/robot_module/medical/surgeon/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/medical/surgeon/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	if(emag)
 		var/obj/item/chems/spray/PS = emag
-		PS.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 2 * amount)
+		PS.add_to_reagents(/decl/material/liquid/acid/polyacid, 2 * amount)
 	..()
 
 /obj/item/robot_module/medical/crisis
@@ -115,7 +115,7 @@
 		/obj/item/stack/tape_roll/barricade_tape/medical,
 		/obj/item/inflatable_dispenser/robot,
 		/obj/item/stack/medical/ointment,
-		/obj/item/stack/medical/bruise_pack,
+		/obj/item/stack/medical/bandage,
 		/obj/item/stack/medical/splint
 	)
 	synths = list(
@@ -134,7 +134,7 @@
 	. = ..()
 	for(var/thing in list(
 		 /obj/item/stack/medical/ointment,
-		 /obj/item/stack/medical/bruise_pack,
+		 /obj/item/stack/medical/bandage,
 		 /obj/item/stack/medical/splint
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
@@ -143,7 +143,7 @@
 
 /obj/item/robot_module/medical/crisis/finalize_emag()
 	. = ..()
-	emag.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 250)
+	emag.add_to_reagents(/decl/material/liquid/acid/polyacid, 250)
 	emag.SetName("Polyacid spray")
 
 /obj/item/robot_module/medical/crisis/finalize_synths()
@@ -151,13 +151,13 @@
 	var/datum/matter_synth/medicine/medicine = locate() in synths
 	for(var/thing in list(
 		 /obj/item/stack/medical/ointment,
-		 /obj/item/stack/medical/bruise_pack,
+		 /obj/item/stack/medical/bandage,
 		 /obj/item/stack/medical/splint
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
 		stack.synths = list(medicine)
 
-/obj/item/robot_module/medical/crisis/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/medical/crisis/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	var/obj/item/chems/syringe/S = locate() in equipment
 	if(S.mode == 2)
 		S.reagents.clear_reagents()
@@ -166,5 +166,5 @@
 		S.update_icon()
 	if(emag)
 		var/obj/item/chems/spray/PS = emag
-		PS.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 2 * amount)
+		PS.add_to_reagents(/decl/material/liquid/acid/polyacid, 2 * amount)
 	..()

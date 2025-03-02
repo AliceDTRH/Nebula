@@ -51,7 +51,7 @@
 
 /obj/effect/effect/smoke/chem/Crossed(atom/movable/AM)
 	..()
-	if(!istype(AM, /obj/effect/effect/smoke/chem))
+	if(AM.simulated && !istype(AM, /obj/effect/effect/smoke/chem))
 		reagents.splash(AM, splash_amount, copy = 1)
 
 /obj/effect/effect/smoke/chem/proc/initial_splash()
@@ -60,7 +60,7 @@
 			if(!istype(AM, /obj/effect/effect/smoke/chem))
 				reagents.splash(AM, splash_amount, copy = 1)
 
-// Fades out the smoke smoothly using it's alpha variable.
+// Fades out the smoke smoothly using its alpha variable.
 /obj/effect/effect/smoke/chem/end_of_life()
 	if(QDELETED(src))
 		return
@@ -87,9 +87,9 @@
 	show_log = 0
 	var/datum/seed/seed
 
-/datum/effect/effect/system/smoke_spread/chem/spores/New(seed_name)
-	if(seed_name)
-		seed = SSplants.seeds[seed_name]
+/datum/effect/effect/system/smoke_spread/chem/spores/New(seed_id)
+	if(seed_id)
+		seed = SSplants.seeds[seed_id]
 	if(!seed)
 		qdel(src)
 	..()
@@ -135,15 +135,15 @@
 	var/area/A = get_area(location)
 
 	var/where = "[A.proper_name] | [location.x], [location.y]"
-	var/whereLink = "<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>[where]</a>"
+	var/whereLink = "<A HREF='byond://?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>[where]</a>"
 
 	if(show_log)
-		var/atom/location = carry?.get_reaction_loc()
+		var/atom/location = carry?.get_reaction_loc(CHEM_REACTION_FLAG_OVERFLOW_CONTAINER)
 		if(location?.fingerprintslast)
 			var/mob/M = get_mob_by_key(location.fingerprintslast)
 			var/more = ""
 			if(M)
-				more = "(<A HREF='?_src_=holder;adminmoreinfo=\ref[M]'>?</a>)"
+				more = "(<A HREF='byond://?_src_=holder;adminmoreinfo=\ref[M]'>?</a>)"
 			log_and_message_admins("A chemical smoke reaction has taken place in ([whereLink])[contained]. Last associated key is [location.fingerprintslast][more].")
 		else
 			log_and_message_admins("A chemical smoke reaction has taken place in ([whereLink]). No associated key.")
@@ -160,12 +160,6 @@
 	if(LAZYLEN(chemholder.reagents.reagent_volumes))
 		for(var/turf/T in (wallList|targetTurfs))
 			chemholder.reagents.touch_turf(T)
-		for(var/turf/T in targetTurfs)
-			for(var/atom/A in T.contents)
-				if(istype(A, /obj/effect/effect/smoke/chem) || istype(A, /mob))
-					continue
-				else if(isobj(A) && !A.simulated)
-					chemholder.reagents.touch_obj(A)
 
 	var/color = chemholder.reagents.get_color() //build smoke icon
 	var/icon/I
@@ -181,7 +175,7 @@
 	var/pressure = 0
 	var/datum/gas_mixture/environment = location.return_air()
 	if(environment) pressure = environment.return_pressure()
-	smoke_duration = clamp(5, smoke_duration*pressure/(ONE_ATMOSPHERE/3), smoke_duration)
+	smoke_duration = clamp(smoke_duration*pressure/(ONE_ATMOSPHERE/3), 5, smoke_duration)
 
 	var/const/arcLength = 2.3559 //distance between each smoke cloud
 
@@ -232,7 +226,7 @@
 
 /datum/effect/effect/system/smoke_spread/chem/spores/spawnSmoke(var/turf/T, var/icon/I, var/smoke_duration, var/dist = 1)
 	var/obj/effect/effect/smoke/chem/spores = new /obj/effect/effect/smoke/chem(location)
-	spores.SetName("cloud of [seed.seed_name] [seed.seed_noun]")
+	spores.SetName("cloud of [seed.product_name] [seed.seed_noun]")
 	..(T, I, smoke_duration, dist, passed_smoke=spores)
 
 
@@ -243,12 +237,13 @@
 
 	pending += location
 
+	var/airblock // zeroed by ATMOS_CANPASS_TURF
 	while(pending.len)
 		for(var/turf/current in pending)
 			for(var/D in global.cardinal)
 				var/turf/target = get_step(current, D)
 				if(wallList)
-					if(istype(target, /turf/simulated/wall))
+					if(istype(target, /turf/wall))
 						if(!(target in wallList))
 							wallList += target
 						continue
@@ -259,9 +254,11 @@
 					continue
 				if(!(target in targetTurfs))
 					continue
-				if(current.c_airblock(target)) //this is needed to stop chemsmoke from passing through thin window walls
+				ATMOS_CANPASS_TURF(airblock, current, target)
+				if(airblock) //this is needed to stop chemsmoke from passing through thin window walls
 					continue
-				if(target.c_airblock(current))
+				ATMOS_CANPASS_TURF(airblock, target, current)
+				if(airblock)
 					continue
 				pending += target
 

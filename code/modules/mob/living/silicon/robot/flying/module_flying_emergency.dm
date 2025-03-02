@@ -27,7 +27,7 @@
 		/obj/item/wirecutters,
 		/obj/item/multitool,
 		/obj/item/stack/medical/ointment,
-		/obj/item/stack/medical/bruise_pack,
+		/obj/item/stack/medical/bandage,
 		/obj/item/stack/medical/splint
 	)
 	synths = list(/datum/matter_synth/medicine = 15000)
@@ -43,14 +43,14 @@
 
 /obj/item/robot_module/flying/emergency/finalize_emag()
 	. = ..()
-	emag.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 250)
+	emag.add_to_reagents(/decl/material/liquid/acid/polyacid, 250)
 	emag.SetName("Polyacid spray")
 
 /obj/item/robot_module/flying/emergency/finalize_equipment()
 	. = ..()
 	for(var/thing in list(
 		 /obj/item/stack/medical/ointment,
-		 /obj/item/stack/medical/bruise_pack,
+		 /obj/item/stack/medical/bandage,
 		 /obj/item/stack/medical/splint
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
@@ -62,16 +62,16 @@
 	var/datum/matter_synth/medicine/medicine = locate() in synths
 	for(var/thing in list(
 		 /obj/item/stack/medical/ointment,
-		 /obj/item/stack/medical/bruise_pack,
+		 /obj/item/stack/medical/bandage,
 		 /obj/item/stack/medical/splint
 		))
 		var/obj/item/stack/medical/stack = locate(thing) in equipment
 		stack.synths = list(medicine)
 
-/obj/item/robot_module/flying/emergency/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/flying/emergency/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	var/obj/item/chems/spray/PS = emag
 	if(PS && PS.reagents.total_volume < PS.volume)
 		var/adding = min(PS.volume-PS.reagents.total_volume, 2*amount)
 		if(adding > 0)
-			PS.reagents.add_reagent(/decl/material/liquid/acid/polyacid, adding)
+			PS.add_to_reagents(/decl/material/liquid/acid/polyacid, adding)
 	..()

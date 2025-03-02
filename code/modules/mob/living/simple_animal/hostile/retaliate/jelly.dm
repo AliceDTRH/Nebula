@@ -1,61 +1,69 @@
-/mob/living/simple_animal/hostile/retaliate/jelly
+/mob/living/simple_animal/hostile/jelly
 	name = "zeq"
 	desc = "It looks like a floating jellyfish. How does it do that?"
 	faction = "zeq"
 	icon = 'icons/mob/simple_animal/jelly.dmi'
-	move_to_delay = 1
-	maxHealth = 75
-	health = 75
-	speed = 1
-	natural_weapon = /obj/item/natural_weapon/tentecles
-	speak_chance = 1
-	emote_see = list("wobbles slightly","oozes something out of tentacles' ends")
+	move_intents = list(
+		/decl/move_intent/walk/animal_fast,
+		/decl/move_intent/run/animal_fast
+	)
+	max_health = 75
+	natural_weapon = /obj/item/natural_weapon/tentacles
+	ai = /datum/mob_controller/aggressive/jelly
+	base_movement_delay = 1
 	var/gets_random_color = TRUE
 
-/obj/item/natural_weapon/tentecles
+/datum/mob_controller/aggressive/jelly
+	speak_chance = 0.25
+	emote_see = list("wobbles slightly","oozes something out of tentacles' ends")
+	only_attack_enemies = TRUE
+
+/obj/item/natural_weapon/tentacles
 	name = "tentacles"
 	attack_verb = list("stung","slapped")
-	force = 10
-	damtype = BURN
+	_base_attack_force = 10
+	atom_damage_type =  BURN
 
-/mob/living/simple_animal/hostile/retaliate/jelly/Initialize()
+/mob/living/simple_animal/hostile/jelly/Initialize()
 	. = ..()
 	if(gets_random_color)
 		color = color_matrix_rotate_hue(round(rand(0,360),20))
 
-/mob/living/simple_animal/hostile/retaliate/jelly/alt
+/mob/living/simple_animal/hostile/jelly/alt
 	icon = 'icons/mob/simple_animal/jelly_alt.dmi'
 
 //megajellyfish
-/mob/living/simple_animal/hostile/retaliate/jelly/mega
+/mob/living/simple_animal/hostile/jelly/mega
 	name = "zeq queen"
 	desc = "A gigantic jellyfish-like creature. Its bell wobbles about almost as if it's ready to burst."
-	maxHealth = 300
-	health = 300
+	max_health = 300
 	gets_random_color = FALSE
-	can_escape = TRUE
+	ai = /datum/mob_controller/aggressive/megajelly
 
 	var/jelly_scale = 3
-	var/split_type = /mob/living/simple_animal/hostile/retaliate/jelly/mega/half
+	var/split_type = /mob/living/simple_animal/hostile/jelly/mega/half
 	var/static/megajelly_color
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/Initialize()
+/datum/mob_controller/aggressive/megajelly
+	can_escape_buckles = TRUE
+
+/mob/living/simple_animal/hostile/jelly/mega/Initialize()
 	. = ..()
 	set_scale(jelly_scale)
 	var/obj/item/attacking_with = get_natural_weapon()
 	if(attacking_with)
-		attacking_with.force *= jelly_scale
+		attacking_with.set_base_attack_force(attacking_with.get_initial_base_attack_force() * jelly_scale)
 	if(!megajelly_color)
 		megajelly_color = color_matrix_rotate_hue(round(rand(0,360),20))
 	color = megajelly_color
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/death()
+/mob/living/simple_animal/hostile/jelly/mega/death(gibbed)
 	if(split_type)
 		jelly_split()
-	else
-		..()
+		return TRUE
+	return ..()
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/proc/jelly_split()
+/mob/living/simple_animal/hostile/jelly/mega/proc/jelly_split()
 	visible_message(SPAN_MFAUNA("\The [src] rumbles briefly before splitting into two!"))
 	var/kidnum = 2
 	for(var/i = 0 to kidnum)
@@ -66,36 +74,31 @@
 		child.maxbodytemp = maxbodytemp
 	QDEL_NULL(src)
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/half
+/mob/living/simple_animal/hostile/jelly/mega/half
 	name = "zeq duchess"
 	desc = "A huge jellyfish-like creature."
-	maxHealth = 150
-	health = 150
-	can_escape = TRUE
+	max_health = 150
 	jelly_scale = 1.5
-	split_type = /mob/living/simple_animal/hostile/retaliate/jelly/mega/quarter
+	split_type = /mob/living/simple_animal/hostile/jelly/mega/quarter
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/quarter
+/mob/living/simple_animal/hostile/jelly/mega/quarter
 	name = "zeqling"
 	desc = "A jellyfish-like creature."
-	health = 75
-	maxHealth = 75
+	max_health = 75
 	jelly_scale = 0.75
-	can_escape = FALSE
-	split_type = /mob/living/simple_animal/hostile/retaliate/jelly/mega/fourth
+	split_type = /mob/living/simple_animal/hostile/jelly/mega/fourth
+	ai = /datum/mob_controller/aggressive
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/fourth
+/mob/living/simple_animal/hostile/jelly/mega/fourth
 	name = "zeqetta"
 	desc = "A tiny jellyfish-like creature."
-	health = 40
-	maxHealth = 40
+	max_health = 40
 	jelly_scale = 0.375
-	split_type = /mob/living/simple_animal/hostile/retaliate/jelly/mega/eighth
+	split_type = /mob/living/simple_animal/hostile/jelly/mega/eighth
 
-/mob/living/simple_animal/hostile/retaliate/jelly/mega/eighth
+/mob/living/simple_animal/hostile/jelly/mega/eighth
 	name = "zeqttina"
 	desc = "An absolutely tiny jellyfish-like creature."
-	health = 20
-	maxHealth = 20
+	max_health = 20
 	jelly_scale = 0.1875
 	split_type = null

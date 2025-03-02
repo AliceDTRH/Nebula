@@ -2,10 +2,23 @@
 	var/_held_item_slot_selected
 	var/list/_held_item_slots
 	var/list/_inventory_slots
+	var/list/_inventory_slot_priority
 	var/pending_hand_rebuild
 
 /mob/living/get_inventory_slots()
 	return _inventory_slots
+
+/mob/living/get_inventory_slot_priorities()
+	if(!_inventory_slot_priority)
+		_inventory_slot_priority = list()
+		var/list/all_slots = list()
+		for(var/slot in get_inventory_slots())
+			all_slots += get_inventory_slot_datum(slot)
+		for(var/datum/inventory_slot/inv_slot as anything in sortTim(all_slots, /proc/cmp_inventory_slot_desc))
+			if(isnull(inv_slot.quick_equip_priority)) // Never quick-equip into some slots.
+				continue
+			_inventory_slot_priority += inv_slot.slot_id
+	return _inventory_slot_priority
 
 /mob/living/get_inventory_slot_datum(var/slot)
 	return LAZYACCESS(_inventory_slots, slot)
@@ -13,15 +26,15 @@
 /mob/living/get_held_item_slots()
 	return _held_item_slots
 
-// Temporary proc, replace when the main inventory rewrite goes in.
-/mob/living/get_all_valid_equipment_slots()
-	for(var/slot in get_held_item_slots())
-		LAZYDISTINCTADD(., slot)
+/mob/living/get_all_available_equipment_slots()
+	. = ..()
 	var/decl/species/my_species = get_species()
-	for(var/slot in my_species?.hud?.equip_slots)
-		LAZYDISTINCTADD(., slot)
+	if(istype(my_species?.species_hud))
+		for(var/slot in my_species.species_hud.equip_slots)
+			LAZYDISTINCTADD(., slot)
 
 /mob/living/add_held_item_slot(var/datum/inventory_slot/held_slot)
+	has_had_gripper = TRUE
 	var/datum/inventory_slot/existing_slot = get_inventory_slot_datum(held_slot.slot_id)
 	if(existing_slot && existing_slot != held_slot)
 		var/held = existing_slot.get_equipped_item()
@@ -30,30 +43,28 @@
 		qdel(existing_slot)
 	LAZYDISTINCTADD(_held_item_slots, held_slot.slot_id)
 	add_inventory_slot(held_slot)
-	if(!get_active_hand())
+	if(!get_active_held_item_slot())
 		select_held_item_slot(held_slot.slot_id)
 	queue_hand_rebuild()
 
 /mob/living/remove_held_item_slot(var/slot)
 	var/datum/inventory_slot/inv_slot = istype(slot, /datum/inventory_slot) ? slot : get_inventory_slot_datum(slot)
 	if(inv_slot)
-		LAZYREMOVE(_held_item_slots, slot)
+		LAZYREMOVE(_held_item_slots, inv_slot.slot_id)
 		remove_inventory_slot(inv_slot)
 		var/held_slots = get_held_item_slots()
-		if(get_active_held_item_slot() == slot && length(held_slots))
+		if(!get_active_held_item_slot() && length(held_slots))
 			select_held_item_slot(held_slots[1])
 		queue_hand_rebuild()
 
 /mob/living/select_held_item_slot(var/slot)
+	. = ..()
 	var/last_slot = get_active_held_item_slot()
 	if(slot != last_slot && (slot in get_held_item_slots()))
 		_held_item_slot_selected = slot
-		for(var/obj/screen/inventory/hand in hud_used?.hand_hud_objects)
-			hand.cut_overlay("hand_selected")
-			if(hand.slot_id == slot)
-				hand.add_overlay("hand_selected")
-			hand.compile_overlays()
-		var/obj/item/I = get_active_hand()
+		if(istype(hud_used))
+			hud_used.update_hand_elements()
+		var/obj/item/I = get_active_held_item()
 		if(istype(I))
 			I.on_active_hand()
 
@@ -64,10 +75,10 @@
 		pending_hand_rebuild = TRUE
 		sleep(1)
 		pending_hand_rebuild = FALSE
-		if(hud_used)
+		if(istype(hud_used))
 			hud_used.rebuild_hands()
 
-/mob/living/get_active_hand()
+/mob/living/get_active_held_item()
 	var/datum/inventory_slot/inv_slot = get_inventory_slot_datum(get_active_held_item_slot())
 	return inv_slot?.get_equipped_item()
 
@@ -105,16 +116,17 @@
 		if(!inv_slot?.get_equipped_item())
 			LAZYADD(., hand_slot)
 
-/mob/living/drop_from_hand(var/slot, var/atom/target)
-	var/datum/inventory_slot/inv_slot = get_inventory_slot_datum(slot)
+/mob/living/drop_from_slot(slot_id, atom/new_loc)
+	var/datum/inventory_slot/inv_slot = get_inventory_slot_datum(slot_id)
 	var/held = inv_slot?.get_equipped_item()
 	if(held)
-		return drop_from_inventory(held, target)
+		return drop_from_inventory(held, new_loc)
 	. = ..()
 
 /mob/living/set_inventory_slots(var/list/new_slots)
 
 	var/list/old_slots = _inventory_slots
+	_inventory_slot_priority = null
 	_inventory_slots = null
 
 	// Keep held item slots.
@@ -147,13 +159,52 @@
 		qdel(old_slot)
 
 /mob/living/add_inventory_slot(var/datum/inventory_slot/inv_slot)
+	_inventory_slot_priority = null
 	LAZYSET(_inventory_slots, inv_slot.slot_id, inv_slot)
 
 /mob/living/remove_inventory_slot(var/slot)
+	_inventory_slot_priority = null
 	var/datum/inventory_slot/inv_slot = istype(slot, /datum/inventory_slot) ? slot : LAZYACCESS(_inventory_slots, slot)
 	if(inv_slot)
 		var/held = inv_slot.get_equipped_item()
 		if(held)
 			drop_from_inventory(held)
 		qdel(inv_slot)
-	LAZYREMOVE(_inventory_slots, slot)
+	LAZYREMOVE(_inventory_slots, inv_slot.slot_id)
+
+/mob/living/proc/get_jetpack()
+	var/obj/item/tank/jetpack/thrust = get_equipped_item(slot_back_str)
+	if(istype(thrust))
+		return thrust
+	if(istype(thrust, /obj/item/rig))
+		var/obj/item/rig/rig = thrust
+		for(var/obj/item/rig_module/maneuvering_jets/module in rig.installed_modules)
+			return module.jets
+	thrust = get_equipped_item(slot_s_store_str)
+	if(istype(thrust))
+		return thrust
+	return null
+
+/mob/living/verb/quick_equip()
+	set name = "quick-equip"
+	set hidden = 1
+	var/obj/item/I = get_active_held_item()
+	if(!I)
+		to_chat(src, SPAN_WARNING("You are not holding anything to equip."))
+		return
+	if(!equip_to_appropriate_slot(I))
+		to_chat(src, SPAN_WARNING("You are unable to equip that."))
+
+/mob/living/proc/equip_in_one_of_slots(obj/item/prop, list/slots, del_on_fail = 1)
+	for (var/slot in slots)
+		if (equip_to_slot_if_possible(prop, slots[slot], del_on_fail = 0))
+			return slot
+	if (del_on_fail)
+		qdel(prop)
+	return null
+
+//Same as get_covering_equipped_items, but using target zone instead of bodyparts flags
+/mob/living/proc/get_covering_equipped_item_by_zone(var/zone)
+	var/obj/item/organ/external/O = GET_EXTERNAL_ORGAN(src, zone)
+	if(O)
+		return get_covering_equipped_item(O.body_part)

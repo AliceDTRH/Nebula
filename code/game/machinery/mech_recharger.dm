@@ -1,6 +1,6 @@
 /obj/machinery/mech_recharger
 	name = "exosuit dock"
-	desc = "A exosuit recharger, built into the floor."
+	desc = "An exosuit recharger, built into the floor."
 	icon = 'icons/mecha/mech_bay.dmi'
 	icon_state = "recharge_floor"
 	density = FALSE
@@ -11,21 +11,21 @@
 	base_type = /obj/machinery/mech_recharger
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
-	stat_immune = 0
 
 	var/mob/living/exosuit/charging
 	var/base_charge_rate = 60 KILOWATTS
 	var/repair_power_usage = 10 KILOWATTS		// Per 1 HP of health.
 	var/repair = 0
 
-/obj/machinery/mech_recharger/Crossed(var/mob/living/exosuit/M)
+/obj/machinery/mech_recharger/Crossed(atom/movable/AM)
 	. = ..()
-	if(istype(M) && charging != M)
-		start_charging(M)
+	if(istype(AM, /mob/living/exosuit) && charging != AM)
+		start_charging(AM)
 
-/obj/machinery/mech_recharger/Uncrossed(var/mob/living/exosuit/M)
+/obj/machinery/mech_recharger/Uncrossed(atom/movable/AM)
 	. = ..()
-	if(M == charging)
+	var/mob/living/exosuit/M = AM
+	if(istype(M) && M == charging)
 		stop_charging()
 
 /obj/machinery/mech_recharger/RefreshParts()
@@ -67,14 +67,17 @@
 	var/remaining_energy = active_power_usage
 
 	if(repair && !fully_repaired())
+		var/repaired = FALSE
 		for(var/obj/item/mech_component/MC in charging)
 			if(MC)
 				MC.repair_brute_damage(repair)
 				MC.repair_burn_damage(repair)
 				remaining_energy -= repair * repair_power_usage
+				repaired = TRUE
 			if(remaining_energy <= 0)
 				break
-		charging.updatehealth()
+		if(repaired)
+			charging.update_health() // TODO: do this during component repair.
 		if(fully_repaired())
 			charging.show_message(SPAN_NOTICE("Exosuit integrity has been fully restored."))
 
@@ -89,7 +92,7 @@
 
 // An ugly proc, but apparently mechs don't have maxhealth var of any kind.
 /obj/machinery/mech_recharger/proc/fully_repaired()
-	return charging && (charging.health == charging.maxHealth)
+	return charging && (charging.current_health >= charging.get_max_health())
 
 /obj/machinery/mech_recharger/proc/start_charging(var/mob/living/exosuit/M)
 	if(stat & (NOPOWER | BROKEN))

@@ -5,7 +5,7 @@
 
 /proc/fade_out(image/I, list/show_to)
 	animate(I, alpha = 0, time = 0.5 SECONDS, easing = EASE_IN)
-	addtimer(CALLBACK(GLOBAL_PROC, .proc/remove_images_from_clients, I, show_to), 0.5 SECONDS)
+	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(remove_images_from_clients), I, show_to), 0.5 SECONDS)
 
 /proc/animate_speech_bubble(image/I, list/show_to, duration)
 	if(!I)
@@ -17,7 +17,7 @@
 	for(var/client/C in show_to)
 		C.images += I
 	animate(I, transform = 0, alpha = 255, time = 0.2 SECONDS, easing = EASE_IN)
-	addtimer(CALLBACK(GLOBAL_PROC, .proc/fade_out, I, show_to), (duration - 0.5 SECONDS))
+	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(fade_out), I, show_to), (duration - 0.5 SECONDS))
 
 /proc/animate_receive_damage(atom/A)
 	var/pixel_x_diff = rand(-2,2)
@@ -53,7 +53,7 @@
 /proc/flick_overlay(image/I, list/show_to, duration)
 	for(var/client/C in show_to)
 		C.images += I
-	addtimer(CALLBACK(GLOBAL_PROC, .proc/remove_images_from_clients, I, show_to), duration)
+	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(remove_images_from_clients), I, show_to), duration)
 
 /atom/movable/proc/do_attack_effect(atom/A, effect) //Simple effects for telegraphing or marking attack locations
 	if (effect)
@@ -69,11 +69,20 @@
 		animate(time = 1)
 		animate(alpha = 0, time = 3, easing = CIRCULAR_EASING|EASE_OUT)
 
+// Shake animation stolen from Polaris.
+/atom
+	/// How much to shake the atom when struck.
+	/// Larger objs should have smaller numbers or it looks weird.
+	var/shake_animation_degrees = 4
+
 /atom/proc/shake_animation(var/intensity = 8)
 	var/init_px = pixel_x
 	var/shake_dir = pick(-1, 1)
-	animate(src, transform=turn(matrix(), intensity*shake_dir), pixel_x=init_px + 2*shake_dir, time=1)
-	animate(transform=null, pixel_x=init_px, time=6, easing=ELASTIC_EASING)
+	var/matrix/M = matrix()
+	M.Scale(icon_scale_x, icon_scale_y)
+	M.Translate(0, 16*(icon_scale_y-1))
+	animate(src, transform=turn(M, shake_animation_degrees * shake_dir), pixel_x=init_px + 2*shake_dir, time=1)
+	animate(transform=M, pixel_x=init_px, time=6, easing=ELASTIC_EASING)
 
 /atom/proc/SpinAnimation(speed = 10, loops = -1, clockwise = 1, segments = 3, parallel = TRUE)
 	if(!segments)
@@ -81,21 +90,29 @@
 	var/segment = 360/segments
 	if(!clockwise)
 		segment = -segment
-	var/list/matrices = list()
-	for(var/i in 1 to segments-1)
-		var/matrix/M = matrix(transform)
-		M.Turn(segment*i)
-		matrices += M
-	var/matrix/last = matrix(transform)
-	matrices += last
-
 	speed /= segments
 
-	if(parallel)
-		animate(src, transform = matrices[1], time = speed, loops , flags = ANIMATION_PARALLEL)
-	else
-		animate(src, transform = matrices[1], time = speed, loops)
+	animate(src, transform = matrix().Turn(segment), time = speed, loops, flags = parallel ? (ANIMATION_PARALLEL | ANIMATION_RELATIVE) : ANIMATION_RELATIVE)
 	for(var/i in 2 to segments) //2 because 1 is covered above
-		animate(transform = matrices[i], time = speed)
+		animate(transform = matrix().Turn(segment), time = speed, loops, flags = ANIMATION_RELATIVE)
 		//doesn't have an object argument because this is "Stacking" with the animate call above
 		//3 billion% intentional
+
+// This proc is used to move an atom to a target loc and then interpolite to give the illusion of sliding from start to end.
+/proc/do_visual_slide(var/atom/movable/sliding, var/turf/from, var/from_pixel_x, var/from_pixel_y, var/turf/target, var/target_pixel_x, var/target_pixel_y, var/center_of_mass)
+	set waitfor = FALSE
+	var/start_pixel_x = sliding.pixel_x - ((target.x-from.x) * world.icon_size)
+	var/start_pixel_y = sliding.pixel_y - ((target.y-from.y) * world.icon_size)
+	// Clear our glide so we don't do an animation when dropped into the target turf.
+	var/old_animate_movement = sliding.animate_movement
+	sliding.animate_movement = NO_STEPS
+	sleep(2 * world.tick_lag) // Due to BYOND being byond, animate_movement has to be set for at least 2 ticks before gliding will be disabled.
+	sliding.forceMove(target)
+	// Reset our glide_size now that movement has completed.
+	sliding.animate_movement = old_animate_movement
+	sliding.pixel_x = start_pixel_x
+	sliding.pixel_y = start_pixel_y
+	if(center_of_mass)
+		target_pixel_x -= center_of_mass["x"]
+		target_pixel_y -= center_of_mass["y"]
+	animate(sliding, pixel_x = target_pixel_x, pixel_y = target_pixel_y, time = 1 SECOND)

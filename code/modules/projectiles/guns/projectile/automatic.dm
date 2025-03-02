@@ -6,7 +6,7 @@
 	safety_icon = "safety"
 	w_class = ITEM_SIZE_NORMAL
 	caliber = CALIBER_PISTOL_SMALL
-	origin_tech = "{'combat':5,'materials':2}"
+	origin_tech = @'{"combat":5,"materials":2}'
 	slot_flags = SLOT_LOWER_BODY|SLOT_BACK
 	ammo_type = /obj/item/ammo_casing/pistol/small
 	load_method = MAGAZINE
@@ -35,16 +35,16 @@
 /obj/item/gun/projectile/automatic/smg/on_update_icon()
 	..()
 	if(ammo_magazine)
-		overlays += image(icon, "[get_world_inventory_state()]mag-[round(ammo_magazine.stored_ammo.len,5)]")
+		add_overlay("[get_world_inventory_state()]mag-[round(ammo_magazine.get_stored_ammo_count(),5)]")
 
 /obj/item/gun/projectile/automatic/assault_rifle
 	name = "assault rifle"
 	desc = "The Z8 Bulldog is an older model bullpup carbine. Makes you feel like a space marine when you hold it."
 	icon = 'icons/obj/guns/bullpup_rifle.dmi'
 	w_class = ITEM_SIZE_HUGE
-	force = 10
+	_base_attack_force = 10
 	caliber = CALIBER_RIFLE
-	origin_tech = "{'combat':7,'materials':3}"
+	origin_tech = @'{"combat":7,"materials":3}'
 	ammo_type = /obj/item/ammo_casing/rifle
 	slot_flags = SLOT_BACK
 	load_method = MAGAZINE
@@ -70,19 +70,17 @@
 		list(mode_name="full auto",      burst=1,    fire_delay=0,    burst_delay=1,       one_hand_penalty=7,             burst_accuracy = list(0,-1,-1), dispersion=list(0.0, 0.6, 1.0), autofire_enabled=1)
 	)
 
-/obj/item/gun/projectile/automatic/assault_rifle/update_base_icon()
-	if(ammo_magazine)
-		if(ammo_magazine.stored_ammo.len)
-			icon_state = "[get_world_inventory_state()]-loaded"
-		else
-			icon_state = "[get_world_inventory_state()]-empty"
+/obj/item/gun/projectile/automatic/assault_rifle/update_base_icon_state()
+	. = ..()
+	if(ammo_magazine?.get_stored_ammo_count())
+		icon_state = "[icon_state]-loaded"
 	else
-		icon_state = get_world_inventory_state()
+		icon_state = "[icon_state]-empty"
 
 /obj/item/gun/projectile/automatic/assault_rifle/grenade
 	name = "assault rifle"
 	desc = "The Z8 Bulldog is an older model bullpup carbine. This one has an underslung grenade launcher. REALLY makes you feel like a space marine when you hold it."
-	origin_tech = "{'combat':8,'materials':3}"
+	origin_tech = @'{"combat":8,"materials":3}'
 
 	firemodes = list(
 		list(mode_name="semi auto",      burst=1,    fire_delay=null, use_launcher=null, one_hand_penalty=8,  burst_accuracy=null,            dispersion=null),
@@ -98,11 +96,11 @@
 	. = ..()
 	launcher = new(src)
 
-/obj/item/gun/projectile/automatic/assault_rifle/grenade/attackby(obj/item/I, mob/user)
-	if((istype(I, /obj/item/grenade)))
-		launcher.load(I, user)
-	else
-		..()
+/obj/item/gun/projectile/automatic/assault_rifle/grenade/attackby(obj/item/used_item, mob/user)
+	if(!istype(used_item, /obj/item/grenade))
+		return ..()
+	launcher.load(used_item, user)
+	return TRUE
 
 /obj/item/gun/projectile/automatic/assault_rifle/grenade/attack_hand(mob/user)
 	if(!user.is_holding_offhand(src) || !use_launcher || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
@@ -118,12 +116,12 @@
 	else
 		..()
 
-/obj/item/gun/projectile/automatic/assault_rifle/grenade/examine(mob/user)
+/obj/item/gun/projectile/automatic/assault_rifle/grenade/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(launcher.chambered)
-		to_chat(user, "\The [launcher] has \a [launcher.chambered] loaded.")
+		. += "\The [launcher] has \a [launcher.chambered] loaded."
 	else
-		to_chat(user, "\The [launcher] is empty.")
+		. += "\The [launcher] is empty."
 
 /obj/item/gun/projectile/automatic/assault_rifle/grenade/toggle_safety(mob/user)
 	. = ..()
@@ -135,9 +133,9 @@
 	desc = "The XC-67 \"Creosote\" is a massive machine gun, and ranks high on most tin-pot dictators' wish lists. Firing this thing without some sort of weapons platform is a hopeless task."
 	icon = 'icons/obj/guns/machine.dmi'
 	w_class = ITEM_SIZE_HUGE
-	force = 10
+	_base_attack_force = 10
 	caliber = CALIBER_RIFLE
-	origin_tech = "{'combat':9,'materials':3}"
+	origin_tech = @'{"combat":9,"materials":3}'
 	ammo_type = /obj/item/ammo_casing/rifle
 	load_method = MAGAZINE
 	magazine_type = /obj/item/ammo_magazine/rifle/drum
@@ -168,7 +166,7 @@
 	. = ..()
 
 /obj/item/gun/projectile/automatic/machine/special_check(mob/user)
-	if(!istype(user, /mob/living))
+	if(!isliving(user))
 		return FALSE
 	if(!user.check_dexterity(DEXTERITY_WEAPONS))
 		return FALSE

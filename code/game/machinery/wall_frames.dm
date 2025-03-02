@@ -9,15 +9,15 @@
 	var/reverse = 0 //if resulting object faces opposite its dir (like light fixtures)
 	var/fully_construct = FALSE // Results in a machine with all parts auto-installed and ready to go if TRUE; if FALSE, the machine will spawn without removable expected parts
 
-/obj/item/frame/building_cost()
+/obj/item/frame/get_contained_matter()
 	. = ..()
 	if(fully_construct)
 		var/list/cost = atom_info_repository.get_matter_for(build_machine_type)
 		for(var/key in cost)
 			.[key] += cost[key]
 
-/obj/item/frame/attackby(obj/item/W, mob/user)
-	if(IS_WRENCH(W))
+/obj/item/frame/attackby(obj/item/used_item, mob/user)
+	if(IS_WRENCH(used_item))
 		for(var/key in matter)
 			SSmaterials.create_object(key, get_turf(src), round(matter[key]/SHEET_MATERIAL_AMOUNT))
 		qdel(src)
@@ -40,16 +40,16 @@
 	if (!(ndir in global.cardinal))
 		return
 
-	var/turf/loc = get_turf(usr)
-	if (!istype(loc, /turf/simulated/floor))
+	var/turf/my_turf = get_turf(usr)
+	if (!istype(my_turf) || !my_turf.simulated || !my_turf.is_floor())
 		to_chat(usr, "<span class='danger'>\The [src] cannot be placed on this spot.</span>")
 		return
 
-	if(gotwallitem(loc, get_dir(usr,on_wall))) // Use actual dir, not the new machine's dir
+	if(gotwallitem(my_turf, get_dir(usr,on_wall))) // Use actual dir, not the new machine's dir
 		to_chat(usr, "<span class='danger'>There's already an item on this wall!</span>")
 		return
 
-	var/obj/machinery/machine = new build_machine_type(loc, ndir, fully_construct)
+	var/obj/machinery/machine = new build_machine_type(my_turf, ndir, fully_construct)
 	modify_positioning(machine, ndir, click_params)
 	if(istype(machine) && machine.construct_state && !fully_construct)
 		machine.construct_state.post_construct(machine)
@@ -246,7 +246,7 @@
 	icon = 'icons/obj/airlock_machines.dmi'
 	icon_state = "airlock_control_off"
 	name = "airlock controller frame"
-	desc = "Used to build airlock controllers. Use a multitool on the circuit to determine which type you want, and then hit this with the the circuit."
+	desc = "Used to build airlock controllers. Use a multitool on the circuit to determine which type you want, and then hit this with the circuit."
 	build_machine_type = null
 	///Used when configuring a dummy controller
 	var/master_controller_id_tag
@@ -278,10 +278,10 @@
 		return TRUE
 	master_controller_id_tag = null
 
-/obj/item/frame/button/airlock_controller/attackby(obj/item/W, mob/user)
-	if(!istype(W, /obj/item/stock_parts/circuitboard))
+/obj/item/frame/button/airlock_controller/attackby(obj/item/used_item, mob/user)
+	if(!istype(used_item, /obj/item/stock_parts/circuitboard))
 		return ..()
-	var/obj/item/stock_parts/circuitboard/board = W
+	var/obj/item/stock_parts/circuitboard/board = used_item
 	var/obj/machinery/M
 	if(ispath(board.build_path, /obj/machinery/embedded_controller/radio))
 		build_machine_type = board.build_path
@@ -291,8 +291,9 @@
 		. = TRUE
 	if(.)
 		M = build_machine_type
-		to_chat(user, SPAN_NOTICE("You setup \the [src]'s software to work as a '[initial(M.name)]', using \the [W]."))
-		return .
+		to_chat(user, SPAN_NOTICE("You setup \the [src]'s software to work as a '[initial(M.name)]', using \the [used_item]."))
+		return TRUE
+	return FALSE
 
 /obj/item/frame/button/airlock_controller/kit
 	fully_construct = TRUE
@@ -303,9 +304,9 @@
 /obj/item/frame/button/airlock_controller/kit/warn_not_setup(mob/user)
 	to_chat(user, SPAN_WARNING("First, use a multitool on the kit to properly setup the controller's software!"))
 
-//Let them also hit it with a circuitboard if they so wish. But multitool is better when you don't want to print one for nothing..
-/obj/item/frame/button/airlock_controller/kit/attackby(obj/item/W, mob/user)
-	if(!IS_MULTITOOL(W))
+//Let them also hit it with a circuitboard if they so wish. But multitool is better when you don't want to print one for nothing.
+/obj/item/frame/button/airlock_controller/kit/attackby(obj/item/used_item, mob/user)
+	if(!IS_MULTITOOL(used_item))
 		return ..()
 	//Handle kit configuration
 	var/obj/machinery/M = /obj/machinery/dummy_airlock_controller
@@ -321,7 +322,7 @@
 	var/choice = input(user, "Chose the type of controller to build:", "Select Controller Type") as null|anything in possible_kit_type_names
 	if(!choice || !CanPhysicallyInteract(user))
 		build_machine_type = initial(build_machine_type)
-		return
+		return TRUE
 	build_machine_type = possible_kit_type_names[choice]
 	M = build_machine_type
 	to_chat(user, SPAN_NOTICE("You set the kit type to '[initial(M.name)]'!"))

@@ -9,7 +9,7 @@
 	initial_access = list(list(access_kitchen, access_morgue))
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
-	stat_immune = 0
+	stat_immune = NOSCREEN
 
 	var/operating = 0        //Is it on?
 	var/dirty = 0            // Does it need cleaning?
@@ -54,9 +54,9 @@
 	src.startgibbing(user)
 	return TRUE
 
-/obj/machinery/gibber/examine(mob/user)
+/obj/machinery/gibber/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "The safety guard is [emagged ? "<span class='danger'>disabled</span>" : "enabled"].")
+	. += "The safety guard is [emagged ? SPAN_DANGER("disabled") : "enabled"]."
 
 /obj/machinery/gibber/emag_act(var/remaining_charges, var/mob/user)
 	emagged = !emagged
@@ -71,25 +71,23 @@
 		return SPAN_NOTICE("You must wait for \the [src] to finish operating first!")
 	return ..()
 
-/obj/machinery/gibber/attackby(var/obj/item/W, var/mob/user)
-	if(!operating)
-		return
-	if(istype(W, /obj/item/grab))
-		var/obj/item/grab/G = W
-		if(!G.force_danger())
-			to_chat(user, "<span class='danger'>You need a better grip to do that!</span>")
-			return
-		qdel(G)
-		move_into_gibber(user,G.affecting)
-	else if(istype(W, /obj/item/organ))
-		if(!user.try_unequip(W))
-			return
-		qdel(W)
-		user.visible_message("<span class='danger'>\The [user] feeds \the [W] into \the [src], obliterating it.</span>")
+/obj/machinery/gibber/grab_attack(obj/item/grab/grab, mob/user)
+	if(grab.force_danger())
+		move_into_gibber(user, grab.affecting)
+		qdel(grab)
 	else
-		return ..()
+		to_chat(user, SPAN_DANGER("You need a better grip to do that!"))
+	return TRUE
 
-/obj/machinery/gibber/receive_mouse_drop(atom/dropping, mob/user)
+/obj/machinery/gibber/attackby(var/obj/item/used_item, var/mob/user)
+	if(!operating && istype(used_item, /obj/item/organ))
+		if(user.try_unequip(used_item))
+			qdel(used_item)
+			user.visible_message(SPAN_DANGER("\The [user] feeds \the [used_item] into \the [src], obliterating it."))
+		return TRUE
+	return ..()
+
+/obj/machinery/gibber/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && ismob(dropping))
 		move_into_gibber(user, dropping)
@@ -105,14 +103,13 @@
 		to_chat(user, "<span class='danger'>\The [src] is locked and running, wait for it to finish.</span>")
 		return
 
-	if(!(istype(victim, /mob/living/carbon)) && !(istype(victim, /mob/living/simple_animal)) )
+	if(!isliving(victim))
 		to_chat(user, "<span class='danger'>This is not suitable for \the [src]!</span>")
 		return
 
-	if(istype(victim,/mob/living/carbon/human) && !emagged)
+	if(ishuman(victim) && !emagged)
 		to_chat(user, "<span class='danger'>\The [src] safety guard is engaged!</span>")
 		return
-
 
 	if(victim.abiotic(1))
 		to_chat(user, "<span class='danger'>\The [victim] may not have any abiotic items on.</span>")
@@ -167,9 +164,9 @@
 
 	admin_attack_log(user, occupant, "Gibbed the victim", "Was gibbed", "gibbed")
 	src.occupant.ghostize()
-	addtimer(CALLBACK(src, .proc/finish_gibbing), gib_time)
-
-	var/list/gib_products = occupant.harvest_meat() | occupant.harvest_skin() | occupant.harvest_bones()
+	addtimer(CALLBACK(src, PROC_REF(finish_gibbing)), gib_time)
+	var/decl/butchery_data/butchery_data = GET_DECL(occupant.butchery_data)
+	var/list/gib_products = butchery_data?.get_all_products(occupant)
 	if(!length(gib_products))
 		return
 	gib_products = shuffle(gib_products)
@@ -177,12 +174,10 @@
 	var/slab_name =  occupant.name
 	var/slab_nutrition = 20
 
-	if(iscarbon(occupant))
-		var/mob/living/carbon/C = occupant
-		slab_nutrition = C.nutrition / 15
-
-	if(istype(occupant, /mob/living/carbon/human))
-		slab_name = occupant.real_name
+	if(isliving(occupant))
+		slab_nutrition = round(occupant.get_nutrition() / 15)
+		if(ishuman(occupant))
+			slab_name = occupant.real_name
 
 	// Small mobs don't give as much nutrition.
 	if(issmall(src.occupant))
@@ -190,17 +185,17 @@
 
 	slab_nutrition /= gib_products.len
 
-	var/drop_products = FLOOR(gib_products.len * 0.35)
+	var/drop_products = floor(gib_products.len * 0.35)
 	for(var/atom/movable/thing in gib_products)
 		if(drop_products)
 			drop_products--
 			qdel(thing)
 		else
 			thing.forceMove(src)
-			if(istype(thing, /obj/item/chems/food/meat))
-				var/obj/item/chems/food/meat/slab = thing
+			if(istype(thing, /obj/item/food/butchery/meat))
+				var/obj/item/food/butchery/meat/slab = thing
 				slab.SetName("[slab_name] [slab.name]")
-				slab.reagents.add_reagent(/decl/material/liquid/nutriment,slab_nutrition)
+				slab.add_to_reagents(/decl/material/liquid/nutriment,slab_nutrition)
 
 /obj/machinery/gibber/proc/finish_gibbing()
 	operating = 0

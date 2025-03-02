@@ -10,7 +10,7 @@ var/global/repository/follow/follow_repository = new()
 
 	var/list/excluded_subtypes = list(
 		/obj/machinery/atmospherics, // Atmos stuff calls initialize time and time again..,
-		/mob/living/carbon/human/dummy/mannequin
+		/mob/living/human/dummy/mannequin
 	)
 
 /repository/follow/New()
@@ -36,7 +36,7 @@ var/global/repository/follow/follow_repository = new()
 	followed_objects_assoc[AM] = follow_holder
 	followed_objects.Add(follow_holder)
 
-	events_repository.register(/decl/observ/destroyed, AM, src, /repository/follow/proc/remove_subject)
+	events_repository.register(/decl/observ/destroyed, AM, src, TYPE_PROC_REF(/repository/follow, remove_subject))
 
 /repository/follow/proc/remove_subject(var/atom/movable/AM)
 	cache = null
@@ -46,7 +46,7 @@ var/global/repository/follow/follow_repository = new()
 	followed_objects_assoc -= AM
 	followed_objects.Remove(follow_holder)
 
-	events_repository.unregister(/decl/observ/destroyed, AM, src, /repository/follow/proc/remove_subject)
+	events_repository.unregister(/decl/observ/destroyed, AM, src, TYPE_PROC_REF(/repository/follow, remove_subject))
 
 	qdel(follow_holder)
 
@@ -158,29 +158,29 @@ var/global/repository/follow/follow_repository = new()
 	followed_type = /mob/living/silicon/robot
 
 /datum/follow_holder/robot/show_entry()
-	var/mob/living/silicon/robot/R = followed_instance
-	return ..() && R.braintype
+	var/mob/living/silicon/robot/robot = followed_instance
+	return ..() && robot.braintype
 
-/datum/follow_holder/robot/get_suffix(var/mob/living/silicon/robot/R)
-	suffix = "\[[R.braintype]\][R.module ? " \[[R.module.name]\]" : ""]"
+/datum/follow_holder/robot/get_suffix(var/mob/living/silicon/robot/robot)
+	suffix = "\[[robot.braintype]\][robot.module ? " \[[robot.module.name]\]" : ""]"
 	return ..()
 
 /datum/follow_holder/human
 	sort_order = 2
-	followed_type = /mob/living/carbon/human
+	followed_type = /mob/living/human
 
-/datum/follow_holder/human/get_suffix(var/mob/living/carbon/human/H)
+/datum/follow_holder/human/get_suffix(var/mob/living/human/H)
 	suffix = "\[[H.species.name]\]"
 	return ..()
 
 /datum/follow_holder/brain
 	sort_order = 3
-	followed_type = /mob/living/carbon/brain
+	followed_type = /mob/living/brain
 	suffix = "Brain"
 
 /datum/follow_holder/alien
 	sort_order = 4
-	followed_type = /mob/living/carbon/alien
+	followed_type = /mob/living/simple_animal/alien
 	suffix = "Alien"
 
 /datum/follow_holder/ghost
@@ -215,10 +215,6 @@ var/global/repository/follow/follow_repository = new()
 	sort_order = 9
 	followed_type = /obj/effect/blob/core
 	suffix = "Blob"
-
-/datum/follow_holder/supermatter
-	sort_order = 10
-	followed_type = /obj/machinery/power/supermatter
 
 /datum/follow_holder/singularity
 	sort_order = 10

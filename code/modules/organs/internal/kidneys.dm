@@ -21,23 +21,23 @@
 	// what else kidneys can process in our reagent list.
 	if(REAGENT_VOLUME(owner.reagents, /decl/material/liquid/drink/coffee))
 		if(is_bruised())
-			owner.adjustToxLoss(0.1)
+			owner.take_damage(0.1, TOX)
 		else if(is_broken())
-			owner.adjustToxLoss(0.3)
+			owner.take_damage(0.3, TOX)
 
 	if(is_bruised())
 		if(prob(5) && REAGENT_VOLUME(reagents, /decl/material/solid/potassium) < 5)
-			reagents.add_reagent(/decl/material/solid/potassium, REM*5)
+			add_to_reagents(/decl/material/solid/potassium, REM*5)
 	if(is_broken())
 		if(REAGENT_VOLUME(owner.reagents, /decl/material/solid/potassium) < 15)
-			owner.reagents.add_reagent(/decl/material/solid/potassium, REM*2)
+			owner.add_to_reagents(/decl/material/solid/potassium, REM*2)
 
 	//If your kidneys aren't working, your body's going to have a hard time cleaning your blood.
 	if(!GET_CHEMICAL_EFFECT(owner, CE_ANTITOX))
 		if(prob(33))
 			if(is_broken())
-				owner.adjustToxLoss(0.5)
+				owner.take_damage(0.5, TOX)
 			if(status & ORGAN_DEAD)
-				owner.adjustToxLoss(1)
+				owner.take_damage(1, TOX)
 
 

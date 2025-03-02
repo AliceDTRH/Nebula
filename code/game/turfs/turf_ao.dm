@@ -11,9 +11,10 @@
 
 /turf/proc/regenerate_ao()
 	for(var/thing in RANGE_TURFS(src, 1))
-		var/turf/T = thing
-		if(istype(T) && T.permit_ao)
-			T.queue_ao(TRUE)
+		var/turf/their_turf = thing
+		their_turf = their_turf.resolve_to_actual_turf()
+		if(their_turf.permit_ao)
+			their_turf.queue_ao(TRUE)
 
 /turf/proc/calculate_ao_neighbors()
 	ao_neighbors = 0
@@ -88,7 +89,7 @@
 		PROCESS_AO_CORNER(AO_LIST, NEIGHBORS, 4, SOUTHWEST); \
 	} \
 	UNSETEMPTY(AO_LIST); \
-	if (AO_LIST) { \
+	if (AO_LIST && TARGET) { \
 		TARGET.add_overlay(AO_LIST, TRUE); \
 	}
 
@@ -98,7 +99,7 @@
 	CUT_AO(src, ao_overlays)
 	if (z_flags & ZM_MIMIC_BELOW)
 		REGEN_AO(shadower, ao_overlays_mimic, ao_neighbors_mimic)
-	if (AO_TURF_CHECK(src) && !(z_flags & ZM_MIMIC_NO_AO))
+	if (AO_SELF_CHECK(src) && !(z_flags & ZM_MIMIC_NO_AO))
 		REGEN_AO(src, ao_overlays, ao_neighbors)
 
 	update_above()

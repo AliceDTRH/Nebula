@@ -23,12 +23,13 @@
 	pref.laws = R.read("laws")
 	pref.is_shackled = R.read("is_shackled")
 
-/datum/category_item/player_setup_item/law_pref/save_character(datum/pref_record_writer/W)
-	W.write("laws", pref.laws)
-	W.write("is_shackled", pref.is_shackled)
+/datum/category_item/player_setup_item/law_pref/save_character(datum/pref_record_writer/writer)
+	writer.write("laws", pref.laws)
+	writer.write("is_shackled", pref.is_shackled)
 
 /datum/category_item/player_setup_item/law_pref/sanitize_character()
-	if(!istype(pref.laws))	pref.laws = list()
+	if(!istype(pref.laws))
+		pref.laws = list()
 
 	var/decl/bodytype/mob_bodytype = pref.get_bodytype_decl()
 	if(!mob_bodytype?.can_be_shackled)
@@ -46,11 +47,11 @@
 		. += "<b>Shackle: </b>"
 		if(!pref.is_shackled)
 			. += "<span class='linkOn'>Off</span>"
-			. += "<a href='?src=\ref[src];toggle_shackle=[pref.is_shackled]'>On</a>"
+			. += "<a href='byond://?src=\ref[src];toggle_shackle=[pref.is_shackled]'>On</a>"
 			. += "<br>Only shackled synthetics have laws."
 			. += "<hr>"
 		else
-			. += "<a href='?src=\ref[src];toggle_shackle=[pref.is_shackled]'>Off</a>"
+			. += "<a href='byond://?src=\ref[src];toggle_shackle=[pref.is_shackled]'>Off</a>"
 			. += "<span class='linkOn'>On</span>"
 			. += "<br>You are shackled and have laws that restrict your behaviour."
 			. += "<hr>"
@@ -63,11 +64,12 @@
 				for(var/i in 1 to pref.laws.len)
 					. += "[i]) [pref.laws[i]]<br>"
 
-			. += "Law sets: <a href='?src=\ref[src];lawsets=1'>Load Set</a><br>"
+			. += "Law sets: <a href='byond://?src=\ref[src];lawsets=1'>Load Set</a><br>"
 
 	. = jointext(.,null)
 
 /datum/category_item/player_setup_item/law_pref/OnTopic(href, href_list, user)
+
 	if(href_list["toggle_shackle"])
 		pref.is_shackled = !pref.is_shackled
 		return TOPIC_REFRESH
@@ -100,13 +102,9 @@
 	. = ..()
 	if(!ishuman(.))
 		return
-	var/mob/living/carbon/human/new_character = .
+	var/mob/living/human/new_character = .
 	if(new_character.client?.prefs?.is_shackled && new_character.get_bodytype().can_be_shackled && new_character.mind)
 		new_character.mind.set_shackle(new_character.client.prefs.get_lawset(), TRUE) // Silent as laws will be announced on Login() anyway.
 
 /decl/bodytype
 	var/can_be_shackled
-
-/decl/bodytype/Initialize()
-	. = ..()
-	can_be_shackled = !!(BP_POSIBRAIN in has_organ)

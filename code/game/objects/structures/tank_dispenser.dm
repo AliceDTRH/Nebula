@@ -31,16 +31,16 @@
 
 	update_icon()
 
-/obj/structure/tank_rack/examine(mob/user, distance)
+/obj/structure/tank_rack/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, SPAN_NOTICE("It is holding [LAZYLEN(oxygen_tanks)] air tank\s and [LAZYLEN(hydrogen_tanks)] hydrogen tank\s."))
+	. += SPAN_NOTICE("It is holding [LAZYLEN(oxygen_tanks)] air tank\s and [LAZYLEN(hydrogen_tanks)] hydrogen tank\s.")
 
 /obj/structure/tank_rack/Destroy()
 	QDEL_NULL_LIST(hydrogen_tanks)
 	QDEL_NULL_LIST(oxygen_tanks)
 	return ..()
 
-/obj/structure/tank_rack/dump_contents()
+/obj/structure/tank_rack/dump_contents(atom/forced_loc = loc, mob/user)
 	hydrogen_tanks = null
 	oxygen_tanks = null
 	return ..()
@@ -70,31 +70,37 @@
 		return ..()
 	var/list/dat = list()
 	var/oxycount = LAZYLEN(oxygen_tanks)
-	dat += "Oxygen tanks: [oxycount] - [oxycount ? "<A href='?src=\ref[src];oxygen=1'>Dispense</A>" : "empty"]<br>"
+	dat += "Oxygen tanks: [oxycount] - [oxycount ? "<A href='byond://?src=\ref[src];oxygen=1'>Dispense</A>" : "empty"]<br>"
 	var/hydrocount = LAZYLEN(hydrogen_tanks)
-	dat += "Hydrogen tanks: [hydrocount] - [hydrocount ? "<A href='?src=\ref[src];hydrogen=1'>Dispense</A>" : "empty"]"
+	dat += "Hydrogen tanks: [hydrocount] - [hydrocount ? "<A href='byond://?src=\ref[src];hydrogen=1'>Dispense</A>" : "empty"]"
 	var/datum/browser/popup = new(user, "window=tank_rack")
 	popup.set_content(jointext(dat, "<br>"))
 	popup.open()
 	return TRUE
 
-/obj/structure/tank_rack/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/tank))
+/obj/structure/tank_rack/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/tank))
+
 		var/list/adding_to_list
-		if(istype(I, /obj/item/tank/oxygen) || istype(I, /obj/item/tank/air))
+		if(istype(used_item, /obj/item/tank/oxygen) || istype(used_item, /obj/item/tank/air))
 			LAZYINITLIST(oxygen_tanks)
 			adding_to_list = oxygen_tanks
-		else if(istype(I, /obj/item/tank/hydrogen))
+		else if(istype(used_item, /obj/item/tank/hydrogen))
 			LAZYINITLIST(hydrogen_tanks)
 			adding_to_list = hydrogen_tanks
+		else
+			return ..()
+
 		if(LAZYLEN(adding_to_list) >= 10)
 			to_chat(user, SPAN_WARNING("\The [src] is full."))
 			UNSETEMPTY(adding_to_list)
 			return TRUE
-		if(!user.try_unequip(I, src))
+
+		if(!user.try_unequip(used_item, src))
 			return TRUE
-		LAZYADD(adding_to_list, weakref(I))
-		to_chat(user, SPAN_NOTICE("You put [I] in [src]."))
+
+		LAZYADD(adding_to_list, weakref(used_item))
+		to_chat(user, SPAN_NOTICE("You put [used_item] in [src]."))
 		update_icon()
 		attack_hand_with_interaction_checks(user)
 		return TRUE

@@ -25,19 +25,20 @@
 		else
 			try_change_state(machine, newly_built_state)
 
-/decl/machine_construction/wall_frame/panel_closed/attackby(obj/item/I, mob/user, obj/machinery/machine)
+/decl/machine_construction/wall_frame/panel_closed/attackby(obj/item/used_item, mob/user, obj/machinery/machine)
 	if((. = ..()))
 		return
-	if(istype(I, /obj/item/storage/part_replacer))
-		var/obj/item/storage/part_replacer/replacer = I
+	if(istype(used_item, /obj/item/part_replacer))
+		var/obj/item/part_replacer/replacer = used_item
 		if(replacer.remote_interaction)
 			machine.part_replacement(user, replacer)
-		machine.display_parts(user)
+		for(var/line in machine.get_part_info_strings(user))
+			to_chat(user, line)
 		return TRUE
-	return down_interaction(I, user, machine)
+	return down_interaction(used_item, user, machine)
 
-/decl/machine_construction/wall_frame/panel_closed/proc/down_interaction(obj/item/I, mob/user, obj/machinery/machine)
-	if(IS_SCREWDRIVER(I))
+/decl/machine_construction/wall_frame/panel_closed/proc/down_interaction(obj/item/used_item, mob/user, obj/machinery/machine)
+	if(IS_SCREWDRIVER(used_item))
 		TRANSFER_STATE(open_state)
 		playsound(get_turf(machine), 'sound/items/Screwdriver.ogg', 50, 1)
 		machine.panel_open = TRUE
@@ -67,33 +68,33 @@
 		else
 			try_change_state(machine, active_state)
 
-/decl/machine_construction/wall_frame/panel_open/attackby(obj/item/I, mob/user, obj/machinery/machine)
+/decl/machine_construction/wall_frame/panel_open/attackby(obj/item/used_item, mob/user, obj/machinery/machine)
 	if((. = ..()))
 		return
 
-	if(IS_WIRECUTTER(I))
+	if(IS_WIRECUTTER(used_item))
 		TRANSFER_STATE(diconnected_state)
 		playsound(get_turf(machine), 'sound/items/Wirecutter.ogg', 50, 1)
 		user.visible_message(SPAN_WARNING("\The [user] has cut the wires inside \the [machine]!"), "You have cut the wires inside \the [machine].")
 		new /obj/item/stack/cable_coil(get_turf(machine), 5)
 		machine.set_broken(TRUE, MACHINE_BROKEN_CONSTRUCT)
 		machine.queue_icon_update()
+		return TRUE
+
+	if((. = up_interaction(used_item, user, machine)))
 		return
 
-	if((. = up_interaction(I, user, machine)))
-		return
+	if(istype(used_item, /obj/item/part_replacer))
+		return machine.part_replacement(user, used_item)
 
-	if(istype(I, /obj/item/storage/part_replacer))
-		return machine.part_replacement(user, I)
-
-	if(IS_WRENCH(I))
+	if(IS_WRENCH(used_item))
 		return machine.part_removal(user)
 
-	if(istype(I))
-		return machine.part_insertion(user, I)
+	if(istype(used_item))
+		return machine.part_insertion(user, used_item)
 
-/decl/machine_construction/wall_frame/panel_open/proc/up_interaction(obj/item/I, mob/user, obj/machinery/machine)
-	if(IS_SCREWDRIVER(I))
+/decl/machine_construction/wall_frame/panel_open/proc/up_interaction(obj/item/used_item, mob/user, obj/machinery/machine)
+	if(IS_SCREWDRIVER(used_item))
 		TRANSFER_STATE(active_state)
 		playsound(get_turf(machine), 'sound/items/Screwdriver.ogg', 50, 1)
 		machine.panel_open = FALSE
@@ -123,37 +124,36 @@
 		else
 			try_change_state(machine, active_state)
 
-/decl/machine_construction/wall_frame/no_wires/attackby(obj/item/I, mob/user, obj/machinery/machine)
+/decl/machine_construction/wall_frame/no_wires/attackby(obj/item/used_item, mob/user, obj/machinery/machine)
 	if((. = ..()))
 		return
 
-	if(IS_COIL(I))
-		var/obj/item/stack/cable_coil/A = I
+	if(IS_COIL(used_item))
+		var/obj/item/stack/cable_coil/A = used_item
 		if (A.can_use(5))
 			TRANSFER_STATE(open_state)
 			A.use(5)
 			to_chat(user, SPAN_NOTICE("You wire the [machine]."))
 			machine.set_broken(FALSE, MACHINE_BROKEN_CONSTRUCT)
 			machine.queue_icon_update()
-			return
 		else
 			to_chat(user, SPAN_WARNING("You need five pieces of cable to wire \the [machine]."))
-			return TRUE
+		return TRUE
 
-	if((. = down_interaction(I, user, machine)))
+	if((. = down_interaction(used_item, user, machine)))
 		return
 
-	if(istype(I, /obj/item/storage/part_replacer))
-		return machine.part_replacement(user, I)
+	if(istype(used_item, /obj/item/part_replacer))
+		return machine.part_replacement(user, used_item)
 
-	if(IS_WRENCH(I))
+	if(IS_WRENCH(used_item))
 		return machine.part_removal(user)
 
-	if(istype(I))
-		return machine.part_insertion(user, I)
+	if(istype(used_item))
+		return machine.part_insertion(user, used_item)
 
-/decl/machine_construction/wall_frame/no_wires/proc/down_interaction(obj/item/I, mob/user, obj/machinery/machine)
-	if(IS_CROWBAR(I))
+/decl/machine_construction/wall_frame/no_wires/proc/down_interaction(obj/item/used_item, mob/user, obj/machinery/machine)
+	if(IS_CROWBAR(used_item))
 		TRANSFER_STATE(bottom_state)
 		playsound(get_turf(machine), 'sound/items/Crowbar.ogg', 50, 1)
 		to_chat(user, "You pry out the circuit!")
@@ -183,16 +183,16 @@
 		else
 			try_change_state(machine, active_state)
 
-/decl/machine_construction/wall_frame/no_circuit/attackby(obj/item/I, mob/user, obj/machinery/machine)
+/decl/machine_construction/wall_frame/no_circuit/attackby(obj/item/used_item, mob/user, obj/machinery/machine)
 	if((. = ..()))
 		return
 
-	if(istype(I, /obj/item/stock_parts/circuitboard))
-		var/obj/item/stock_parts/circuitboard/board = I
+	if(istype(used_item, /obj/item/stock_parts/circuitboard))
+		var/obj/item/stock_parts/circuitboard/board = used_item
 		if(board.build_path != (machine.base_type || machine.type))
 			to_chat(user, SPAN_WARNING("This circuitboard does not fit inside \the [machine]!"))
 			return TRUE
-		if(!user.canUnEquip(board))
+		if(!user.can_unequip_item(board))
 			return TRUE
 		machine.set_broken(TRUE, MACHINE_BROKEN_CONSTRUCT)
 		TRANSFER_STATE(diconnected_state)
@@ -200,14 +200,16 @@
 		machine.install_component(board)
 		user.visible_message(SPAN_NOTICE("\The [user] inserts \the [board] into \the [machine]!"), SPAN_NOTICE("You insert \the [board] into \the [machine]!"))
 		machine.queue_icon_update()
-		return
+		return TRUE
 
-	if(IS_WRENCH(I))
+	if(IS_WRENCH(used_item))
 		TRANSFER_STATE(/decl/machine_construction/default/deconstructed)
 		playsound(get_turf(machine), 'sound/items/Ratchet.ogg', 50, 1)
 		machine.visible_message(SPAN_NOTICE("\The [user] deconstructs \the [machine]."))
 		machine.dismantle()
-		return
+		return TRUE
+
+	return FALSE
 
 /decl/machine_construction/wall_frame/no_circuit/mechanics_info()
 	. = list()

@@ -10,46 +10,34 @@
 	active_power_usage = 2000
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
-	stat_immune = 0
 
-/obj/machinery/seed_extractor/attackby(var/obj/item/O, var/mob/user)
-	if((. = component_attackby(O, user)))
-		return
+/obj/machinery/seed_extractor/attackby(var/obj/item/used_item, var/mob/user)
+
 	// Fruits and vegetables.
-	if(istype(O, /obj/item/chems/food/grown) || istype(O, /obj/item/grown))
-		if(!user.try_unequip(O))
-			return
-
-		var/datum/seed/new_seed_type
-		if(istype(O, /obj/item/grown))
-			var/obj/item/grown/F = O
-			new_seed_type = SSplants.seeds[F.plantname]
-		else
-			var/obj/item/chems/food/grown/F = O
-			new_seed_type = SSplants.seeds[F.plantname]
-
-		if(new_seed_type)
-			to_chat(user, "<span class='notice'>You extract some seeds from [O].</span>")
-			var/produce = rand(1,4)
-			for(var/i = 0;i<=produce;i++)
-				var/obj/item/seeds/seeds = new /obj/item/seeds/modified(get_turf(src))
-				seeds.seed_type = new_seed_type.name
-				seeds.update_seed()
-		else
-			to_chat(user, "[O] doesn't seem to have any usable seeds inside it.")
-
-		qdel(O)
+	if(istype(used_item, /obj/item/food/grown))
+		if(!user.try_unequip(used_item))
+			return TRUE
+		var/obj/item/food/grown/F = used_item
+		if(!F.seed)
+			to_chat(user, SPAN_WARNING("\The [used_item] doesn't seem to have any usable seeds inside it."))
+			return TRUE
+		to_chat(user, SPAN_NOTICE("You extract some seeds from [used_item]."))
+		for(var/i = 1 to rand(1,4))
+			new /obj/item/seeds/modified(get_turf(src), null, F.seed)
+		qdel(used_item)
+		return TRUE
 
 	//Grass.
-	else if(istype(O, /obj/item/stack/tile/grass))
-		var/obj/item/stack/tile/grass/S = O
+	if(istype(used_item, /obj/item/stack/tile/grass))
+		var/obj/item/stack/tile/grass/S = used_item
 		if (S.use(1))
-			to_chat(user, "<span class='notice'>You extract some seeds from the grass tile.</span>")
+			to_chat(user, SPAN_NOTICE("You extract some seeds from the grass tile."))
 			new /obj/item/seeds/grassseed(loc)
+		return TRUE
 
-	else if(istype(O, /obj/item/fossil/plant)) // Fossils
-		var/obj/item/seeds/random/R = new(get_turf(src))
-		to_chat(user, "\The [src] scans \the [O] and spits out \a [R].")
-		qdel(O)
+	if(istype(used_item, /obj/item/fossil/plant)) // Fossils
+		to_chat(user, SPAN_NOTICE("\The [src] scans \the [used_item] and spits out \a [new /obj/item/seeds/random(get_turf(src))]."))
+		qdel(used_item)
+		return TRUE
 
-	return
+	return ..()

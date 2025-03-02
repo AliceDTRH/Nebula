@@ -3,7 +3,7 @@
 	desc = "A blocky, plastic novelty launcher that claims to be able to shoot money at considerable velocities."
 	icon = 'icons/obj/guns/launcher/money.dmi'
 	icon_state = ICON_STATE_WORLD
-	origin_tech = "{'combat':1,'materials':1}"
+	origin_tech = @'{"combat":1,"materials":1}'
 	slot_flags = SLOT_LOWER_BODY
 	w_class = ITEM_SIZE_SMALL
 	release_force = 80
@@ -19,7 +19,7 @@
 	emagged = 1
 
 /obj/item/gun/launcher/money/proc/vomit_cash(var/mob/living/vomit_onto, var/projectile_vomit)
-	var/bundle_worth = FLOOR(receptacle_value / 10)
+	var/bundle_worth = floor(receptacle_value / 10)
 	var/turf/T = get_turf(vomit_onto)
 	for(var/i = 1 to 10)
 		var/nv = bundle_worth
@@ -111,44 +111,41 @@
 	unload_receptacle(user)
 	return TRUE
 
-/obj/item/gun/launcher/money/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/cash/))
-		var/obj/item/cash/bling = W
+/obj/item/gun/launcher/money/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/cash))
+		var/obj/item/cash/bling = used_item
 		if(bling.absolute_worth < 1)
 			to_chat(user, "<span class='warning'>You can't seem to get \the [bling] to slide into the receptacle.</span>")
-			return
+			return TRUE
 
 		var/decl/currency/cur = GET_DECL(bling.currency)
 		if(bling.currency != global.using_map.default_currency)
 			to_chat(user, SPAN_WARNING("Due to local legislation and budget cuts, \the [src] will only accept [cur.name]."))
-			return
+			return TRUE
 
 		receptacle_value += bling.absolute_worth
 		to_chat(user, "<span class='notice'>You slide [bling.get_worth()] [cur.name_singular] into [src]'s receptacle.</span>")
 		qdel(bling)
-
+		return TRUE
 	else
-		to_chat(user, "<span class='warning'>That's not going to fit in there.</span>")
+		return ..()
 
-/obj/item/gun/launcher/money/examine(mob/user)
+/obj/item/gun/launcher/money/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..(user)
 	var/decl/currency/cur = GET_DECL(global.using_map.default_currency)
-	to_chat(user, "It is configured to dispense [dispensing] [cur.name_singular] at a time.")
-
+	. += "It is configured to dispense [dispensing] [cur.name_singular] at a time."
 	if(receptacle_value >= 1)
-		to_chat(user, "The receptacle is loaded with [receptacle_value] [cur.name_singular].")
-
+		. += "The receptacle is loaded with [receptacle_value] [cur.name_singular]."
 	else
-		to_chat(user, "The receptacle is empty.")
-
+		. += "The receptacle is empty."
 	if(emagged)
-		to_chat(user, "<span class='notice'>Its motors are severely overloaded.</span>")
+		. += SPAN_NOTICE("Its motors are severely overloaded.")
 
 /obj/item/gun/launcher/money/handle_suicide(mob/living/user)
 	if(!ishuman(user))
 		return
 
-	var/mob/living/carbon/human/M = user
+	var/mob/living/human/M = user
 	M.visible_message("<span class='danger'>[user] sticks [src] in their mouth, ready to pull the trigger...</span>")
 
 	if(!do_after(user, 40, progress = 0))

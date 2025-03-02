@@ -1,19 +1,17 @@
-var/global/list/crashed_pod_areas = list()
-
 /datum/map_template/ruin/exoplanet/crashed_pod
-	name = "crashed survival pod"
-	description = "A crashed survival pod from a destroyed ship."
-	suffixes = list("crashed_pod/crashed_pod.dmm")
-	cost = 2
+	name           = "crashed survival pod"
+	description    = "A crashed survival pod from a destroyed ship."
+	suffixes       = list("crashed_pod/crashed_pod.dmm")
+	cost           = 2
 	template_flags = TEMPLATE_FLAG_CLEAR_CONTENTS | TEMPLATE_FLAG_NO_RUINS | TEMPLATE_FLAG_NO_RADS
-	ruin_tags = RUIN_HUMAN|RUIN_WRECK
+	template_tags  = TEMPLATE_TAG_HUMAN|TEMPLATE_TAG_WRECK
 
 /area/map_template/crashed_pod
-	name = "\improper Crashed Survival Pod"
+	name       = "\improper Crashed Survival Pod"
 	icon_state = "blue"
 
 /decl/submap_archetype/crashed_pod
-	descriptor = "crashed survival pod"
+	name      = "crashed survival pod"
 	crew_jobs = list(/datum/job/submap/pod)
 
 /datum/submap/crashed_pod/sync_cell(var/obj/effect/overmap/visitable/cell)
@@ -22,9 +20,9 @@ var/global/list/crashed_pod_areas = list()
 /datum/job/submap/pod
 	title = "Stranded Survivor"
 	info = "Your ship has been destroyed by a terrible disaster."
-	outfit_type = /decl/hierarchy/outfit/job/survivor
+	outfit_type = /decl/outfit/job/survivor
 
-/decl/hierarchy/outfit/job/survivor
+/decl/outfit/job/survivor
 	name = "Job - Survivor"
 	id_type = null
 	pda_type = null
@@ -61,5 +59,5 @@ var/global/list/crashed_pod_areas = list()
 	. = ..()
 
 /obj/structure/sign/plaque/ai_dev/pod
-	desc = "A plaque with information regarding this particular lifepod. It reads: 'Armalev Industries Skyfin-E, Exoplanetary Suvival Pod' there's a registry number, and an assigned mothership, but they've both been scratched to illegiblity."
+	desc = "A plaque with information regarding this particular lifepod. It reads: 'Yoyodyne Propulsion Systems Exoplanetary Suvival Pod MK 7' there's a registry number, and an assigned mothership, but they've both been scratched to illegiblity."
 	name = "\improper Lifepod Plaque"

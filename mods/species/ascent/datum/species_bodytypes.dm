@@ -1,7 +1,7 @@
 /decl/bodytype/crystalline/mantid
 	abstract_type = /decl/bodytype/crystalline/mantid
 	eye_flash_mod =     2 // Highly photosensitive.
-
+	age_descriptor = /datum/appearance_descriptor/age/kharmaani
 	appearance_flags =  0
 	is_brittle = FALSE
 	has_limbs = list(
@@ -30,6 +30,22 @@
 		BP_SYSTEM_CONTROLLER = /obj/item/organ/internal/controller
 	)
 	limb_mapping = list(BP_CHEST = list(BP_CHEST, BP_M_HAND))
+	footprints_icon = 'icons/mob/footprints/footprints_snake.dmi' // big tail
+
+	heat_discomfort_strings = list(
+		"You feel brittle and overheated.",
+		"Your overheated carapace flexes uneasily.",
+		"Overheated ichor trickles from your eyes."
+	)
+	cold_discomfort_strings = list(
+		"Frost forms along your carapace.",
+		"You hear a faint crackle of ice as you shift your freezing body.",
+		"Your movements become sluggish under the weight of the chilly conditions."
+	)
+	appearance_descriptors = list(
+		/datum/appearance_descriptor/height =      0.75,
+		/datum/appearance_descriptor/body_length = 0.5
+	)
 
 /decl/bodytype/crystalline/mantid/alate
 	name =              "alate"
@@ -37,8 +53,9 @@
 	icon_base =         'mods/species/ascent/icons/species/body/alate/body.dmi'
 	blood_overlays =    'mods/species/ascent/icons/species/body/alate/blood_overlays.dmi'
 	associated_gender = MALE
-	bodytype_flag =     BODY_FLAG_ALATE
+	bodytype_flag =     BODY_EQUIP_FLAG_ALATE
 	movement_slowdown = -1
+	uid = "bodytype_crystalline_alate"
 
 /decl/bodytype/crystalline/mantid/gyne
 	name =              "gyne"
@@ -51,7 +68,7 @@
 	antaghud_offset_y = 18
 	antaghud_offset_x = 4
 	associated_gender = FEMALE
-	bodytype_flag =     BODY_FLAG_GYNE
+	bodytype_flag =     BODY_EQUIP_FLAG_GYNE
 	eye_flash_mod =     2 // Highly photosensitive.
 	movement_slowdown = 2
 	override_limb_types = list(
@@ -60,14 +77,21 @@
 	override_organ_types = list(
 		BP_EGG = /obj/item/organ/internal/egg_sac/insectoid,
 	)
+	age_descriptor = /datum/appearance_descriptor/age/kharmaani/gyne
+	appearance_descriptors = list(
+		/datum/appearance_descriptor/height =      2,
+		/datum/appearance_descriptor/body_length = 1.25
+	)
+	z_flags = ZMM_WIDE_LOAD
+	uid = "bodytype_crystalline_gyne"
 
 /decl/bodytype/crystalline/mantid/gyne/Initialize()
-	equip_adjust = list(
-		BP_L_HAND = list(
-			"[NORTH]" = list("x" = -4, "y" = 12),
-			"[EAST]" = list("x" =  -4, "y" = 12),
-			"[SOUTH]" = list("x" = -4, "y" = 12),
-			"[WEST]" = list("x" =  -4, "y" = 12)
+	_equip_adjust = list(
+		(BP_L_HAND) = list(
+			"[NORTH]" = list(-4, 12),
+			"[EAST]"  = list(-4, 12),
+			"[SOUTH]" = list(-4, 12),
+			"[WEST]"  = list(-4, 12)
 		)
 	)
 	. = ..()

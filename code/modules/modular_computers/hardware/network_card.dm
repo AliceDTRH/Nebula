@@ -2,7 +2,7 @@
 	name = "basic network card"
 	desc = "A basic network card for usage with standard network protocols."
 	power_usage = 50
-	origin_tech = "{'programming':2,'engineering':1}"
+	origin_tech = @'{"programming":2,"engineering":1}'
 	critical = 0
 	icon_state = "netcard_basic"
 	hardware_size = 1
@@ -31,9 +31,9 @@
 
 /obj/item/stock_parts/computer/network_card/advanced
 	name = "advanced network card"
-	desc = "An advanced network card for usage with standard network protocols. It's transmitter is strong enough to connect even when far away."
+	desc = "An advanced network card for usage with standard network protocols. Its transmitter is strong enough to connect even when far away."
 	long_range = 1
-	origin_tech = "{'programming':4,'engineering':2}"
+	origin_tech = @'{"programming":4,"engineering":2}'
 	power_usage = 100 // Better range but higher power usage.
 	icon_state = "netcard_advanced"
 	hardware_size = 1

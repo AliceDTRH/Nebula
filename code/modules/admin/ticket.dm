@@ -20,7 +20,7 @@ var/global/list/ticket_panels = list()
 		var/sql_ckey = sanitize_sql(owner.ckey)
 		var/DBQuery/ticket_query = dbcon.NewQuery("INSERT INTO `erro_admin_tickets`(`ckey`, `round`, `inround_id`, `status`, `open_date`) VALUES ('[sql_ckey]', '[game_id]', [src.id], 'OPEN', NOW());")
 		ticket_query.Execute()
-	addtimer(CALLBACK(src, .proc/timeoutcheck), 5 MINUTES)
+	addtimer(CALLBACK(src, PROC_REF(timeoutcheck)), 5 MINUTES)
 
 /datum/ticket/proc/timeoutcheck()
 	if(status == TICKET_OPEN)
@@ -51,7 +51,6 @@ var/global/list/ticket_panels = list()
 		src.closed_by = closed_by
 		to_chat(client_by_ckey(src.owner.ckey), "<span class='notice'><b>Your ticket has been closed by [closed_by.key].</b></span>")
 		message_staff("<span class='notice'><b>[src.owner.key_name(0)]</b>'s ticket has been closed by <b>[closed_by.key]</b>.</span>")
-		send2adminirc("[src.owner.key_name(0)]'s ticket has been closed by [closed_by.key].")
 		SSwebhooks.send(WEBHOOK_AHELP_SENT, list("name" = "Ticket ([id]) (Game ID: [game_id]) Ticket Closed", "body" = "[src.owner.key_name(0)] 's ticket (ID [id]) has been closed by [closed_by.key]."))
 
 	var/closed_by_not_assigned = TRUE
@@ -100,7 +99,6 @@ var/global/list/ticket_panels = list()
 		ticket_take.Execute()
 
 	message_staff("<span class='notice'><b>[assigned_admin.key]</b> has assigned themself to <b>[src.owner.key_name(0)]'s</b> ticket.</span>")
-	send2adminirc("[assigned_admin.key] has assigned themself to [src.owner.key_name(0)]'s ticket.")
 	to_chat(client_by_ckey(src.owner.ckey), "<span class='notice'><b>[assigned_admin.key] has added themself to your ticket and should respond shortly. Thanks for your patience!</b></span>")
 	SSwebhooks.send(WEBHOOK_AHELP_SENT, list("name" = "Ticket ([id]) (Game ID: [game_id]) Ticked Assigned", "body" = "[assigned_admin.key] has added themself to ticket ID [id]."))
 
@@ -195,7 +193,7 @@ var/global/list/ticket_panels = list()
 				var/ref_mob = ""
 				if(owner_client)
 					ref_mob = "\ref[owner_client.mob]"
-				ticket_dat += " - <A HREF='?_src_=holder;adminmoreinfo=[ref_mob]'>?</A> - <A HREF='?_src_=holder;adminplayeropts=[ref_mob]'>PP</A> - <A HREF='?_src_=vars;Vars=[ref_mob]'>VV</A> - <A HREF='?_src_=holder;narrateto=[ref_mob]'>DN</A>[owner_client ? "- [admin_jump_link(owner_client, src)]" : ""]"
+				ticket_dat += " - <A HREF='byond://?_src_=holder;adminmoreinfo=[ref_mob]'>?</A> - <A HREF='byond://?_src_=holder;adminplayeropts=[ref_mob]'>PP</A> - <A HREF='byond://?_src_=vars;Vars=[ref_mob]'>VV</A> - <A HREF='byond://?_src_=holder;narrateto=[ref_mob]'>DN</A>[owner_client ? "- [admin_jump_link(owner_client, src)]" : ""]"
 			if(open_ticket && open_ticket == ticket)
 				ticket_dat += "</i>"
 			ticket_dat += "</li>"

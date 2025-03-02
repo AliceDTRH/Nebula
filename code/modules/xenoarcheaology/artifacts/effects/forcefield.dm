@@ -1,6 +1,6 @@
 /datum/artifact_effect/forcefield
 	name = "force field"
-	origin_type = EFFECT_PARTICLE
+	origin_type = XA_EFFECT_PARTICLE
 
 	var/list/created_field
 	var/field_color
@@ -50,7 +50,7 @@
 /obj/effect/energy_field/artifact
 	strength = 1
 	density = TRUE
-	invisibility = 0
+	invisibility = INVISIBILITY_NONE
 	is_spawnable_type = FALSE
 	var/datum/artifact_effect/forcefield/owner
 

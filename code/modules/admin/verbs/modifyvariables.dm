@@ -122,7 +122,7 @@
 			if(!isnum(a) && L[a] != null)
 				assoc = 1 //This is pretty weak test but I can't think of anything else
 				to_chat(usr, "List appears to be associative.")
-		catch {} // Builtin non-assoc lists (contents, etc.) will runtime if you try to get an assoc value of them
+		catch {EMPTY_BLOCK_GUARD} // Builtin non-assoc lists (contents, etc.) will runtime if you try to get an assoc value of them
 
 	var/list/names = null
 	if(!assoc)
@@ -318,6 +318,7 @@
 
 		variable = param_var_name
 
+		// TODO: check for list-typed O? Proc does not exist on non-datum types.
 		var_value = O.get_variable_value(variable)
 
 		if(autodetect_class)
@@ -525,8 +526,8 @@
 /client/proc/special_set_vv_var(var/datum/O, variable, var_value, client)
 	var/list/vv_set_handlers = decls_repository.get_decls_of_subtype(/decl/vv_set_handler)
 	for(var/vv_handler in vv_set_handlers)
-		var/decl/vv_set_handler/sh = vv_set_handlers[vv_handler]
-		if(sh.can_handle_set_var(O, variable, var_value, client))
-			sh.handle_set_var(O, variable, var_value, client)
+		var/decl/vv_set_handler/set_handler = vv_set_handlers[vv_handler]
+		if(set_handler.can_handle_set_var(O, variable, var_value, client))
+			set_handler.handle_set_var(O, variable, var_value, client)
 			return TRUE
 	return FALSE

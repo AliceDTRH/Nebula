@@ -4,22 +4,27 @@
 	var/list/contact_datums = list()
 	var/list/trackers = list()
 
-/obj/machinery/computer/ship/sensors/Destroy()
-	objects_in_view.Cut()
-	trackers.Cut()
-
-	for(var/key in contact_datums)
-		var/datum/overmap_contact/record = contact_datums[key]
-		qdel(record)
-	contact_datums.Cut()
-	. = ..()
-
 /obj/machinery/computer/ship/sensors/attempt_hook_up(obj/effect/overmap/visitable/ship/sector)
 	. = ..()
-	if(. && linked && !contact_datums[linked])
+	if(!linked)
+		return
+	for(var/obj/effect/overmap/overmap_object in linked.contents)
+		if(!overmap_object.requires_contact)
+			continue
+		new /datum/overmap_contact(src, overmap_object)
+	if(istype(loc, /obj/effect/overmap))
+		var/obj/effect/overmap/overmap_location = loc
+		if(overmap_location.requires_contact)
+			new /datum/overmap_contact(src, overmap_location)
+	if(!contact_datums[linked])
 		var/datum/overmap_contact/record = new(src, linked)
-		contact_datums[linked] = record
 		record.marker.alpha = 255
+
+/obj/machinery/computer/ship/sensors/Destroy()
+	objects_in_view.Cut()
+	QDEL_LIST_ASSOC_VAL(contact_datums)
+	trackers.Cut()
+	. = ..()
 
 /obj/machinery/computer/ship/sensors/proc/reveal_contacts(var/mob/user)
 	if(user && user.client)
@@ -58,7 +63,7 @@
 			var/datum/overmap_contact/record = contact_datums[key]
 			if(record.effect == linked)
 				continue
-			qdel(record) // Immediately cut records if power is lost.
+			qdel(record) // Immediately cut records if power is lost. Note that this handles removing from the list.
 
 		objects_in_view.Cut()
 		return
@@ -74,7 +79,14 @@
 				objects_in_current_view[tracked_effect] = TRUE
 				objects_in_view[tracked_effect] = 100
 
-	for(var/obj/effect/overmap/contact in view(sensor_range, linked))
+	for(var/obj/effect/overmap/contained_contact in linked.contents)
+		if(!contained_contact.requires_contact)
+			continue
+		objects_in_current_view[contained_contact] = TRUE
+		objects_in_view[contained_contact] = 100
+		new /datum/overmap_contact(src, contained_contact) // Don't give a contact notification!
+
+	for(var/obj/effect/overmap/contact in view(sensor_range, get_turf(linked)))
 		if(contact == linked)
 			continue
 		if(!contact.requires_contact)	   // Only some effects require contact for visibility.
@@ -83,7 +95,7 @@
 
 		if(contact.instant_contact)   // Instantly identify the object in range.
 			objects_in_view[contact] = 100
-		else if(!(contact in objects_in_view))
+		else if(isnull(objects_in_view[contact]))
 			objects_in_view[contact] = 0
 
 	for(var/obj/effect/overmap/contact in objects_in_view) //Update everything.
@@ -125,11 +137,10 @@
 				playsound(loc, "sound/machines/sensors/contactgeneric.ogg", 10, 1) //Let players know there's something nearby.
 			if(objects_in_view[contact] >= 100) // Identification complete.
 				record = new /datum/overmap_contact(src, contact)
-				contact_datums[contact] = record
 				if(contact.scannable)
 					playsound(loc, "sound/machines/sensors/newcontact.ogg", 30, 1)
 					visible_message(SPAN_NOTICE("<b>\The [src]</b> states, \"New contact identified, designation [record.name], bearing [bearing].\""))
-				record.show()
+				record.ping()
 				animate(record.marker, alpha=255, 2 SECOND, 1, LINEAR_EASING)
 			continue
 		// Update identification information for this record.
@@ -137,11 +148,11 @@
 
 		var/time_delay = max((SENSOR_TIME_DELAY * get_dist(linked, contact)),1)
 		if(!record.pinged)
-			addtimer(CALLBACK(record, .proc/ping), time_delay)
+			addtimer(CALLBACK(record, PROC_REF(ping)), time_delay)
 
-/obj/machinery/computer/ship/sensors/attackby(var/obj/item/I, var/mob/user)
+/obj/machinery/computer/ship/sensors/attackby(var/obj/item/used_item, var/mob/user)
 	. = ..()
-	var/obj/item/multitool/P = I
+	var/obj/item/multitool/P = used_item
 	if(!istype(P))
 		return
 	var/obj/item/ship_tracker/tracker = P.get_buffer()
@@ -150,11 +161,11 @@
 
 	if(tracker in trackers)
 		trackers -= tracker
-		events_repository.unregister(/decl/observ/destroyed, tracker, src, .proc/remove_tracker)
+		events_repository.unregister(/decl/observ/destroyed, tracker, src, PROC_REF(remove_tracker))
 		to_chat(user, SPAN_NOTICE("You unlink the tracker in \the [P]'s buffer from \the [src]."))
 		return
 	trackers += tracker
-	events_repository.register(/decl/observ/destroyed, tracker, src, .proc/remove_tracker)
+	events_repository.register(/decl/observ/destroyed, tracker, src, PROC_REF(remove_tracker))
 	to_chat(user, SPAN_NOTICE("You link the tracker in \the [P]'s buffer to \the [src]."))
 
 /obj/machinery/computer/ship/sensors/proc/remove_tracker(var/obj/item/ship_tracker/tracker)

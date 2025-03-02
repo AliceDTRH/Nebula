@@ -67,17 +67,16 @@ var/global/list/rpd_pipe_selection_skilled = list()
 	desc = "Portable, complex and deceptively heavy, it's the cousin of the RCD, use to dispense piping on the move."
 	icon = 'icons/obj/items/device/rpd.dmi'
 	icon_state = "rpd"
-	force = 12
-	throwforce = 15
 	throw_speed = 1
 	throw_range = 3
 	w_class = ITEM_SIZE_NORMAL
-	origin_tech = "{'engineering':5,'materials':4}"
+	origin_tech = @'{"engineering":5,"materials":4}'
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/glass = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/silver = MATTER_AMOUNT_TRACE
 	)
+	_base_attack_force = 12
 
 	var/datum/fabricator_recipe/pipe/P
 	var/pipe_color = "white"
@@ -95,11 +94,11 @@ var/global/list/rpd_pipe_selection_skilled = list()
 	. = list()
 	. += "<table>"
 	if(color_options)
-		. += "<tr><td>Color</td><td><a href='?src=\ref[src];color=\ref[src]'><font color = '[pipe_color]'>[pipe_color]</font></a></td></tr>"
+		. += "<tr><td>Color</td><td><a href='byond://?src=\ref[src];color=\ref[src]'><font color = '[pipe_color]'>[pipe_color]</font></a></td></tr>"
 	for(var/category in pipe_categories)
 		. += "<tr><td><font color = '#517087'><strong>[category]</strong></font></td></tr>"
 		for(var/datum/fabricator_recipe/pipe/pipe in pipe_categories[category])
-			. += "<tr><td>[pipe.name]</td><td>[P.type == pipe.type ? "<span class='linkOn'>Select</span>" : "<a href='?src=\ref[src];select=\ref[pipe]'>Select</a>"]</td></tr>"
+			. += "<tr><td>[pipe.name]</td><td>[P.type == pipe.type ? "<span class='linkOn'>Select</span>" : "<a href='byond://?src=\ref[src];select=\ref[pipe]'>Select</a>"]</td></tr>"
 	.+= "</table>"
 	. = JOINTEXT(.)
 
@@ -151,11 +150,11 @@ var/global/list/rpd_pipe_selection_skilled = list()
 		if(prob(20))
 			spark_at(src, amount = 5, holder = src)
 
-/obj/item/rpd/examine(var/mob/user, distance)
+/obj/item/rpd/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
 		if(user.skill_check(SKILL_ATMOS,SKILL_BASIC))
-			to_chat(user, "<span class='notice'>Current selection reads:</span> [P]")
+			. += "[SPAN_NOTICE("Current selection reads:")] [P]"
 		else
 			to_chat(user, SPAN_WARNING("The readout is flashing some atmospheric jargon, you can't understand."))
 
@@ -163,17 +162,17 @@ var/global/list/rpd_pipe_selection_skilled = list()
 	interact(user)
 	add_fingerprint(user)
 
-/obj/item/rpd/attackby(var/obj/item/W, var/mob/user)
-	if(istype(W, /obj/item/pipe))
-		if(!user.try_unequip(W))
-			return
-		recycle(W,user)
-		return
-	..()
+/obj/item/rpd/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, /obj/item/pipe))
+		if(!user.try_unequip(used_item))
+			return TRUE
+		recycle(used_item,user)
+		return TRUE
+	return ..()
 
-/obj/item/rpd/proc/recycle(var/obj/item/W,var/mob/user)
+/obj/item/rpd/proc/recycle(var/obj/item/used_item,var/mob/user)
 	if(!user.skill_check(SKILL_ATMOS,SKILL_BASIC))
-		user.visible_message("[user] struggles with \the [src], as they futilely jam \the [W] against it")
+		user.visible_message("<b>\The [user]</b> struggles with \the [src] as they futilely jam \the [used_item] against it.")
 		return
 	playsound(src.loc, 'sound/effects/pop.ogg', 50, 1)
-	qdel(W)
+	qdel(used_item)

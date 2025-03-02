@@ -7,11 +7,10 @@
 	item_state = "plasticx"
 	item_flags = ITEM_FLAG_NO_BLUDGEON
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'esoteric':2}"
-	material = /decl/material/solid/plastic
+	origin_tech = @'{"esoteric":2}'
+	material = /decl/material/solid/organic/plastic
 	matter = list(
-		/decl/material/solid/silicon = MATTER_AMOUNT_TRACE,
-		/decl/material/liquid/anfo = MATTER_AMOUNT_REINFORCEMENT, //#TODO: Slap RDX in here
+		/decl/material/solid/silicon = MATTER_AMOUNT_TRACE
 	)
 	var/datum/wires/explosive/c4/wires = null
 	var/timer = 10
@@ -29,18 +28,19 @@
 	wires = null
 	return ..()
 
-/obj/item/plastique/attackby(var/obj/item/I, var/mob/user)
-	if(IS_SCREWDRIVER(I))
+/obj/item/plastique/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		open_panel = !open_panel
 		to_chat(user, "<span class='notice'>You [open_panel ? "open" : "close"] the wire panel.</span>")
-	else if(IS_WIRECUTTER(I) || IS_MULTITOOL(I) || istype(I, /obj/item/assembly/signaler ))
-		wires.Interact(user)
+		return TRUE
+	else if(IS_WIRECUTTER(used_item) || IS_MULTITOOL(used_item) || istype(used_item, /obj/item/assembly/signaler ))
+		return wires.Interact(user)
 	else
-		..()
+		return ..()
 
 /obj/item/plastique/attack_self(mob/user)
 	var/newtime = input(usr, "Please set the timer.", "Timer", 10) as num
-	if(user.get_active_hand() == src)
+	if(user.get_active_held_item() == src)
 		newtime = clamp(newtime, 10, 60000)
 		timer = newtime
 		to_chat(user, "Timer set for [timer] seconds.")
@@ -48,8 +48,13 @@
 /obj/item/plastique/afterattack(atom/movable/target, mob/user, flag)
 	if (!flag)
 		return
-	if (ismob(target) || istype(target, /turf/unsimulated) || istype(target, /turf/simulated/shuttle) || istype(target, /obj/item/storage/) || istype(target, /obj/item/clothing/accessory/storage/) || istype(target, /obj/item/clothing/under))
+	if (ismob(target) || target.storage || istype(target, /obj/item/clothing/webbing))
 		return
+	if(isturf(target))
+		var/turf/target_turf = target
+		if(!target_turf.simulated)
+			return
+
 	to_chat(user, "Planting explosives...")
 	user.do_attack_animation(target)
 
@@ -80,14 +85,14 @@
 		explosion(location, -1, -1, 2, 3)
 
 	if(target)
-		if (istype(target, /turf/simulated/wall))
-			var/turf/simulated/wall/W = target
-			W.dismantle_wall(1)
-		else if(istype(target, /mob/living))
+		if (istype(target, /turf))
+			target.physically_destroyed()
+		else if(isliving(target))
 			target.explosion_act(2) // c4 can't gib mobs anymore.
 		else
 			target.explosion_act(1)
-	if(target)
+	// TODO: vis contents instead of diddling overlays directly.
+	if(!QDELETED(target))
 		target.overlays -= image_overlay
 	qdel(src)
 
@@ -103,5 +108,5 @@
 		T--
 	explode(get_turf(target))
 
-/obj/item/plastique/attack(mob/M, mob/user, def_zone)
-	return
+/obj/item/plastique/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	return FALSE

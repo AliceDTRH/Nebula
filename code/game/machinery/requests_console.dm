@@ -47,7 +47,7 @@ var/global/req_console_information = list()
 	uncreated_component_parts = null
 	construct_state = /decl/machine_construction/wall_frame/panel_closed
 	frame_type = /obj/item/frame/stock_offset/request_console
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':32}, 'WEST':{'x':-32}}"
+	directional_offset = @'{"NORTH":{"y":32}, "SOUTH":{"y":-32}, "EAST":{"x":32}, "WEST":{"x":-32}}'
 
 /obj/machinery/network/requests_console/on_update_icon()
 	if(stat & NOPOWER)
@@ -206,28 +206,31 @@ var/global/req_console_information = list()
 		set_department(choice)
 		return TOPIC_REFRESH
 
-/obj/machinery/network/requests_console/attackby(var/obj/item/O, var/mob/user)
-	if (istype(O, /obj/item/card/id))
-		if(inoperable(MAINT)) return
+/obj/machinery/network/requests_console/attackby(var/obj/item/used_item, var/mob/user)
+	if (istype(used_item, /obj/item/card/id))
+		if(inoperable(MAINT)) return TRUE
+		switch(screen)
+			if(RCS_MESSAUTH)
+				var/obj/item/card/id/T = used_item
+				msgVerified = text("<font color='green'><b>Verified by [T.registered_name] ([T.assignment])</b></font>")
+				SSnano.update_uis(src)
+			if(RCS_ANNOUNCE)
+				var/obj/item/card/id/ID = used_item
+				if (access_RC_announce in ID.GetAccess())
+					announceAuth = 1
+					announcement.announcer = ID.assignment ? "[ID.assignment] [ID.registered_name]" : ID.registered_name
+				else
+					reset_message()
+					to_chat(user, "<span class='warning'>You are not authorized to send announcements.</span>")
+				SSnano.update_uis(src)
+		return TRUE
+	if (istype(used_item, /obj/item/stamp))
+		if(inoperable(MAINT)) return TRUE
 		if(screen == RCS_MESSAUTH)
-			var/obj/item/card/id/T = O
-			msgVerified = text("<font color='green'><b>Verified by [T.registered_name] ([T.assignment])</b></font>")
-			SSnano.update_uis(src)
-		if(screen == RCS_ANNOUNCE)
-			var/obj/item/card/id/ID = O
-			if (access_RC_announce in ID.GetAccess())
-				announceAuth = 1
-				announcement.announcer = ID.assignment ? "[ID.assignment] [ID.registered_name]" : ID.registered_name
-			else
-				reset_message()
-				to_chat(user, "<span class='warning'>You are not authorized to send announcements.</span>")
-			SSnano.update_uis(src)
-	if (istype(O, /obj/item/stamp))
-		if(inoperable(MAINT)) return
-		if(screen == RCS_MESSAUTH)
-			var/obj/item/stamp/T = O
+			var/obj/item/stamp/T = used_item
 			msgStamped = "<font color='blue'><b>Stamped with the [T.name]</b></font>"
 			SSnano.update_uis(src)
+		return TRUE
 	return ..()
 
 /obj/machinery/network/requests_console/proc/reset_message(var/mainmenu = 0)

@@ -66,12 +66,10 @@
 	var/datum/xenoarch_engraving_flavor/engraving_generator = /datum/xenoarch_engraving_flavor
 
 	// *** Ambient Lighting ***
-	//#TODO: Make it so this is handled in a subsystem or something?
-	// Day/night cycle tracking.
-	var/starts_at_night = FALSE
-	///How often do we change day and night. Null means it will stay either night or day forever.
-	/// Ensure that the minimum is larger than [maxx * daycycle_column_delay]. Otherwise the right side of the exoplanet can get stuck in a forever day.
-	var/day_duration
+	/// ID used for registering/deregistering with a daycycle.
+	var/daycycle_id = "daycycle_solars"
+	/// Type of daycycle to use.
+	var/daycycle_type = /datum/daycycle/solars
 	///Ambient lighting level across the surface. All surface height levels will be set to this.
 	var/surface_light_level
 	///Lighjting color used for the entire surface.
@@ -102,6 +100,8 @@
 
 ///Generate and sets the planetary id for this planetoid if it doesn't have one yet. Called on instantiation.
 /datum/planetoid_data/proc/generate_planetoid_id()
+	if(isnull(daycycle_id))
+		daycycle_id = "daycycle_[sequential_id(/datum/planetoid_data)]"
 	if(length(id))
 		return
 	return id = "planetoid_[sequential_id(/datum/planetoid_data)]"
@@ -132,7 +132,7 @@
 	//Always keep the overmap marker in sync if we have one set already
 	try_update_overmap_marker()
 
-// ** Bunch of overridables below **
+// ** Bunch of overrideables below **
 
 ///Sets the name of the planetoid, and causes updates to happen to anything linked to us.
 /datum/planetoid_data/proc/SetName(var/newname)
@@ -155,8 +155,8 @@
 	atmosphere = A.Clone()
 
 ///Resets the given weather state to our planet replacing the old one, and trigger updates. Can be a type path or instance.
-/datum/planetoid_data/proc/reset_weather(var/decl/state/weather/W)
-	initial_weather_state = W
+/datum/planetoid_data/proc/reset_weather(var/decl/state/weather/weather)
+	initial_weather_state = weather
 	if(!(topmost_level_id in SSmapping.levels_by_id))
 		return //It's entire possible the levels weren't initialized yet, so don't bother.
 	//Tells all our levels exposed to the sky to force change the weather.
@@ -243,12 +243,15 @@
 
 ///Registers to neccessary processors and begin running all processing needed by the planet
 /datum/planetoid_data/proc/begin_processing()
-	if(day_duration)
-		SSdaycyle.add_linked_levels(get_linked_level_ids(), starts_at_night, day_duration)
+	set waitfor = FALSE
+	if(daycycle_id)
+		SSdaycycle.register_level(get_linked_level_zs(), daycycle_id, daycycle_type)
 
 ///Stop running any processing needed by the planet, and unregister from processors.
 /datum/planetoid_data/proc/end_processing()
-	SSdaycyle.remove_linked_levels(topmost_level_id)
+	set waitfor = FALSE
+	if(daycycle_id)
+		SSdaycycle.remove_level(get_linked_level_zs(), daycycle_id)
 
 //#TODO: Move this into some SS for planet processing stuff or something?
 /datum/planetoid_data/Process(wait, tick)
@@ -269,6 +272,11 @@
 		return "alien creature"
 	return fauna.get_random_species_name()
 
+/datum/planetoid_data/proc/get_linked_level_zs()
+	for(var/linked_level_id in get_linked_level_ids())
+		var/datum/level_data/LD = SSmapping.levels_by_id[topmost_level_id]
+		LAZYDISTINCTADD(., LD.level_z)
+
 ///Returns a list of all the level id of the levels associated to this planet
 /datum/planetoid_data/proc/get_linked_level_ids()
 	var/datum/level_data/LD = SSmapping.levels_by_id[topmost_level_id]
@@ -278,6 +286,8 @@
 /datum/planetoid_data/proc/generate_life(var/list/breathable_gas, var/list/toxic_gases)
 	if(fauna)
 		fauna.generate_fauna(atmosphere, breathable_gas?.Copy(), toxic_gases?.Copy()) //Must be copies here #TODO: Fix this
+		for(var/datum/exoplanet_theme/theme in themes)
+			fauna.apply_theme(theme)
 
 ///Setup the initial weather state for the planet. Doesn't apply it to our z levels however.
 /datum/planetoid_data/proc/generate_weather()
@@ -374,12 +384,7 @@
 	generate_planet_materials()
 	generate_planetoid_rings()
 	generate_ambient_lighting()
-	generate_daycycle_data()
 	generate_weather()
-
-/datum/planetoid_data/random/proc/generate_daycycle_data()
-	starts_at_night = (surface_light_level > 0.1)
-	day_duration    = rand(global.config.exoplanet_min_day_duration, global.config.exoplanet_max_day_duration)
 
 ///If the planet doesn't have a name defined, a name will be randomly generated for it. (Named this way because a global proc generate_planet_name already exists)
 /datum/planetoid_data/random/proc/make_planet_name()
@@ -484,11 +489,11 @@
 
 	//Adjust for species habitability
 	if(habitability_class == HABITABILITY_OKAY || habitability_class == HABITABILITY_IDEAL)
-		var/decl/species/S  = global.get_species_by_key(global.using_map.default_species)
+		var/decl/species/S = global.get_species_by_key(global.using_map.default_species)
 		if(habitability_class == HABITABILITY_IDEAL)
-			. = clamp(., S.cold_discomfort_level + rand(1,5), S.heat_discomfort_level - rand(1,5)) //Clamp between comfortable levels since we're ideal
+			. = clamp(., S.default_bodytype.cold_discomfort_level + rand(1,5), S.default_bodytype.heat_discomfort_level - rand(1,5)) //Clamp between comfortable levels since we're ideal
 		else
-			. = clamp(., S.cold_level_1 + 1, S.heat_level_1 - 1) //clamp between values species starts taking damages at
+			. = clamp(., S.default_bodytype.cold_level_1 + 1, S.default_bodytype.heat_level_1 - 1) //clamp between values species starts taking damages at
 
 ///Generates a valid surface pressure for the planet's atmosphere matching it's habitability class
 /datum/planetoid_data/random/proc/generate_surface_pressure()
@@ -498,10 +503,10 @@
 	if(habitability_class == HABITABILITY_OKAY || habitability_class == HABITABILITY_IDEAL)
 		var/decl/species/S           = global.get_species_by_key(global.using_map.default_species)
 		var/breathed_min_pressure    = S.breath_pressure
-		var/safe_max_pressure        = S.hazard_high_pressure
-		var/safe_min_pressure        = S.hazard_low_pressure
-		var/comfortable_max_pressure = S.warning_high_pressure
-		var/comfortable_min_pressure = S.warning_low_pressure
+		var/safe_max_pressure        = S.get_hazard_high_pressure()
+		var/safe_min_pressure        = S.get_hazard_low_pressure()
+		var/comfortable_max_pressure = S.get_warning_high_pressure()
+		var/comfortable_min_pressure = S.get_warning_low_pressure()
 
 		//On ideal planets, clamp against the comfortability limit pressures, since it shouldn't hit any extremes
 		if(habitability_class == HABITABILITY_IDEAL)
@@ -546,8 +551,8 @@
 
 		//Make sure temperature can't damage people on casual planets (Only when not forcing an atmosphere)
 		var/decl/species/S = global.get_species_by_key(global.using_map.default_species)
-		var/lower_temp            = max(S.cold_level_1, atmosphere_gen_temperature_min)
-		var/higher_temp           = min(S.heat_level_1, atmosphere_gen_temperature_max)
+		var/lower_temp            = max(S.default_bodytype.cold_level_1, atmosphere_gen_temperature_min)
+		var/higher_temp           = min(S.default_bodytype.heat_level_1, atmosphere_gen_temperature_max)
 		var/breathed_gas          = S.breath_type
 		var/breathed_min_pressure = S.breath_pressure
 
@@ -582,7 +587,7 @@
 				if(((current_merged_flags & XGM_GAS_OXIDIZER) && (mat.gas_flags & XGM_GAS_FUEL)) || \
 					((current_merged_flags & XGM_GAS_FUEL) && (mat.gas_flags & XGM_GAS_OXIDIZER)))
 					continue
-				
+
 				// If we have an ignition point we're basically XGM_GAS_FUEL, kind of. TODO: Combine those somehow?
 				// These don't actually burn but it's still weird to see vaporized skin gas in an oxygen-rich atmosphere,
 				// so skip them.

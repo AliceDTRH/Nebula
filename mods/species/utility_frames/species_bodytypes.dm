@@ -10,36 +10,40 @@
 	body_flags =        BODY_FLAG_NO_PAIN | BODY_FLAG_NO_DNA | BODY_FLAG_NO_DEFIB | BODY_FLAG_NO_STASIS
 	base_color = "#333355"
 	base_eye_color = "#00ccff"
-	material = /decl/material/solid/metal/steel
+	organ_material = /decl/material/solid/metal/steel
 	vital_organs = list(
-		BP_POSIBRAIN,
+		BP_BRAIN,
 		BP_CELL
 	)
 	override_limb_types = list(BP_HEAD = /obj/item/organ/external/head/utility_frame)
 	has_organ = list(
-		BP_POSIBRAIN = /obj/item/organ/internal/posibrain,
-		BP_EYES      = /obj/item/organ/internal/eyes,
-		BP_CELL      = /obj/item/organ/internal/cell
+		BP_BRAIN = /obj/item/organ/internal/brain/robotic,
+		BP_EYES  = /obj/item/organ/internal/eyes,
+		BP_CELL  = /obj/item/organ/internal/cell
 	)
-	base_markings = list(
-		/decl/sprite_accessory/marking/frame/plating = "#8888cc",
-		/decl/sprite_accessory/marking/frame/plating/legs = "#8888cc",
-		/decl/sprite_accessory/marking/frame/plating/head = "#8888cc"
+	default_sprite_accessories = list(
+		SAC_MARKINGS = list(
+			/decl/sprite_accessory/marking/frame/plating      = list(SAM_COLOR = "#8888cc"),
+			/decl/sprite_accessory/marking/frame/plating/legs = list(SAM_COLOR = "#8888cc"),
+			/decl/sprite_accessory/marking/frame/plating/head = list(SAM_COLOR = "#8888cc")
+		)
 	)
+	age_descriptor =        /datum/appearance_descriptor/age/utility_frame
+	uid = "bodytype_prosthetic_utility_frame"
 
 /decl/bodytype/prosthetic/utility_frame/Initialize()
-	equip_adjust = list(
-		"[slot_l_ear_str]" =  list(
-			"[NORTH]" = list("x" =  2, "y" = 0),
-			"[EAST]"  = list("x" =  0, "y" = 0),
-			"[SOUTH]" = list("x" = -2, "y" = 0),
-			"[WEST]"  = list("x" =  0, "y" = 0)
+	_equip_adjust = list(
+		(slot_l_ear_str) =  list(
+			"[NORTH]" = list( 2, 0),
+			"[EAST]"  = list( 0, 0),
+			"[SOUTH]" = list(-2, 0),
+			"[WEST]"  = list( 0, 0)
 		),
-		"[slot_r_ear_str]" =  list(
-			"[NORTH]" = list("x" = -2, "y" = 0),
-			"[EAST]"  = list("x" =  0, "y" = 0),
-			"[SOUTH]" = list("x" =  2, "y" = 0),
-			"[WEST]"  = list("x" =  0, "y" = 0)
+		(slot_r_ear_str) =  list(
+			"[NORTH]" = list(-2, 0),
+			"[EAST]"  = list( 0, 0),
+			"[SOUTH]" = list( 2, 0),
+			"[WEST]"  = list( 0, 0)
 		)
 	)
 	. = ..()

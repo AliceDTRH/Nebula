@@ -15,10 +15,9 @@
 	desc             = "A camera film cartridge. Insert it into a camera to reload it."
 	icon_state       = "film"
 	item_state       = "electropack"
-	w_class          = ITEM_SIZE_TINY
-	throwforce       = 0
+	w_class          = ITEM_SIZE_SMALL
 	throw_range      = 10
-	material         = /decl/material/solid/plastic
+	material         = /decl/material/solid/organic/plastic
 	var/tmp/max_uses = 10
 	var/uses_left    = 10
 
@@ -43,12 +42,12 @@
 	update_icon()
 	return TRUE
 
-/obj/item/camera_film/examine(mob/user, distance, infix, suffix)
+/obj/item/camera_film/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(uses_left < 1)
-		to_chat(user, SPAN_WARNING("This cartridge is completely spent!"))
+		. += SPAN_WARNING("This cartridge is completely spent!")
 	else
-		to_chat(user, "[uses_left] uses left.")
+		. += "[uses_left] uses left."
 
 /obj/item/camera_film/proc/get_remaining()
 	return uses_left
@@ -64,7 +63,7 @@
 	randpixel   = 10
 	w_class     = ITEM_SIZE_TINY
 	item_flags  = ITEM_FLAG_CAN_TAPE
-	material    = /decl/material/solid/plastic
+	material    = /decl/material/solid/organic/plastic
 	var/id              //Unique id used to name the photo resource to upload to the client, and for synthetic photo synchronization
 	var/icon/img	    //The actual real photo image
 	var/image/tiny      //A thumbnail of the image that's displayed on the actual world icon of the photo
@@ -89,7 +88,7 @@
 	return clone
 
 /obj/item/photo/attack_self(mob/user)
-	user.examinate(src)
+	user.examine_verb(src)
 
 /obj/item/photo/get_matter_amount_modifier()
 	return 0.2
@@ -109,16 +108,16 @@
 	tiny.pixel_x = -WORLD_ICON_SIZE * (photo_size-1)/2 - 3
 	tiny.pixel_y = -WORLD_ICON_SIZE * (photo_size-1)/2 + 3
 
-/obj/item/photo/attackby(obj/item/P, mob/user)
-	if(IS_PEN(P))
+/obj/item/photo/attackby(obj/item/used_item, mob/user)
+	if(IS_PEN(used_item))
 		if(!CanPhysicallyInteractWith(user, src))
 			to_chat(user, SPAN_WARNING("You can't interact with this!"))
-			return
+			return TRUE
 		scribble = sanitize(input(user, "What would you like to write on the back? (Leave empty to erase)", "Photo Writing", scribble), MAX_DESC_LEN)
 		return TRUE
 	return ..()
 
-/obj/item/photo/examine(mob/user, distance)
+/obj/item/photo/examined_by(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance > 1)
 		to_chat(user, SPAN_NOTICE("It is too far away."))
@@ -129,10 +128,11 @@
 
 /obj/item/photo/interact(mob/user)
 	send_rsc(user, img, "tmp_photo_[id].png")
+	// todo: remove -ms-interpolation-mode once 516 is required
 	var/photo_html = {"
 		<html><head><title>[name]</title></head>
 		<body style='overflow:hidden;margin:0;text-align:center'>
-		<img src='tmp_photo_[id].png' width='[64*photo_size]' style='-ms-interpolation-mode:nearest-neighbor' />
+		<img src='tmp_photo_[id].png' width='[64*photo_size]' style='-ms-interpolation-mode:nearest-neighbor;image-rendering:pixelated;' />
 		[scribble ? "<br>Written on the back:<br><i>[scribble]</i>" : ""]
 		</body></html>
 	"}
@@ -175,28 +175,19 @@
 * photo album *
 **************/
 //#TODO: This thing is awful. Might as well use a trashbag instead since you get the same thing, just with more space....
-/obj/item/storage/photo_album
+/obj/item/photo_album
 	name          = "photo album"
-	icon          = 'icons/obj/photography.dmi'
-	icon_state    = "album"
-	item_state    = "briefcase"
+	icon          = 'icons/obj/photo_album.dmi'
+	icon_state    = ICON_STATE_WORLD
 	w_class       = ITEM_SIZE_NORMAL //same as book
-	storage_slots = DEFAULT_BOX_STORAGE //yes, that's storage_slots. Photos are w_class 1 so this has as many slots equal to the number of photos you could put in a box
-	can_hold = list(/obj/item/photo)
-	material = /decl/material/solid/cardboard
+	storage       = /datum/storage/photo_album
+	material      = /decl/material/solid/organic/plastic
 
-/obj/item/storage/photo_album/handle_mouse_drop(atom/over, mob/user)
-	if(istype(over, /obj/screen/inventory))
-		var/obj/screen/inventory/inv = over
-		playsound(loc, "rustle", 50, 1, -5)
-		if(user.get_equipped_item(slot_back_str) == src)
-			add_fingerprint(user)
-			if(user.try_unequip(src))
-				user.equip_to_slot_if_possible(src, inv.slot_id)
-		else if(over == user && in_range(src, user) || loc == user)
-			if(user.active_storage)
-				user.active_storage.close(user)
-			show_to(user)
+/obj/item/photo_album/handle_mouse_drop(atom/over, mob/user, params)
+	if(over == user && in_range(src, user) || loc == user)
+		if(user.active_storage)
+			user.active_storage.close(user)
+		storage?.show_to(user)
 		return TRUE
 	. = ..()
 
@@ -214,15 +205,23 @@
 	obj_flags            = OBJ_FLAG_CONDUCTIBLE
 	slot_flags           = SLOT_LOWER_BODY
 	material             = /decl/material/solid/metal/aluminium
-	matter               = list(/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT)
+	matter               = list(/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT)
 	var/turned_on        = TRUE
-	var/field_of_view    = 3       //3 tiles
-	var/obj/item/camera_film/film  //Currently loaded film
+	var/field_of_view    = 3 // squared, so 3 is a 3x3 of tiles
+	var/obj/item/camera_film/film = new //Currently loaded film
+
+/obj/item/camera/loaded/Initialize()
+	film = new(src)
+	return ..()
 
 /obj/item/camera/Initialize()
 	set_extension(src, /datum/extension/base_icon_state, icon_state)
 	. = ..()
 	update_icon()
+
+/obj/item/camera/loaded/Initialize()
+	. = ..()
+	film = new /obj/item/camera_film(src)
 
 /obj/item/camera/on_update_icon()
 	. = ..()
@@ -232,8 +231,8 @@
 	else
 		icon_state = "[bis.base_icon_state]_off"
 
-/obj/item/camera/attack(mob/living/carbon/human/M, mob/user)
-	return
+/obj/item/camera/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	return FALSE
 
 /obj/item/camera/attack_self(mob/user)
 	if(film)
@@ -261,53 +260,54 @@
 
 	to_chat(user, SPAN_WARNING("There is no cartridge in \the [src] to eject!"))
 
-/obj/item/camera/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/camera_film))
+/obj/item/camera/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/camera_film))
 		if(film)
 			//Skilled people don't have to remove the film first!
 			if(user.get_skill_value(SKILL_DEVICES) >= SKILL_EXPERT)
 				if(user.do_skilled(1 SECONDS, SKILL_DEVICES, src))
 					user.visible_message(
-						SPAN_NOTICE("In a swift flick of the finger, [user] ejects \the [film], and slides in \the [I]!"),
-						SPAN_NOTICE("From habit you instinctively pop the old [film] from \the [src] and insert a new [I] deftly!"))
-					user.try_unequip(I, src)
+						SPAN_NOTICE("In a swift flick of the finger, [user] ejects \the [film], and slides in \the [used_item]!"),
+						SPAN_NOTICE("From habit you instinctively pop the old [film] from \the [src] and insert a new [used_item] deftly!"))
+					user.try_unequip(used_item, src)
 					user.put_in_active_hand(film)
-					film = I
+					film = used_item
 					return TRUE
-				return
+				return TRUE
 			//Unskilled losers have to remove it first
 			to_chat(user, SPAN_NOTICE("[src] already has some film in it! Remove it first!"))
-			return
+			return TRUE
 		else
 			if(user.do_skilled(1 SECONDS, SKILL_DEVICES, src))
 				if(user.get_skill_value(SKILL_DEVICES) >= SKILL_EXPERT)
 					user.visible_message(
-						SPAN_NOTICE("[user] swiftly slides \the [I] into \the [src]!"),
-						SPAN_NOTICE("You insert \a [I] swiftly into \the [src]!"))
+						SPAN_NOTICE("[user] swiftly slides \the [used_item] into \the [src]!"),
+						SPAN_NOTICE("You insert \a [used_item] swiftly into \the [src]!"))
 				else
 					user.visible_message(
-						SPAN_NOTICE("[user] inserts \a [I] into his [src]."),
-						SPAN_NOTICE("You insert \the [I] into \the [src]."))
-				user.try_unequip(I, src)
-				film = I
+						SPAN_NOTICE("[user] inserts \a [used_item] into his [src]."),
+						SPAN_NOTICE("You insert \the [used_item] into \the [src]."))
+				user.try_unequip(used_item, src)
+				film = used_item
 				return TRUE
-			return
+			return TRUE
 	return ..()
 
-/obj/item/camera/proc/get_mobs(turf/the_turf)
+/obj/item/camera/proc/get_mob_details(turf/the_turf)
 	var/mob_detail
-	for(var/mob/living/carbon/A in the_turf)
-		if(A.invisibility)
+	for(var/mob/living/seen in the_turf)
+		if(seen.invisibility)
 			continue
 		var/holding
-		for(var/obj/item/thing in A.get_held_items())
+		for(var/obj/item/thing in seen.get_held_items())
 			LAZYADD(holding, "\a [thing]")
 		if(length(holding))
-			holding = "They are holding [english_list(holding)]"
+			var/decl/pronouns/mob_pronouns = seen.get_pronouns()
+			holding = "[mob_pronouns.He] [mob_pronouns.is] holding [english_list(holding)]."
 		if(!mob_detail)
-			mob_detail = "You can see [A] on the photo[(A.health / A.maxHealth) < 0.75 ? " - [A] looks hurt":""].[holding ? " [holding]":"."]. "
+			mob_detail = "You can see [seen] on the photo[seen.get_health_ratio() < 0.75 ? " - [seen] looks hurt":""].[holding ? " [holding]":"."]. "
 		else
-			mob_detail += "You can also see [A] on the photo[(A.health / A.maxHealth)< 0.75 ? " - [A] looks hurt":""].[holding ? " [holding]":"."]."
+			mob_detail += "You can also see [seen] on the photo[seen.get_health_ratio() < 0.75 ? " - [seen] looks hurt":""].[holding ? " [holding]":"."]."
 	return mob_detail
 
 /obj/item/camera/afterattack(atom/target, mob/user, flag)
@@ -334,34 +334,34 @@
 	film.use()
 	captureimage(target, user, flag)
 	playsound(loc, pick('sound/items/polaroid1.ogg', 'sound/items/polaroid2.ogg'), 75, 1, -3)
-	to_chat(user, SPAN_NOTICE("[film.get_remaining()] photos left."))
+	to_chat(user, SPAN_NOTICE("[film.get_remaining()] photo\s left."))
 	return TRUE
 
-/obj/item/camera/examine(mob/user)
+/obj/item/camera/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(film)
-		to_chat(user, "It has [film?.get_remaining()] photo\s left.")
+		. += "It has [film?.get_remaining()] photo\s left."
 	else
-		to_chat(user, "It doesn't have a film cartridge.")
+		. += "It doesn't have a film cartridge."
 
 /obj/item/camera/proc/captureimage(atom/target, mob/living/user, flag)
 	var/x_c = target.x - (field_of_view-1)/2
 	var/y_c = target.y + (field_of_view-1)/2
 	var/z_c	= target.z
-	var/mobs = ""
+	var/mob_details = ""
 	for(var/i = 1 to field_of_view)
 		for(var/j = 1 to field_of_view)
 			var/turf/T = locate(x_c, y_c, z_c)
 			if(user.can_capture_turf(T))
-				mobs += get_mobs(T)
+				mob_details += get_mob_details(T)
 			x_c++
 		y_c--
 		x_c = x_c - field_of_view
 
-	var/obj/item/photo/p = createpicture(target, user, mobs, flag)
+	var/obj/item/photo/p = createpicture(target, user, mob_details, flag)
 	printpicture(user, p)
 
-/obj/item/camera/proc/createpicture(atom/target, mob/user, mobs, flag)
+/obj/item/camera/proc/createpicture(atom/target, mob/user, new_description, flag)
 	var/x_c = target.x - (field_of_view-1)/2
 	var/y_c = target.y - (field_of_view-1)/2
 	var/z_c	= target.z
@@ -369,7 +369,7 @@
 
 	var/obj/item/photo/p = new()
 	p.img = photoimage
-	p.desc = mobs
+	p.desc = new_description
 	p.photo_size = field_of_view
 	p.update_icon()
 
@@ -403,6 +403,8 @@
 	icon                 = 'icons/screen/radial.dmi'
 	icon_state           = "radial_eject"
 	expected_target_type = /obj/item/camera
+	examine_desc         = "eject the film"
 
-/decl/interaction_handler/camera_eject_film/invoked(var/obj/item/camera/target, mob/user)
-	return target.eject_film(user)
+/decl/interaction_handler/camera_eject_film/invoked(atom/target, mob/user, obj/item/prop)
+	var/obj/item/camera/camera = target
+	camera.eject_film(user)

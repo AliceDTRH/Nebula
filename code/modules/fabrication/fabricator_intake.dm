@@ -9,13 +9,13 @@
 	for(var/R in thing.reagents.reagent_volumes)
 		if(!base_storage_capacity[R])
 			continue
-		var/taking_reagent = min(REAGENT_VOLUME(thing.reagents, R), FLOOR((storage_capacity[R] - stored_material[R]) * REAGENT_UNITS_PER_MATERIAL_UNIT))
+		var/taking_reagent = min(REAGENT_VOLUME(thing.reagents, R), floor((storage_capacity[R] - stored_material[R]) * REAGENT_UNITS_PER_MATERIAL_UNIT))
 		if(taking_reagent <= 0)
 			continue
 		var/reagent_matter = round(taking_reagent / REAGENT_UNITS_PER_MATERIAL_UNIT)
 		if(reagent_matter <= 0)
 			continue
-		thing.reagents.remove_reagent(R, taking_reagent)
+		thing.remove_from_reagents(R, taking_reagent)
 		stored_material[R] += reagent_matter
 		// If we're destroying this, take everything.
 		if(destructive)
@@ -34,7 +34,7 @@
 	. = SUBSTANCE_TAKEN_NONE
 
 	var/obj/item/stack/stack_ref = istype(thing, /obj/item/stack) && thing
-	var/stack_matter_div = stack_ref ? max(1, CEILING(SHEET_MATERIAL_AMOUNT * stack_ref.matter_multiplier)) : 1
+	var/stack_matter_div = stack_ref ? max(1, ceil(SHEET_MATERIAL_AMOUNT * stack_ref.matter_multiplier)) : 1
 	var/stacks_used = 0
 
 	var/mat_colour = thing.color
@@ -53,7 +53,7 @@
 
 		stored_material[material_def.type] += taking_material
 		if(stack_ref)
-			stacks_used = max(stacks_used, CEILING(taking_material/stack_matter_div))
+			stacks_used = max(stacks_used, ceil(taking_material/stack_matter_div))
 
 		if(storage_capacity[material_def.type] == stored_material[material_def.type])
 			. = SUBSTANCE_TAKEN_FULL
@@ -66,7 +66,7 @@
 			adding_mat_overlay.color = mat_colour
 			material_overlays += adding_mat_overlay
 			update_icon()
-			addtimer(CALLBACK(src, /obj/machinery/fabricator/proc/remove_mat_overlay, adding_mat_overlay), 1 SECOND)
+			addtimer(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/fabricator, remove_mat_overlay), adding_mat_overlay), 1 SECOND)
 
 		if(stack_ref && stacks_used)
 			stack_ref.use(stacks_used)
@@ -76,72 +76,87 @@
 				. = SUBSTANCE_TAKEN_SOME
 
 /obj/machinery/fabricator/proc/can_ingest(var/obj/item/thing)
-	. = (has_recycler || istype(thing, /obj/item/stack/material))
+	if(istype(thing, /obj/item/debris))
+		return TRUE
+	var/obj/item/stack/material/stack = thing
+	return istype(stack) && !stack.reinf_material
 
-/obj/machinery/fabricator/proc/show_intake_message(var/mob/user, var/value, var/thing)
+/obj/machinery/fabricator/proc/show_intake_message(var/mob/user, var/value, var/thing, var/took_reagents)
 	if(value == SUBSTANCE_TAKEN_FULL)
 		to_chat(user, SPAN_NOTICE("You fill \the [src] to capacity with \the [thing]."))
 	else if(value == SUBSTANCE_TAKEN_SOME)
 		to_chat(user, SPAN_NOTICE("You fill \the [src] from \the [thing]."))
 	else if(value == SUBSTANCE_TAKEN_ALL)
-		to_chat(user, SPAN_NOTICE("You dump \the [thing] into \the [src]."))
+		to_chat(user, SPAN_NOTICE("You [took_reagents ? "empty" : "dump"] \the [thing] into \the [src]."))
 	else
 		to_chat(user, SPAN_WARNING("\The [src] cannot process \the [thing]."))
 
-/obj/machinery/fabricator/attackby(var/obj/item/O, var/mob/user)
-	if(component_attackby(O, user))
-		return TRUE
-	if(panel_open && (IS_MULTITOOL(O) || IS_WIRECUTTER(O)))
+/obj/machinery/fabricator/attackby(var/obj/item/used_item, var/mob/user)
+	if((. = component_attackby(used_item, user)))
+		return
+	if(panel_open && (IS_MULTITOOL(used_item) || IS_WIRECUTTER(used_item)))
 		attack_hand_with_interaction_checks(user)
 		return TRUE
-	if((obj_flags & OBJ_FLAG_ANCHORABLE) && IS_WRENCH(O))
+	if((obj_flags & OBJ_FLAG_ANCHORABLE) && (IS_WRENCH(used_item) || IS_HAMMER(used_item)))
 		return ..()
 	if(stat & (NOPOWER | BROKEN))
-		return
+		return TRUE
 
 	// Gate some simple interactions beind intent so people can still feed lathes disks.
-	if(user.a_intent != I_HURT)
+	if(!user.check_intent(I_FLAG_HARM))
 
 		// Set or update our local network.
-		if(IS_MULTITOOL(O))
+		if(IS_MULTITOOL(used_item))
 			var/datum/extension/local_network_member/fabnet = get_extension(src, /datum/extension/local_network_member)
 			fabnet.get_new_tag(user)
-			return
+			return TRUE
 
 		// Install new designs.
-		if(istype(O, /obj/item/disk/design_disk))
-			var/obj/item/disk/design_disk/disk = O
+		if(istype(used_item, /obj/item/disk/design_disk))
+			var/obj/item/disk/design_disk/disk = used_item
 			if(!disk.blueprint)
-				to_chat(usr, SPAN_WARNING("\The [O] is blank."))
-				return
+				to_chat(user, SPAN_WARNING("\The [used_item] is blank."))
+				return TRUE
 			if(disk.blueprint in installed_designs)
-				to_chat(usr, SPAN_WARNING("\The [src] is already loaded with the blueprint stored on \the [O]."))
-				return
+				to_chat(user, SPAN_WARNING("\The [src] is already loaded with the blueprint stored on \the [used_item]."))
+				return TRUE
 			installed_designs += disk.blueprint
 			design_cache |= disk.blueprint
-			visible_message(SPAN_NOTICE("\The [user] inserts \the [O] into \the [src], and after a second or so of loud clicking, the fabricator beeps and spits it out again."))
-			return
+			visible_message(SPAN_NOTICE("\The [user] inserts \the [used_item] into \the [src], and after a second or so of loud clicking, the fabricator beeps and spits it out again."))
+			return TRUE
+
+	// TEMP HACK FIX:
+	// Autolathes currently do not process atom contents. As a workaround, refuse all atoms with contents.
+	if(length(used_item.contents) && !ignore_input_contents_length)
+		to_chat(user, SPAN_WARNING("\The [src] cannot process an object containing other objects. Empty it out first."))
+		return TRUE
+	// REMOVE FIX WHEN LATHES TAKE CONTENTS PLS.
 
 	// Take reagents, if any are applicable.
-	var/atom_name = O.name
-	var/reagents_taken = take_reagents(O, user)
+	var/atom_name = used_item.name
+	var/reagents_taken = take_reagents(used_item, user)
 	if(reagents_taken != SUBSTANCE_TAKEN_NONE)
-		show_intake_message(user, reagents_taken, atom_name)
+		show_intake_message(user, reagents_taken, atom_name, took_reagents = TRUE)
 		updateUsrDialog()
 		return TRUE
+
+	if(!can_ingest(used_item))
+		to_chat(user, SPAN_WARNING("\The [src] cannot process \the [used_item]."))
+		return TRUE
+
 	// Take everything if we have a recycler.
-	if(can_ingest(O) && !is_robot_module(O) && user.try_unequip(O))
-		var/result = max(take_materials(O, user), max(reagents_taken, take_reagents(O, user, TRUE)))
+	if(!is_robot_module(used_item) && user.try_unequip(used_item))
+		var/result = max(take_materials(used_item, user), max(reagents_taken, take_reagents(used_item, user, TRUE)))
 		show_intake_message(user, result, atom_name)
 		if(result == SUBSTANCE_TAKEN_NONE)
-			user.put_in_active_hand(O)
+			user.put_in_active_hand(used_item)
 			return TRUE
-		if(istype(O, /obj/item/stack))
-			var/obj/item/stack/stack = O
+		if(istype(used_item, /obj/item/stack))
+			var/obj/item/stack/stack = used_item
 			if(!QDELETED(stack) && stack.amount > 0)
 				user.put_in_active_hand(stack)
 		else
-			qdel(O)
+			qdel(used_item)
 		updateUsrDialog()
 		return TRUE
 	. = ..()
@@ -150,6 +165,7 @@
 	if(fab_status_flags & FAB_SHOCKED)
 		shock(user, 50)
 		return TRUE
+	return FALSE
 
 /obj/machinery/fabricator/interface_interact(mob/user)
 	if((fab_status_flags & FAB_DISABLED) && !panel_open)

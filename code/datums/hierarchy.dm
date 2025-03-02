@@ -4,6 +4,8 @@
 	var/name = "Hierarchy"
 	var/decl/hierarchy/parent
 	var/list/decl/hierarchy/children
+	/// The cached result of get_descendants(). Should not be mutated.
+	VAR_PRIVATE/list/decl/hierarchy/_descendants
 	var/expected_type
 
 /decl/hierarchy/Initialize()
@@ -19,13 +21,16 @@
 /decl/hierarchy/proc/is_category()
 	return length(children)
 
-/decl/hierarchy/proc/get_descendents()
+/decl/hierarchy/proc/get_descendants()
 	if(!children)
 		return
-	. = children.Copy()
+	if(_descendants)
+		return _descendants
+	_descendants = children.Copy()
 	for(var/decl/hierarchy/child in children)
 		if(child.children)
-			. |= child.get_descendents()
+			_descendants |= child.get_descendants()
+	return _descendants
 
 /decl/hierarchy/dd_SortValue()
 	return name

@@ -2,7 +2,7 @@
 	name = "\improper AI subspace transceiver"
 	desc = "Integrated AI radio transceiver."
 	encryption_keys = list(/obj/item/encryptionkey/heads/ai_integrated)
-	var/disabledAi = 0 // Atlantis: Used to manually disable AI's integrated radio via inteliCard menu.
+	var/disabledAi = 0 // Atlantis: Used to manually disable AI's integrated radio via intelliCard menu.
 
 /obj/item/radio/headset/heads/ai_integrated/get_accessible_channel_descriptions(mob/user)
 	. = ..()
@@ -12,7 +12,9 @@
 /obj/item/encryptionkey/heads/ai_integrated
 	name = "ai integrated encryption key"
 	desc = "Integrated encryption key."
-	icon_state = "cap_cypherkey"
+	color = COLOR_GOLD
+	fill_color = COLOR_PALE_GOLD
+	inlay_color = COLOR_ROYAL_BLUE
 	can_decrypt = list(
 		access_bridge,
 		access_security,

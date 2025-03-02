@@ -23,6 +23,12 @@
 
 	var/static/list/radial_options = list("up" = radial_ladder_up, "down" = radial_ladder_down)
 
+/obj/structure/ladder/handle_default_hammer_attackby()
+	var/last_anchored = anchored
+	. = ..()
+	if(anchored != last_anchored)
+		find_connections()
+
 /obj/structure/ladder/handle_default_wrench_attackby()
 	var/last_anchored = anchored
 	. = ..()
@@ -42,7 +48,7 @@
 		var/turf/T = get_turf(src)
 		if((locate(/obj/structure/ladder) in GetBelow(src)) && (!(locate(/obj/structure/lattice) in loc) || !T.is_open()))
 			var/old_turf_type = T.type
-			T.ReplaceWithLattice()
+			T.dismantle_turf()
 			//Gonna keep logging those, since it's not clear if it's always a desired behavior. Since mappers would probably not want to rely on this.
 			log_debug("Ladder replaced turf type '[old_turf_type]' at ([x], [y], [z]) with a lattice and open turf '[loc]' of type '[loc.type]'.")
 	find_connections()
@@ -65,8 +71,8 @@
 		var/turf/L = loc
 		if(HasBelow(z) && istype(L) && L.is_open())
 			var/failed
-			for(var/obj/structure/catwalk/catwalk in loc)
-				if(catwalk.plated_tile)
+			for(var/obj/structure/platform in loc)
+				if(!platform.is_z_passable())
 					failed = TRUE
 					break
 			if(!failed)
@@ -80,8 +86,8 @@
 			var/turf/T = GetAbove(src)
 			if(istype(T) && T.is_open())
 				var/failed
-				for(var/obj/structure/catwalk/catwalk in T)
-					if(catwalk.plated_tile)
+				for(var/obj/structure/platform in T)
+					if(!platform.is_z_passable())
 						failed = TRUE
 						break
 				if(!failed)
@@ -107,16 +113,20 @@
 	var/turf/T = get_turf(src)
 	if(T)
 		for(var/atom/movable/M in T.contents)
-			addtimer(CALLBACK(M, /atom/movable/proc/fall, T), 0)
+			addtimer(CALLBACK(M, TYPE_PROC_REF(/atom/movable, fall), T), 0)
 	return ..()
 
-/obj/structure/ladder/attackby(obj/item/I, mob/user)
-	. = !istype(I, /obj/item/grab) && ..()
-	if(!.)
-		climb(user, I)
+// Override to allow attackby() flow to function with grabs.
+/obj/structure/ladder/grab_attack(obj/item/grab/grab, mob/user)
+	return FALSE
 
-/obj/structure/ladder/hitby(obj/item/I)
-	..()
+/obj/structure/ladder/attackby(obj/item/used_item, mob/user)
+	. = !istype(used_item, /obj/item/grab) && ..()
+	if(!.)
+		climb(user, used_item)
+
+/obj/structure/ladder/hitby(obj/item/thing)
+	. = ..()
 	if(!target_down)
 		return
 	if(!has_gravity())
@@ -126,16 +136,16 @@
 	if(!istype(landing))
 		return
 	for(var/atom/A in landing)
-		if(!A.CanPass(I, I.loc, 1.5, 0))
+		if(!A.CanPass(thing, thing.loc, 1.5, 0))
 			blocker = A
 			break
 	if(!blocker)
-		visible_message(SPAN_DANGER("\The [I] goes down \the [src]!"))
-		I.forceMove(landing)
-		landing.visible_message(SPAN_DANGER("\The [I] falls from the top of \the [target_down]!"))
+		visible_message(SPAN_DANGER("\The [thing] goes down \the [src]!"))
+		thing.forceMove(landing)
+		landing.visible_message(SPAN_DANGER("\The [thing] falls from the top of \the [target_down]!"))
 
 /obj/structure/ladder/attack_hand(var/mob/user)
-	if(user.a_intent == I_HURT || !user.check_dexterity(DEXTERITY_SIMPLE_MACHINES))
+	if(user.check_intent(I_FLAG_HARM) || !user.check_dexterity(DEXTERITY_SIMPLE_MACHINES))
 		return ..()
 	climb(user)
 	return TRUE
@@ -158,7 +168,7 @@
 	if(target_ladder)
 		M.dropInto(target_ladder.loc)
 
-/obj/structure/ladder/proc/climb(mob/M, obj/item/I)
+/obj/structure/ladder/proc/climb(mob/M, obj/item/thing)
 	if(!M.may_climb_ladders(src))
 		return
 
@@ -176,7 +186,7 @@
 	M.visible_message(SPAN_NOTICE("\The [M] begins climbing [direction] \the [src]."))
 	target_ladder.audible_message(SPAN_NOTICE("You hear something coming [direction] \the [src]."))
 	if(do_after(M, climb_time, src))
-		climbLadder(M, target_ladder, I)
+		climbLadder(M, target_ladder, thing)
 
 /obj/structure/ladder/attack_ghost(var/mob/M)
 	instant_climb(M)
@@ -204,18 +214,18 @@
 			if(!istype(T) || !T.is_open())
 				to_chat(M, SPAN_WARNING("The ceiling is in the way!"))
 				return null
-			for(var/obj/structure/catwalk/catwalk in target_up.loc)
-				if(catwalk.plated_tile)
-					to_chat(M, SPAN_WARNING("\The [catwalk] is in the way!"))
+			for(var/obj/structure/platform in target_up.loc)
+				if(!platform.is_z_passable())
+					to_chat(M, SPAN_WARNING("\The [platform] is in the way!"))
 					return null
 		if(. == target_down)
 			var/turf/T = loc
 			if(!istype(T) || !T.is_open())
 				to_chat(M, SPAN_WARNING("\The [loc] is in the way!"))
 				return null
-			for(var/obj/structure/catwalk/catwalk in loc)
-				if(catwalk.plated_tile)
-					to_chat(M, SPAN_WARNING("\The [catwalk] is in the way!"))
+			for(var/obj/structure/platform in loc)
+				if(!platform.is_z_passable())
+					to_chat(M, SPAN_WARNING("\The [platform] is in the way!"))
 					return null
 
 /mob/proc/may_climb_ladders(var/ladder)
@@ -228,11 +238,11 @@
 
 	var/can_carry = can_pull_size
 	if(loc?.has_gravity())
-		can_carry = FLOOR(can_carry * 0.75)
-	for(var/obj/item/grab/G in get_active_grabs())
-		can_carry -= G.affecting.get_object_size()
+		can_carry = floor(can_carry * 0.75)
+	for(var/obj/item/grab/grab as anything in get_active_grabs())
+		can_carry -= grab.affecting.get_object_size()
 		if(can_carry < 0)
-			to_chat(src, SPAN_WARNING("You can't carry \the [G.affecting] up \the [ladder]."))
+			to_chat(src, SPAN_WARNING("You can't carry \the [grab.affecting] up \the [ladder]."))
 			return FALSE
 
 	return TRUE
@@ -240,7 +250,7 @@
 /mob/observer/ghost/may_climb_ladders(var/ladder)
 	return TRUE
 
-/obj/structure/ladder/proc/climbLadder(mob/user, target_ladder, obj/item/I = null)
+/obj/structure/ladder/proc/climbLadder(mob/user, target_ladder, obj/item/thing = null)
 	var/turf/T = get_turf(target_ladder)
 	for(var/atom/A in T)
 		if(!A.CanPass(user, user.loc, 1.5, 0))
@@ -248,10 +258,10 @@
 			//We cannot use the ladder, but we probably can remove the obstruction
 			var/atom/movable/M = A
 			if(istype(M) && M.movable_flags & MOVABLE_FLAG_Z_INTERACT)
-				if(isnull(I) || istype(I, /obj/item/grab))
+				if(isnull(thing) || istype(thing, /obj/item/grab))
 					M.attack_hand_with_interaction_checks(user)
 				else
-					M.attackby(I, user)
+					M.attackby(thing, user)
 			return FALSE
 	playsound(src, pick(climbsounds), 50)
 	playsound(target_ladder, pick(climbsounds), 50)
@@ -267,8 +277,8 @@
 	else
 		icon_state = "[base_icon][!!target_up][!!target_down]"
 	if(target_down && draw_shadow)
-		var/image/I = image(icon, "downward_shadow")
-		I.appearance_flags |= RESET_COLOR
-		underlays = list(I)
+		var/image/overlay_image = image(icon, "downward_shadow")
+		overlay_image.appearance_flags |= RESET_COLOR
+		underlays = list(overlay_image)
 	else
 		underlays.Cut()

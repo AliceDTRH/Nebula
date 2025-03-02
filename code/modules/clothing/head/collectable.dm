@@ -7,8 +7,8 @@
 	armor = null
 
 /obj/item/clothing/head/collectable/petehat
-	name = "ultra rare hat"
-	desc = "an ultra rare hat. It commands a certain respect."
+	name = "ultra-rare hat"
+	desc = "An ultra-rare hat. It commands a certain respect."
 	icon = 'icons/clothing/head/pete.dmi'
 
 /obj/item/clothing/head/collectable/xenom
@@ -56,6 +56,7 @@
 	w_class = ITEM_SIZE_NORMAL
 	body_parts_covered = SLOT_HEAD|SLOT_FACE|SLOT_EYES
 	flags_inv = HIDEMASK|HIDEEYES|HIDEFACE
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/collectable/slime
 	name = "collectable slime hat"
@@ -103,8 +104,14 @@
 	name = "collectable Thunderdome helmet"
 	desc = "Go Red! I mean Green! I mean Red! No Green!"
 	icon = 'icons/clothing/head/armor/thunderdome.dmi'
+	valid_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	restricted_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	accessory_slot = null // cannot be equipped on top of helmets
 
 /obj/item/clothing/head/collectable/swat
 	name = "collectable SWAT helmet"
 	desc = "Now you can be in the Deathsquad too!"
 	icon = 'icons/clothing/head/armor/merc.dmi'
+	valid_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	restricted_accessory_slots = list(ACCESSORY_SLOT_OVER_HELMET)
+	accessory_slot = null // cannot be equipped on top of helmets

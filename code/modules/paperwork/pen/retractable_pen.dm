@@ -4,23 +4,23 @@
 	pen_flag = PEN_FLAG_TOGGLEABLE
 
 /obj/item/pen/retractable/blue
-	stroke_colour      = "blue"
-	stroke_colour_name = "blue"
-	icon = 'icons/obj/items/pens/pen_retractable_blue.dmi'
+	stroke_color      = "blue"
+	stroke_color_name = "blue"
+	icon              = 'icons/obj/items/pens/pen_retractable_blue.dmi'
 
 /obj/item/pen/retractable/red
-	stroke_colour      = "red"
-	stroke_colour_name = "red"
-	icon = 'icons/obj/items/pens/pen_retractable_red.dmi'
+	stroke_color      = "red"
+	stroke_color_name = "red"
+	icon              = 'icons/obj/items/pens/pen_retractable_red.dmi'
 
 /obj/item/pen/retractable/green
-	stroke_colour      = "green"
-	stroke_colour_name = "green"
-	icon = 'icons/obj/items/pens/pen_retractable_green.dmi'
+	stroke_color      = "green"
+	stroke_color_name = "green"
+	icon              = 'icons/obj/items/pens/pen_retractable_green.dmi'
 
 /obj/item/pen/retractable/Initialize()
 	. = ..()
-	desc = "It's a retractable [stroke_colour_name] [medium_name] pen."
+	desc = "It's a retractable [stroke_color_name] [medium_name] pen."
 
 /obj/item/pen/retractable/on_update_icon()
 	. = ..()
@@ -28,10 +28,10 @@
 	if(pen_flag & PEN_FLAG_ACTIVE)
 		icon_state = "[icon_state]-on"
 
-/obj/item/pen/retractable/attack(atom/A, mob/user, target_zone)
+/obj/item/pen/retractable/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
 	if(!(pen_flag & PEN_FLAG_ACTIVE))
 		toggle()
-	..()
+	return ..()
 
 /obj/item/pen/retractable/attack_self(mob/user)
 	toggle()

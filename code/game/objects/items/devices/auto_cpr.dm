@@ -4,9 +4,9 @@
 	icon = 'icons/obj/items/device/auto_cpr.dmi'
 	icon_state = ICON_STATE_WORLD
 	w_class = ITEM_SIZE_NORMAL
-	origin_tech = "{'magnets':2,'biotech':2}"
+	origin_tech = @'{"magnets":2,"biotech":2}'
 	slot_flags = SLOT_OVER_BODY
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(
 		/decl/material/solid/metal/aluminium = MATTER_AMOUNT_SECONDARY,
 		/decl/material/solid/metal/copper    = MATTER_AMOUNT_REINFORCEMENT,
@@ -17,28 +17,27 @@
 	var/last_pump
 	var/skilled_setup
 
-/obj/item/auto_cpr/mob_can_equip(mob/living/carbon/human/H, slot, disable_warning = 0, force = 0, ignore_equipped = 0)
+/obj/item/auto_cpr/mob_can_equip(mob/user, slot, disable_warning = FALSE, force = FALSE, ignore_equipped = FALSE)
 	. = ..()
 	if(. && slot == slot_wear_suit_str)
-		. = H.get_bodytype_category() == BODYTYPE_HUMANOID
+		. = user?.get_bodytype_category() == BODYTYPE_HUMANOID
 
-/obj/item/auto_cpr/attack(mob/living/carbon/human/M, mob/living/user, var/target_zone)
-	if(istype(M) && user.a_intent == I_HELP)
-		var/obj/item/suit = M.get_equipped_item(slot_wear_suit_str)
+/obj/item/auto_cpr/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+
+	if(ishuman(target) && user.check_intent(I_FLAG_HELP))
+		var/obj/item/suit = target.get_equipped_item(slot_wear_suit_str)
 		if(suit)
 			to_chat(user, SPAN_WARNING("Their [suit] is in the way, remove it first!"))
-			return 1
-		user.visible_message(SPAN_NOTICE("[user] starts fitting [src] onto the [M]'s chest."))
-
-		if(!do_mob(user, M, 2 SECONDS))
-			return
-
+			return TRUE
+		user.visible_message(SPAN_NOTICE("[user] starts fitting [src] onto \the [target]'s chest."))
+		if(!do_mob(user, target, 2 SECONDS))
+			return TRUE
 		if(user.try_unequip(src))
-			if(!M.equip_to_slot_if_possible(src, slot_wear_suit_str, del_on_fail=0, disable_warning=1, redraw_mob=1))
+			if(!target.equip_to_slot_if_possible(src, slot_wear_suit_str, del_on_fail=0, disable_warning=1, redraw_mob=1))
 				user.put_in_active_hand(src)
-			return 1
-	else
-		return ..()
+		return TRUE
+
+	return ..()
 
 /obj/item/auto_cpr/equipped(mob/user, slot)
 	..()
@@ -56,7 +55,7 @@
 	if(!ishuman(loc))
 		return PROCESS_KILL
 
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 	if(H.get_equipped_slot_for_item(src) != slot_wear_suit_str)
 		return PROCESS_KILL
 

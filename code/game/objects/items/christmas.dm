@@ -3,11 +3,11 @@
 	icon = 'icons/obj/christmas.dmi'
 	icon_state = "cracker"
 	desc = "Directions for use: Requires two people, one to pull each end."
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
 	var/cracked = 0
 
-/obj/item/toy/xmas_cracker/attack(mob/target, mob/user)
-	if( !cracked && istype(target,/mob/living/carbon/human) && (target.stat == CONSCIOUS) && !target.get_active_hand() )
+/obj/item/toy/xmas_cracker/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	if(!cracked && ishuman(target) && (target.stat == CONSCIOUS) && !target.get_active_held_item() )
 		target.visible_message(
 			SPAN_NOTICE("\The [user] and \the [target] pop \an [src]! *pop*"),
 			SPAN_NOTICE("You pull \an [src] with \the [target]! *pop*"),
@@ -33,7 +33,7 @@
 		other_half.icon_state = "cracker2"
 		target.put_in_active_hand(other_half)
 		playsound(user, 'sound/effects/snap.ogg', 50, 1)
-		return 1
+		return TRUE
 	return ..()
 
 /obj/item/clothing/head/festive
@@ -42,10 +42,10 @@
 	desc = "A crappy paper crown that you are REQUIRED to wear."
 	flags_inv = 0
 	body_parts_covered = 0
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/paper
 	var/list/permitted_colors = list(COLOR_RED, COLOR_ORANGE, COLOR_YELLOW, COLOR_GREEN, COLOR_BLUE, COLOR_INDIGO, COLOR_VIOLET)
 
 /obj/item/clothing/head/festive/Initialize()
 	. = ..()
-	color = pick(permitted_colors)
+	set_color(pick(permitted_colors))
 

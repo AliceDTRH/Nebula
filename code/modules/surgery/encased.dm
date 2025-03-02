@@ -39,10 +39,12 @@
 	user.visible_message("<span class='notice'>[user] has cut [target]'s [affected.encased] open with \the [tool].</span>",		\
 	"<span class='notice'>You have cut [target]'s [affected.encased] open with \the [tool].</span>")
 	affected.fracture()
+	..()
 
 /decl/surgery_step/open_encased/fail_step(mob/living/user, mob/living/target, target_zone, obj/item/tool)
 	var/obj/item/organ/external/affected = GET_EXTERNAL_ORGAN(target, target_zone)
 	user.visible_message("<span class='warning'>[user]'s hand slips, cracking [target]'s [affected.encased] with \the [tool]!</span>" , \
 	"<span class='warning'>Your hand slips, cracking [target]'s [affected.encased] with \the [tool]!</span>" )
-	affected.take_external_damage(15, 0, (DAM_SHARP|DAM_EDGE), used_weapon = tool)
+	affected.take_damage(15, damage_flags = (DAM_SHARP|DAM_EDGE), inflicter = tool)
 	affected.fracture()
+	..()

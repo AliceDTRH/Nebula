@@ -1,25 +1,25 @@
 #include "../../../../mods/mobs/dionaea/_dionaea.dme"
 
 /datum/map_template/ruin/exoplanet/playablecolony
-	name = "established colony"
-	description = "a fully functional colony on the frontier of settled space"
-	suffixes = list("playablecolony/colony.dmm")
-	cost = 2
+	name           = "established colony"
+	description    = "a fully functional colony on the frontier of settled space"
+	suffixes       = list("playablecolony/colony.dmm")
+	cost           = 2
 	template_flags = TEMPLATE_FLAG_CLEAR_CONTENTS | TEMPLATE_FLAG_NO_RUINS | TEMPLATE_FLAG_NO_RADS
-	ruin_tags = RUIN_HUMAN|RUIN_HABITAT
+	template_tags  = TEMPLATE_TAG_HUMAN|TEMPLATE_TAG_HABITAT
 	apc_test_exempt_areas = list(
 		/area/map_template/colony/mineralprocessing = NO_SCRUBBER|NO_VENT
 	)
 
 /decl/submap_archetype/playablecolony
-	descriptor = "established colony"
+	name      = "established colony"
 	crew_jobs = list(/datum/job/submap/colonist)
 
 /datum/job/submap/colonist
 	title = "Colonist"
 	info = "You are a Colonist, living on the rim of explored, let alone inhabited, space in a reconstructed shelter made from the very ship that took you here."
 	total_positions = 6
-	outfit_type = /decl/hierarchy/outfit/job/colonist
+	outfit_type = /decl/outfit/job/colonist
 	min_skill = list(
 		SKILL_LITERACY = SKILL_BASIC,
 		SKILL_CONSTRUCTION = SKILL_BASIC,
@@ -37,7 +37,7 @@
 		"Colony Miner"
 	)
 
-/decl/hierarchy/outfit/job/colonist
+/decl/outfit/job/colonist
 	name = "Job - Colonist"
 	id_type = null
 	pda_type = null

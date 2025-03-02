@@ -45,9 +45,9 @@ SUBSYSTEM_DEF(jobs)
 	// Create abstract submap archetype jobs for use in prefs, etc.
 	archetype_job_datums.Cut()
 
-	var/list/submap_archetypes = decls_repository.get_decls_of_subtype(/decl/submap_archetype)
-	for(var/atype in submap_archetypes)
-		var/decl/submap_archetype/arch = submap_archetypes[atype]
+	var/list/submap_archetypes = list()
+	for(var/decl/submap_archetype/arch as anything in global.using_map.get_available_submap_archetypes())
+		submap_archetypes += arch
 		for(var/jobtype in arch.crew_jobs)
 			var/datum/job/job = get_by_path(jobtype)
 			if(!job && ispath(jobtype, /datum/job/submap))
@@ -57,10 +57,11 @@ SUBSYSTEM_DEF(jobs)
 				job = get_by_path(jobtype)
 			if(job)
 				archetype_job_datums |= job
-	submap_archetypes = sortTim(submap_archetypes, /proc/cmp_submap_archetype_asc, TRUE)
+	if(length(submap_archetypes))
+		submap_archetypes = sortTim(submap_archetypes, /proc/cmp_submap_archetype_asc)
 
 	// Load job configuration (is this even used anymore?)
-	if(job_config_file && config.load_jobs_from_txt)
+	if(job_config_file && get_config_value(/decl/config/toggle/load_jobs_from_txt))
 		var/list/jobEntries = file2list(job_config_file)
 		for(var/job in jobEntries)
 			if(!job)
@@ -81,10 +82,7 @@ SUBSYSTEM_DEF(jobs)
 					if((ASSIGNMENT_ROBOT in J.event_categories) || (ASSIGNMENT_COMPUTER in J.event_categories))
 						J.total_positions = 0
 
-	// Init skills.
-	if(!global.skills.len)
-		GET_DECL(/decl/hierarchy/skill)
-	if(!global.skills.len)
+	if(!length(global.using_map.get_available_skills()))
 		log_error("<span class='warning'>Error setting up job skill requirements, no skill datums found!</span>")
 
 	// Update title and path tracking, submap list, etc.
@@ -93,16 +91,15 @@ SUBSYSTEM_DEF(jobs)
 		primary_job_datums = sortTim(primary_job_datums, /proc/cmp_job_desc)
 		job_lists_by_map_name = list("[global.using_map.full_name]" = list("jobs" = primary_job_datums, "default_to_hidden" = FALSE))
 
-	for(var/atype in submap_archetypes)
+	for(var/decl/submap_archetype/arch as anything in submap_archetypes)
 		var/list/submap_job_datums
-		var/decl/submap_archetype/arch = submap_archetypes[atype]
 		for(var/jobtype in arch.crew_jobs)
 			var/datum/job/job = get_by_path(jobtype)
 			if(job)
 				LAZYADD(submap_job_datums, job)
 		if(LAZYLEN(submap_job_datums))
 			submap_job_datums = sortTim(submap_job_datums, /proc/cmp_job_desc)
-			job_lists_by_map_name[arch.descriptor] = list("jobs" = submap_job_datums, "default_to_hidden" = arch.default_to_hidden)
+			job_lists_by_map_name[arch.name] = list("jobs" = submap_job_datums, "default_to_hidden" = arch.default_to_hidden)
 
 	// Update global map blacklists and whitelists.
 	for(var/mappath in global.all_maps)
@@ -174,7 +171,7 @@ SUBSYSTEM_DEF(jobs)
 	if(!job.is_position_available())
 		to_chat(joining, "<span class='warning'>Unfortunately, that job is no longer available.</span>")
 		return FALSE
-	if(!config.enter_allowed)
+	if(!get_config_value(/decl/config/toggle/on/enter_allowed))
 		to_chat(joining, "<span class='warning'>There is an administrative lock on entering the game!</span>")
 		return FALSE
 	if(SSticker.mode && SSticker.mode.station_explosion_in_progress)
@@ -210,7 +207,7 @@ SUBSYSTEM_DEF(jobs)
 			log_and_message_admins("User [spawner] spawned at spawn point with dangerous atmosphere.")
 	return TRUE
 
-/datum/controller/subsystem/jobs/proc/assign_role(var/mob/new_player/player, var/rank, var/latejoin = 0, var/datum/game_mode/mode = SSticker.mode)
+/datum/controller/subsystem/jobs/proc/assign_role(var/mob/new_player/player, var/rank, var/latejoin = 0, var/decl/game_mode/mode = SSticker.mode)
 	if(player && player.mind && rank)
 		var/datum/job/job = get_by_title(rank)
 		if(!job)
@@ -251,7 +248,7 @@ SUBSYSTEM_DEF(jobs)
 			candidates += player
 	return candidates
 
-/datum/controller/subsystem/jobs/proc/give_random_job(var/mob/new_player/player, var/datum/game_mode/mode = SSticker.mode)
+/datum/controller/subsystem/jobs/proc/give_random_job(var/mob/new_player/player, var/decl/game_mode/mode = SSticker.mode)
 	for(var/datum/job/job in shuffle(primary_job_datums))
 		if(!job)
 			continue
@@ -275,7 +272,7 @@ SUBSYSTEM_DEF(jobs)
 			break
 
 ///This proc is called before the level loop of divide_occupations() and will try to select a head, ignoring ALL non-head preferences for every level until it locates a head or runs out of levels to check
-/datum/controller/subsystem/jobs/proc/fill_head_position(var/datum/game_mode/mode)
+/datum/controller/subsystem/jobs/proc/fill_head_position(var/decl/game_mode/mode)
 	for(var/level = 1 to 3)
 		for(var/command_position in must_fill_titles)
 			var/datum/job/job = get_by_title(command_position)
@@ -291,7 +288,7 @@ SUBSYSTEM_DEF(jobs)
 				if(age < job.minimum_character_age) // Nope.
 					continue
 				switch(age - job.ideal_character_age)
-					if(0 to -10)
+					if(-INFINITY to -10)
 						if(age < (job.minimum_character_age+10))
 							weightedCandidates[V] = 3 // Still a bit young.
 						else
@@ -311,7 +308,7 @@ SUBSYSTEM_DEF(jobs)
 	return 0
 
 ///This proc is called at the start of the level loop of divide_occupations() and will cause head jobs to be checked before any other jobs of the same level
-/datum/controller/subsystem/jobs/proc/CheckHeadPositions(var/level, var/datum/game_mode/mode)
+/datum/controller/subsystem/jobs/proc/CheckHeadPositions(var/level, var/decl/game_mode/mode)
 	for(var/command_position in must_fill_titles)
 		var/datum/job/job = get_by_title(command_position)
 		if(!job)	continue
@@ -324,7 +321,7 @@ SUBSYSTEM_DEF(jobs)
  *  fills var "assigned_role" for all ready players.
  *  This proc must not have any side effect besides of modifying "assigned_role".
  **/
-/datum/controller/subsystem/jobs/proc/divide_occupations(datum/game_mode/mode)
+/datum/controller/subsystem/jobs/proc/divide_occupations(decl/game_mode/mode)
 	if(global.triai)
 		for(var/datum/job/A in primary_job_datums)
 			if(A.title == "AI")
@@ -333,6 +330,8 @@ SUBSYSTEM_DEF(jobs)
 	//Get the players who are ready
 	for(var/mob/new_player/player in global.player_list)
 		if(player.ready && player.mind && !player.mind.assigned_role)
+			if(get_config_value(/decl/config/enum/server_whitelist) == CONFIG_SERVER_JOIN_WHITELIST && !check_server_whitelist(player))
+				continue
 			unassigned_roundstart += player
 	if(unassigned_roundstart.len == 0)	return 0
 	//Shuffle players and jobs
@@ -399,59 +398,54 @@ SUBSYSTEM_DEF(jobs)
 			unassigned_roundstart -= player
 	return TRUE
 
-/datum/controller/subsystem/jobs/proc/attempt_role_assignment(var/mob/new_player/player, var/datum/job/job, var/level, var/datum/game_mode/mode)
-	if(!jobban_isbanned(player, job.title) && \
-	 job.player_old_enough(player.client) && \
-	 player.client.prefs.CorrectLevel(job, level) && \
-	 job.is_position_available())
-		assign_role(player, job.title, mode = mode)
-		return TRUE
-	return FALSE
+/datum/controller/subsystem/jobs/proc/attempt_role_assignment(var/mob/new_player/player, var/datum/job/job, var/level, var/decl/game_mode/mode)
+	if(jobban_isbanned(player, job.title))
+		return FALSE
+	if(!job.player_old_enough(player.client))
+		return FALSE
+	if(!player.client.prefs.CorrectLevel(job, level))
+		return FALSE
+	if(!job.is_position_available())
+		return FALSE
+	assign_role(player, job.title, mode = mode)
+	return TRUE
 
-/datum/controller/subsystem/jobs/proc/equip_custom_loadout(var/mob/living/carbon/human/H, var/datum/job/job)
+/decl/loadout_option/proc/is_permitted(mob/living/wearer, datum/job/job)
+	if(!istype(wearer))
+		return FALSE
+	if(allowed_roles && (!job || !(job.type in allowed_roles)))
+		return FALSE
+	if(allowed_branches)
+		if(!ishuman(wearer))
+			return FALSE
+		var/mob/living/human/wearer_human = wearer
+		if(!wearer_human.char_branch || !(wearer_human.char_branch.type in allowed_branches))
+			return FALSE
+	if(allowed_skills)
+		for(var/required in allowed_skills)
+			if(!wearer.skill_check(required, allowed_skills[required]))
+				return FALSE
+	if(whitelisted && (!(wearer.get_species()?.name in whitelisted)))
+		return FALSE
+	return TRUE
+
+/datum/controller/subsystem/jobs/proc/equip_custom_loadout(var/mob/living/human/H, var/datum/job/job)
 
 	if(!H || !H.client)
 		return
 
 	// Equip custom gear loadout, replacing any job items
 	var/list/spawn_in_storage = list()
-	var/list/loadout_taken_slots = list()
 	if(H.client.prefs.Gear() && job.loadout_allowed)
 		for(var/thing in H.client.prefs.Gear())
-			var/decl/loadout_option/G = global.gear_datums[thing]
-			if(G)
-				var/permitted = FALSE
-				if(G.allowed_branches)
-					if(H.char_branch && (H.char_branch.type in G.allowed_branches))
-						permitted = TRUE
-				else
-					permitted = TRUE
-
-				if(permitted)
-					if(G.allowed_roles)
-						if(job.type in G.allowed_roles)
-							permitted = TRUE
-						else
-							permitted = FALSE
-					else
-						permitted = TRUE
-
-				if(permitted && G.allowed_skills)
-					for(var/required in G.allowed_skills)
-						if(!H.skill_check(required,G.allowed_skills[required]))
-							permitted = FALSE
-
-				if(G.whitelisted && (!(H.species.name in G.whitelisted)))
-					permitted = FALSE
-
-				if(!permitted)
-					to_chat(H, SPAN_WARNING("Your current species, job, branch, skills or whitelist status does not permit you to spawn with [thing]!"))
-					continue
-
-				if(!G.slot || G.slot == slot_tie_str || (G.slot in loadout_taken_slots) || !G.spawn_on_mob(H, H.client.prefs.Gear()[G.name]))
-					spawn_in_storage.Add(G)
-				else
-					loadout_taken_slots.Add(G.slot)
+			var/decl/loadout_option/gear = decls_repository.get_decl_by_id_or_var(thing, /decl/loadout_option)
+			if(!istype(gear))
+				continue
+			if(!gear.is_permitted(H, job))
+				to_chat(H, SPAN_WARNING("Your current species, job, branch, skills or whitelist status does not permit you to spawn with [thing]!"))
+				continue
+			if(!gear.slot || !gear.spawn_on_mob(H, H.client.prefs.Gear()[gear.uid]))
+				spawn_in_storage.Add(gear)
 
 	// do accessories last so they don't attach to a suit that will be replaced
 	if(H.char_rank && H.char_rank.accessory)
@@ -462,39 +456,41 @@ SUBSYSTEM_DEF(jobs)
 				var/list/accessory_args = accessory_data.Copy()
 				accessory_args[1] = src
 				for(var/i in 1 to amt)
-					H.equip_to_slot_or_del(new accessory_path(arglist(accessory_args)), slot_tie_str)
+					var/obj/item/accessory = new accessory_path(arglist(accessory_args))
+					H.equip_to_slot_or_del(accessory, accessory.get_fallback_slot())
 			else
 				for(var/i in 1 to (isnull(accessory_data)? 1 : accessory_data))
-					H.equip_to_slot_or_del(new accessory_path(src), slot_tie_str)
+					var/obj/item/accessory = new accessory_path(src)
+					H.equip_to_slot_or_del(accessory, accessory.get_fallback_slot())
 
 	return spawn_in_storage
 
-/datum/controller/subsystem/jobs/proc/equip_rank(var/mob/living/carbon/human/H, var/rank, var/joined_late = 0)
+/datum/controller/subsystem/jobs/proc/equip_job_title(var/mob/living/human/H, var/job_title, var/joined_late = 0)
 	if(!H)
 		return
 
-	var/datum/job/job = get_by_title(rank)
+	var/datum/job/job = get_by_title(job_title)
 	var/list/spawn_in_storage
 
 	if(job)
 		if(H.client)
 			if(global.using_map.flags & MAP_HAS_BRANCH)
-				H.char_branch = mil_branches.get_branch(H.client.prefs.branches[rank])
+				H.char_branch = mil_branches.get_branch(H.client.prefs.branches[job_title])
 			if(global.using_map.flags & MAP_HAS_RANK)
-				H.char_rank = mil_branches.get_rank(H.client.prefs.branches[rank], H.client.prefs.ranks[rank])
+				H.char_rank = mil_branches.get_rank(H.client.prefs.branches[job_title], H.client.prefs.ranks[job_title])
 
 		// Transfers the skill settings for the job to the mob
 		H.skillset.obtain_from_client(job, H.client)
 
 		//Equip job items.
-		job.equip(H, H.mind ? H.mind.role_alt_title : "", H.char_branch, H.char_rank)
+		job.equip_job(H, H.mind?.role_alt_title, H.char_branch, H.char_rank)
+		job.setup_account(H)
 		job.apply_fingerprints(H)
 		spawn_in_storage = equip_custom_loadout(H, job)
-		job.setup_account(H)
 	else
-		to_chat(H, "Your job is [rank] and the game just can't handle it! Please report this bug to an administrator.")
+		to_chat(H, "Your job is [job_title] and the game just can't handle it! Please report this bug to an administrator.")
 
-	H.job = rank
+	H.job = job_title
 
 	if(!joined_late || job.latejoin_at_spawnpoints)
 		var/obj/S = job.get_roundstart_spawnpoint()
@@ -503,11 +499,11 @@ SUBSYSTEM_DEF(jobs)
 			H.forceMove(S.loc)
 		else
 			var/decl/spawnpoint/spawnpoint = job.get_spawnpoint(H.client)
-			H.forceMove(pick(spawnpoint.turfs))
+			H.forceMove(DEFAULTPICK(spawnpoint.get_spawn_turfs(H), get_random_spawn_turf(SPAWN_FLAG_JOBS_CAN_SPAWN)))
 			spawnpoint.after_join(H)
 
 		// Moving wheelchair if they have one
-		if(H.buckled && istype(H.buckled, /obj/structure/bed/chair/wheelchair))
+		if(H.buckled && istype(H.buckled, /obj/structure/chair/wheelchair))
 			H.buckled.forceMove(H.loc)
 			H.buckled.set_dir(H.dir)
 
@@ -531,26 +527,28 @@ SUBSYSTEM_DEF(jobs)
 	var/alt_title = null
 	if(!H.mind)
 		H.mind_initialize()
-	H.mind.assigned_job = job
-	H.mind.assigned_role = rank
+	H.mind.assigned_job  = job
+	H.mind.assigned_role = job_title
 	alt_title = H.mind.role_alt_title
 
 	var/mob/other_mob = job.handle_variant_join(H, alt_title)
 	if(other_mob)
-		job.post_equip_rank(other_mob, alt_title || rank)
+		job.post_equip_job_title(other_mob, alt_title || job_title)
 		return other_mob
 
 	if(spawn_in_storage)
-		for(var/decl/loadout_option/G in spawn_in_storage)
-			G.spawn_in_storage_or_drop(H, H.client.prefs.Gear()[G.name])
+		for(var/decl/loadout_option/gear in spawn_in_storage)
+			gear.spawn_in_storage_or_drop(H, H.client.prefs.Gear()[gear.uid])
 
-	to_chat(H, "<font size = 3><B>You are [job.total_positions == 1 ? "the" : "a"] [alt_title ? alt_title : rank].</B></font>")
+	var/article = job.total_positions == 1 ? "the" : "a"
+	to_chat(H, "<font size = 3><B>You are [article] [alt_title || job_title].</B></font>")
 
-	if(job.description)
-		to_chat(H, SPAN_BOLD("[job.description]"))
+	var/job_description = job.get_description_blurb()
+	if(job_description)
+		to_chat(H, SPAN_BOLD("[job_description]"))
 
 	if(job.supervisors)
-		to_chat(H, "<b>As the [alt_title ? alt_title : rank] you answer directly to [job.supervisors]. Special circumstances may change this.</b>")
+		to_chat(H, "<b>As [article] [alt_title || job_title] you answer directly to [job.supervisors]. Special circumstances may change this.</b>")
 
 	if(H.has_headset_in_ears())
 		to_chat(H, "<b>To speak on your department's radio channel use [H.get_department_radio_prefix()]h. For the use of other channels, examine your headset.</b>")
@@ -565,7 +563,7 @@ SUBSYSTEM_DEF(jobs)
 	BITSET(H.hud_updateflag, IMPLOYAL_HUD)
 	BITSET(H.hud_updateflag, SPECIALROLE_HUD)
 
-	job.post_equip_rank(H, alt_title || rank)
+	job.post_equip_job_title(H, alt_title || job_title)
 
 	H.client.show_location_blurb(30)
 
@@ -575,7 +573,7 @@ SUBSYSTEM_DEF(jobs)
 	return positions_by_department[dept] || list()
 
 /datum/controller/subsystem/jobs/proc/spawn_empty_ai()
-	for(var/obj/abstract/landmark/start/S in global.landmarks_list)
+	for(var/obj/abstract/landmark/start/S in global.all_landmarks)
 		if(S.name != "AI")
 			continue
 		if(locate(/mob/living) in S.loc)
@@ -611,7 +609,7 @@ SUBSYSTEM_DEF(jobs)
 		T.maptext = "<span style=\"[style]\">[copytext_char(text, 1, i)] </span>"
 		sleep(1)
 
-	addtimer(CALLBACK(GLOBAL_PROC, .proc/fade_location_blurb, src, T), duration)
+	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(fade_location_blurb), src, T), duration)
 
 /proc/fade_location_blurb(client/C, obj/T)
 	animate(T, alpha = 0, time = 5)

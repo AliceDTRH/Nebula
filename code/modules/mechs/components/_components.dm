@@ -7,7 +7,7 @@
 
 	material = /decl/material/solid/metal/steel
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/osmium = MATTER_AMOUNT_TRACE
 	)
 	dir = SOUTH
@@ -21,24 +21,22 @@
 	var/damage_state = 1
 	var/list/has_hardpoints = list()
 	var/decal
+	var/decal_blend = BLEND_MULTIPLY
 	var/power_use = 0
-
-/obj/item/mech_component/set_color(new_color)
-	var/last_colour = color
-	color = new_color
-	return color != last_colour
 
 /obj/item/mech_component/emp_act(var/severity)
 	take_burn_damage(rand((10 - (severity*3)),15-(severity*4)))
 	for(var/obj/item/thing in contents)
 		thing.emp_act(severity)
 
-/obj/item/mech_component/examine(mob/user)
+/obj/item/mech_component/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(ready_to_install())
-		to_chat(user, SPAN_NOTICE("It is ready for installation."))
+		. += SPAN_NOTICE("It is ready for installation.")
 	else
-		show_missing_parts(user)
+		var/list/missing_parts = show_missing_parts(user)
+		if(length(missing_parts))
+			. += missing_parts
 
 //These icons have multiple directions but before they're attached we only want south.
 /obj/item/mech_component/set_dir()
@@ -53,9 +51,10 @@
 /obj/item/mech_component/proc/install_component(var/obj/item/thing, var/mob/user)
 	if(user.try_unequip(thing, src))
 		user.visible_message(SPAN_NOTICE("\The [user] installs \the [thing] in \the [src]."))
-		return 1
+		return TRUE
+	return FALSE
 
-/obj/item/mech_component/proc/update_health()
+/obj/item/mech_component/proc/update_component_health()
 	total_damage = brute_damage + burn_damage
 	if(total_damage > max_damage) total_damage = max_damage
 	var/prev_state = damage_state
@@ -77,13 +76,13 @@
 
 /obj/item/mech_component/proc/take_brute_damage(var/amt)
 	brute_damage = max(0, brute_damage + amt)
-	update_health()
+	update_component_health()
 	if(total_damage == max_damage)
 		take_component_damage(amt,0)
 
 /obj/item/mech_component/proc/take_burn_damage(var/amt)
 	burn_damage = max(0, burn_damage + amt)
-	update_health()
+	update_component_health()
 	if(total_damage == max_damage)
 		take_component_damage(0,amt)
 
@@ -97,8 +96,9 @@
 		qdel(RC)
 		update_components()
 
-/obj/item/mech_component/attackby(var/obj/item/thing, var/mob/user)
-	if(IS_SCREWDRIVER(thing))
+/obj/item/mech_component/attackby(var/obj/item/used_item, var/mob/user)
+
+	if(IS_SCREWDRIVER(used_item))
 		if(contents.len)
 			//Filter non movables
 			var/list/valid_contents = list()
@@ -106,43 +106,46 @@
 				if(!A.anchored)
 					valid_contents += A
 			if(!valid_contents.len)
-				return
+				return TRUE
 			var/obj/item/removed = pick(valid_contents)
 			if(!(removed in contents))
-				return
+				return TRUE
 			user.visible_message(SPAN_NOTICE("\The [user] removes \the [removed] from \the [src]."))
 			removed.forceMove(user.loc)
 			playsound(user.loc, 'sound/effects/pop.ogg', 50, 0)
 			update_components()
 		else
 			to_chat(user, SPAN_WARNING("There is nothing to remove."))
-		return
-	if(IS_WELDER(thing))
-		repair_brute_generic(thing, user)
-		return
-	if(IS_COIL(thing))
-		repair_burn_generic(thing, user)
-		return
-	if(istype(thing, /obj/item/robotanalyzer))
+		return TRUE
+
+	if(IS_WELDER(used_item))
+		repair_brute_generic(used_item, user)
+		return TRUE
+
+	if(IS_COIL(used_item))
+		repair_burn_generic(used_item, user)
+		return TRUE
+
+	if(istype(used_item, /obj/item/robotanalyzer))
 		to_chat(user, SPAN_NOTICE("Diagnostic Report for \the [src]:"))
 		return_diagnostics(user)
-		return
+		return TRUE
 
 	return ..()
 
 /obj/item/mech_component/proc/update_components()
 	return
 
-/obj/item/mech_component/proc/repair_brute_generic(var/obj/item/weldingtool/WT, var/mob/user)
-	if(!istype(WT))
+/obj/item/mech_component/proc/repair_brute_generic(var/obj/item/weldingtool/welder, var/mob/user)
+	if(!istype(welder))
 		return
 	if(!brute_damage)
 		to_chat(user, SPAN_NOTICE("You inspect \the [src] but find nothing to weld."))
 		return
-	if(!WT.isOn())
-		to_chat(user, SPAN_WARNING("Turn \the [WT] on, first."))
+	if(!welder.isOn())
+		to_chat(user, SPAN_WARNING("Turn \the [welder] on, first."))
 		return
-	if(WT.weld((SKILL_MAX + 1) - user.get_skill_value(SKILL_CONSTRUCTION), user))
+	if(welder.weld((SKILL_MAX + 1) - user.get_skill_value(SKILL_CONSTRUCTION), user))
 		user.visible_message(
 			SPAN_NOTICE("\The [user] begins welding the damage on \the [src]..."),
 			SPAN_NOTICE("You begin welding the damage on \the [src]...")

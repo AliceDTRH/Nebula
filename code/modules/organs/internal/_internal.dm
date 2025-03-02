@@ -2,6 +2,7 @@
 				INTERNAL ORGANS DEFINES
 ****************************************************/
 /obj/item/organ/internal
+	abstract_type = /obj/item/organ/internal
 	scale_max_damage_to_species_health = TRUE
 
 	// Damage healing vars (moved here from brains)
@@ -23,7 +24,13 @@
 	var/min_bruised_damage = 10       // Damage before considered bruised
 	var/damage_reduction = 0.5     //modifier for internal organ injury
 
-/obj/item/organ/internal/Initialize(mapload, material_key, datum/dna/given_dna, decl/bodytype/new_bodytype)
+	/// Whether or not we should try to transfer a brainmob when removed or replaced in a mob.
+	var/transfer_brainmob_with_organ = FALSE
+
+	// Current damage to the organ
+	VAR_PRIVATE/_organ_damage = 0
+
+/obj/item/organ/internal/Initialize(mapload, material_key, datum/mob_snapshot/supplied_appearance, decl/bodytype/new_bodytype)
 	if(!alive_icon)
 		alive_icon = initial(icon_state)
 	. = ..()
@@ -34,7 +41,7 @@
 	if(species.organs_icon)
 		icon = species.organs_icon
 
-/obj/item/organ/internal/do_install(mob/living/carbon/human/target, obj/item/organ/external/affected, in_place, update_icon, detached)
+/obj/item/organ/internal/do_install(mob/living/human/target, obj/item/organ/external/affected, in_place, update_icon, detached)
 	. = ..()
 
 	if(!affected)
@@ -52,7 +59,16 @@
 		affected.cavity_max_w_class = max(affected.cavity_max_w_class, w_class)
 		affected.update_internal_organs_cost()
 
+	// This might need revisiting to stop people successfully implanting brains in groins and transferring minds.
+	if(transfer_brainmob_with_organ && istype(owner))
+		var/mob/living/brainmob = get_brainmob(create_if_missing = FALSE)
+		if(brainmob?.key)
+			transfer_key_from_mob_to_mob(brainmob, owner)
+
 /obj/item/organ/internal/do_uninstall(in_place, detach, ignore_children, update_icon)
+
+	var/mob/living/victim = owner // cleared in parent proc
+
 	//Make sure we're removed from whatever parent organ we have, either in a mob or not
 	var/obj/item/organ/external/affected
 	if(owner)
@@ -65,6 +81,7 @@
 	if(affected)
 		LAZYREMOVE(affected.internal_organs, src)
 		affected.update_internal_organs_cost()
+
 	. = ..()
 
 	//Remove it from the implants if we are fully removing, or add it to the implants if we are detaching
@@ -73,6 +90,9 @@
 			LAZYDISTINCTADD(affected.implants, src)
 		else
 			LAZYREMOVE(affected.implants, src)
+
+	if(transfer_brainmob_with_organ && istype(victim))
+		transfer_key_to_brainmob(victim, update_brainmob = TRUE)
 
 //#TODO: Remove rejuv hacks
 /obj/item/organ/internal/remove_rejuv()
@@ -84,50 +104,50 @@
 
 /obj/item/organ/internal/proc/getToxLoss()
 	if(BP_IS_PROSTHETIC(src))
-		return damage * 0.5
-	return damage
+		return _organ_damage * 0.5
+	return _organ_damage
 
 /obj/item/organ/internal/proc/bruise()
-	damage = max(damage, min_bruised_damage)
+	_organ_damage = max(_organ_damage, min_bruised_damage)
 
 /obj/item/organ/internal/proc/is_bruised()
-	return damage >= min_bruised_damage
+	return _organ_damage >= min_bruised_damage
 
-/obj/item/organ/internal/proc/set_max_damage(var/ndamage)
-	max_damage = FLOOR(ndamage)
-	min_broken_damage = FLOOR(0.75 * max_damage)
-	min_bruised_damage = FLOOR(0.25 * max_damage)
+/obj/item/organ/internal/set_max_damage(var/ndamage)
+	. = ..()
+	min_broken_damage = floor(0.75 * max_damage)
+	min_bruised_damage = floor(0.25 * max_damage)
 	if(damage_threshold_count > 0)
 		damage_threshold_value = round(max_damage / damage_threshold_count)
 
-/obj/item/organ/internal/take_general_damage(var/amount, var/silent = FALSE)
-	take_internal_damage(amount, silent)
+/obj/item/organ/internal/take_damage(damage, damage_type = BRUTE, damage_flags, inflicter, armor_pen = 0, silent, do_update_health)
 
-/obj/item/organ/internal/proc/take_internal_damage(amount, var/silent=0)
+	if(!owner)
+		return ..()
+
 	if(BP_IS_PROSTHETIC(src))
-		damage = clamp(0, src.damage + (amount * 0.8), max_damage)
+		_organ_damage = clamp(_organ_damage + (damage * 0.8), 0, max_damage)
 	else
-		damage = clamp(0, src.damage + amount, max_damage)
+		_organ_damage = clamp(_organ_damage + damage, 0, max_damage)
 
-		//only show this if the organ is not robotic
-		if(owner && can_feel_pain() && parent_organ && (amount > 5 || prob(10)))
-			var/obj/item/organ/external/parent = GET_EXTERNAL_ORGAN(owner, parent_organ)
-			if(parent && !silent)
-				var/degree = ""
-				if(is_bruised())
-					degree = " a lot"
-				if(damage < 5)
-					degree = " a bit"
-				owner.custom_pain("Something inside your [parent.name] hurts[degree].", amount, affecting = parent)
+	if(can_feel_pain() && parent_organ && (damage > 5 || prob(10)))
+		var/obj/item/organ/external/parent = GET_EXTERNAL_ORGAN(owner, parent_organ)
+		if(parent && !silent)
+			var/degree = ""
+			if(is_bruised())
+				degree = " a lot"
+			if(damage < 5)
+				degree = " a bit"
+			owner.custom_pain("Something inside your [parent.name] hurts[degree].", damage, affecting = parent)
 
 /obj/item/organ/internal/proc/get_visible_state()
-	if(damage > max_damage)
+	if(_organ_damage > max_damage)
 		. = "bits and pieces of a destroyed "
 	else if(is_broken())
 		. = "broken "
 	else if(is_bruised())
 		. = "badly damaged "
-	else if(damage > 5)
+	else if(_organ_damage > 5)
 		. = "damaged "
 	if(status & ORGAN_DEAD)
 		if(can_recover())
@@ -143,8 +163,14 @@
 /obj/item/organ/internal/Process()
 	SHOULD_CALL_PARENT(TRUE)
 	..()
-	if(owner && damage && !(status & ORGAN_DEAD))
+	//check if we've hit max_damage
+	if(_organ_damage >= max_damage)
+		die()
+	if(owner && _organ_damage && !(status & ORGAN_DEAD))
 		handle_damage_effects()
+
+/obj/item/organ/internal/proc/has_limited_healing()
+	return !min_regeneration_cutoff_threshold || past_damage_threshold(min_regeneration_cutoff_threshold)
 
 /obj/item/organ/internal/proc/handle_damage_effects()
 	SHOULD_CALL_PARENT(TRUE)
@@ -153,24 +179,22 @@
 		// Determine the lowest our damage can go with the current state.
 		// If we're under the min regeneration cutoff threshold, we can always heal to zero.
 		// If we don't have one set, we can only heal to the nearest threshold value.
-		var/min_heal_val = 0
-		if(!min_regeneration_cutoff_threshold || past_damage_threshold(min_regeneration_cutoff_threshold))
-			min_heal_val = (get_current_damage_threshold() * damage_threshold_value)
+		var/min_heal_val = has_limited_healing() ? (get_current_damage_threshold() * damage_threshold_value) : 0
 
 		// We clamp/round here so that we don't accidentally heal past the threshold and
 		// cheat our way into a full second threshold of healing.
-		damage = clamp(damage-get_organ_heal_amount(), min_heal_val, absolute_max_damage)
+		_organ_damage = clamp(_organ_damage - max(0, get_organ_heal_amount()), min_heal_val, absolute_max_damage)
 
 		// If we're within 1 damage of the nearest threshold (such as 0), round us down.
 		// This should be removed when float-aware modulo comes in in 515, but for now is needed
 		// as modulo only deals with integers, but organ regeneration is <= 0.3 by default.
-		if(!(damage % damage_threshold_value))
-			damage = round(damage)
+		if(!(_organ_damage % damage_threshold_value))
+			_organ_damage = round(_organ_damage)
 
 /obj/item/organ/internal/proc/get_organ_heal_amount()
-	if(damage >= min_broken_damage)
+	if(_organ_damage >= min_broken_damage)
 		return 0.1
-	if(damage >= min_bruised_damage)
+	if(_organ_damage >= min_bruised_damage)
 		return 0.2
 	return 0.3
 
@@ -188,19 +212,19 @@
 	// - do not have a max cutoff threshold (point at which no further regeneration will occur)
 	// - are not past our max cutoff threshold
 	// - are dosed with stabilizer (ignores max cutoff threshold)
-	if((damage % damage_threshold_value) && (!max_regeneration_cutoff_threshold || !past_damage_threshold(max_regeneration_cutoff_threshold) || GET_CHEMICAL_EFFECT(owner, CE_STABLE)))
+	if((_organ_damage % damage_threshold_value) && (!max_regeneration_cutoff_threshold || !past_damage_threshold(max_regeneration_cutoff_threshold) || GET_CHEMICAL_EFFECT(owner, CE_STABLE)))
 		return TRUE
 	return FALSE
 
 /obj/item/organ/internal/proc/surgical_fix(mob/user)
-	if(damage > min_broken_damage)
-		var/scarring = damage/max_damage
+	if(_organ_damage > min_broken_damage)
+		var/scarring = _organ_damage/max_damage
 		scarring = 1 - 0.3 * scarring ** 2 // Between ~15 and 30 percent loss
-		var/new_max_dam = FLOOR(scarring * max_damage)
+		var/new_max_dam = floor(scarring * max_damage)
 		if(new_max_dam < max_damage)
 			to_chat(user, SPAN_WARNING("Not every part of [src] could be saved; some dead tissue had to be removed, making it more susceptible to damage in the future."))
 			set_max_damage(new_max_dam)
-	heal_damage(damage)
+	heal_damage(_organ_damage)
 
 /obj/item/organ/internal/proc/get_scarring_level()
 	. = (absolute_max_damage - max_damage)/absolute_max_damage
@@ -216,11 +240,11 @@
 		return
 	switch (severity)
 		if (1)
-			take_internal_damage(16)
+			take_damage(16)
 		if (2)
-			take_internal_damage(9)
+			take_damage(9)
 		if (3)
-			take_internal_damage(6.5)
+			take_damage(6.5)
 
 /obj/item/organ/internal/on_update_icon()
 	. = ..()
@@ -234,7 +258,7 @@
 
 // Damage recovery procs! Very exciting.
 /obj/item/organ/internal/proc/get_current_damage_threshold()
-	return damage_threshold_value > 0 ? round(damage / damage_threshold_value) : INFINITY
+	return damage_threshold_value > 0 ? round(_organ_damage / damage_threshold_value) : INFINITY
 
 /obj/item/organ/internal/proc/past_damage_threshold(var/threshold)
 	return (get_current_damage_threshold() > threshold)
@@ -252,3 +276,55 @@
 		var/obj/item/organ/O = last_owner.get_organ(parent_organ)
 		if(O)
 			O.vital_to_owner = null
+
+// Stub to allow brain interfaces to return their wrapped brainmob.
+/obj/item/organ/internal/proc/get_brainmob(var/create_if_missing = FALSE)
+	return
+
+/obj/item/organ/internal/proc/transfer_key_to_brainmob(var/mob/living/M, var/update_brainmob = TRUE)
+	var/mob/living/brainmob = get_brainmob(create_if_missing = TRUE)
+	if(brainmob)
+		transfer_key_from_mob_to_mob(M, brainmob)
+		if(update_brainmob)
+			brainmob.SetName(M.real_name)
+			brainmob.real_name = M.real_name
+			brainmob.languages = M.languages?.Copy()
+			brainmob.default_language = M.default_language
+			to_chat(brainmob, SPAN_NOTICE("You feel slightly disoriented. That's normal when you're just \a [initial(src.name)]."))
+			RAISE_EVENT(/decl/observ/debrain, brainmob, src, M)
+		return TRUE
+	return FALSE
+
+/obj/item/organ/internal/proc/get_synthetic_owner_name()
+	return "Cyborg"
+
+/obj/item/organ/internal/preserve_in_cryopod(var/obj/machinery/cryopod/pod)
+	var/mob/living/brainmob = get_brainmob()
+	return brainmob?.key
+
+/obj/item/organ/internal/proc/set_organ_damage(amt)
+	_organ_damage = amt
+
+/obj/item/organ/internal/proc/adjust_organ_damage(amt)
+	_organ_damage = clamp(_organ_damage + amt, 0, max_damage)
+
+/obj/item/organ/internal/proc/get_organ_damage()
+	return _organ_damage // TODO: get_max_health() - current_health, unify organ/item damage handling.
+
+/obj/item/organ/internal/is_broken()
+	return _organ_damage >= min_broken_damage || ..()
+
+/obj/item/organ/internal/die()
+	_organ_damage = max_damage
+	return ..()
+
+/obj/item/organ/internal/rejuvenate(var/ignore_organ_traits)
+	_organ_damage = 0
+	return ..()
+
+/obj/item/organ/internal/heal_damage(amount)
+	if(can_recover())
+		_organ_damage = clamp(_organ_damage - round(amount, 0.1), 0, max_damage)
+		if(owner)
+			owner.update_health()
+

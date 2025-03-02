@@ -5,7 +5,7 @@
 	icon = 'icons/effects/effects.dmi'
 	anchored = TRUE
 	density = FALSE
-	var/health = 15
+	max_health = 15
 
 //similar to weeds, but only barfed out by nurses manually
 /obj/effect/spider/explosion_act(severity)
@@ -23,7 +23,7 @@
 		return TRUE
 	var/showed_msg = FALSE
 	if(ishuman(user))
-		var/mob/living/carbon/human/H = user
+		var/mob/living/human/H = user
 		var/decl/natural_attack/attack = H.get_unarmed_attack(src)
 		if(istype(attack))
 			attack.show_attack(H, src, H.get_target_zone(), 1)
@@ -33,42 +33,45 @@
 	die()
 	return TRUE
 
-/obj/effect/spider/attackby(var/obj/item/W, var/mob/user)
+/obj/effect/spider/attackby(var/obj/item/used_item, var/mob/user)
 	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 
-	if(W.attack_verb.len)
-		visible_message("<span class='warning'>\The [src] has been [pick(W.attack_verb)] with \the [W][(user ? " by [user]." : ".")]</span>")
+	if(used_item.attack_verb.len)
+		visible_message("<span class='warning'>\The [src] has been [pick(used_item.attack_verb)] with \the [used_item][(user ? " by [user]." : ".")]</span>")
 	else
-		visible_message("<span class='warning'>\The [src] has been attacked with \the [W][(user ? " by [user]." : ".")]</span>")
+		visible_message("<span class='warning'>\The [src] has been attacked with \the [used_item][(user ? " by [user]." : ".")]</span>")
 
-	var/damage = W.force / 4.0
+	var/damage = used_item.expend_attack_force(user) / 4
 
-	if(W.edge)
+	if(used_item.has_edge())
 		damage += 5
 
-	if(IS_WELDER(W))
-		var/obj/item/weldingtool/WT = W
+	if(IS_WELDER(used_item))
+		var/obj/item/weldingtool/welder = used_item
 
-		if(WT.weld(0, user))
+		if(welder.weld(0, user))
 			damage = 15
 			playsound(loc, 'sound/items/Welder.ogg', 100, 1)
 
-	health -= damage
+	current_health -= damage
 	healthcheck()
+	return TRUE
 
 /obj/effect/spider/bullet_act(var/obj/item/projectile/Proj)
 	..()
-	health -= Proj.get_structure_damage()
+	current_health -= Proj.get_structure_damage()
 	healthcheck()
 
 /obj/effect/spider/proc/healthcheck()
-	if(health <= 0)
+	if(current_health <= 0)
 		qdel(src)
 
 /obj/effect/spider/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
 	if(exposed_temperature > 300 + T0C)
-		health -= 5
+		current_health -= 5
 		healthcheck()
+	if(!QDELETED(src))
+		return ..()
 
 /obj/effect/spider/stickyweb
 	icon_state = "stickyweb1"
@@ -82,7 +85,7 @@
 	if(air_group || (height==0)) return 1
 	if(istype(mover, /mob/living/simple_animal/hostile/giant_spider))
 		return 1
-	else if(istype(mover, /mob/living))
+	else if(isliving(mover))
 		if(prob(50))
 			to_chat(mover, "<span class='warning'>You get stuck in \the [src] for a moment.</span>")
 			return 0
@@ -140,10 +143,11 @@
 /obj/effect/spider/spiderling
 	name = "spiderling"
 	desc = "It never stays still for long."
+	icon = 'icons/mob/simple_animal/spider.dmi' // updated in Initialize()
 	icon_state = "lesser"
 	anchored = FALSE
 	layer = BELOW_OBJ_LAYER
-	health = 3
+	max_health = 3
 	var/mob/living/simple_animal/hostile/giant_spider/greater_form
 	var/last_itch = 0
 	var/amount_grown = -1
@@ -170,7 +174,7 @@
 		dormant = FALSE
 
 	if(dormant)
-		events_repository.register(/decl/observ/moved, src, src, /obj/effect/spider/proc/disturbed)
+		events_repository.register(/decl/observ/moved, src, src, TYPE_PROC_REF(/obj/effect/spider, disturbed))
 	else
 		START_PROCESSING(SSobj, src)
 
@@ -185,25 +189,28 @@
 
 /obj/effect/spider/spiderling/Destroy()
 	if(dormant)
-		events_repository.unregister(/decl/observ/moved, src, src, /obj/effect/spider/proc/disturbed)
+		events_repository.unregister(/decl/observ/moved, src, src, TYPE_PROC_REF(/obj/effect/spider, disturbed))
 	STOP_PROCESSING(SSobj, src)
-	walk(src, 0) // Because we might have called walk_to, we must stop the walk loop or BYOND keeps an internal reference to us forever.
+	stop_automove()
 	. = ..()
 
-/obj/effect/spider/spiderling/attackby(var/obj/item/W, var/mob/user)
-	..()
-	if(health > 0)
+/obj/effect/spider/spiderling/attackby(var/obj/item/used_item, var/mob/user)
+	. = ..()
+	if(current_health > 0)
 		disturbed()
 
-/obj/effect/spider/spiderling/Crossed(var/mob/living/L)
-	if(dormant && istype(L) && L.mob_size > MOB_SIZE_TINY)
+/obj/effect/spider/spiderling/Crossed(atom/movable/AM)
+	if(!dormant || !isliving(AM))
+		return
+	var/mob/living/M = AM
+	if(M.mob_size > MOB_SIZE_TINY)
 		disturbed()
 
 /obj/effect/spider/spiderling/disturbed()
 	if(!dormant)
 		return
 	dormant = FALSE
-	events_repository.unregister(/decl/observ/moved, src, src, /obj/effect/spider/proc/disturbed)
+	events_repository.unregister(/decl/observ/moved, src, src, TYPE_PROC_REF(/obj/effect/spider, disturbed))
 	START_PROCESSING(SSobj, src)
 
 /obj/effect/spider/spiderling/Bump(atom/user)
@@ -213,7 +220,7 @@
 		..()
 
 /obj/effect/spider/spiderling/healthcheck()
-	if(health <= 0)
+	if(current_health <= 0)
 		die()
 
 /obj/effect/spider/spiderling/proc/check_vent(obj/machinery/atmospherics/unary/vent_pump/exit_vent)
@@ -228,7 +235,7 @@
 	if(prob(50))
 		src.visible_message("<span class='notice'>You hear something squeezing through the ventilation ducts.</span>",2)
 	forceMove(exit_vent)
-	addtimer(CALLBACK(src, .proc/end_vent_moving, exit_vent), travel_time)
+	addtimer(CALLBACK(src, PROC_REF(end_vent_moving), exit_vent), travel_time)
 
 /obj/effect/spider/spiderling/proc/end_vent_moving(obj/machinery/atmospherics/unary/vent_pump/exit_vent)
 	if(check_vent(exit_vent))
@@ -263,7 +270,7 @@
 
 				forceMove(entry_vent)
 				var/travel_time = round(get_dist(loc, exit_vent.loc) / 2)
-				addtimer(CALLBACK(src, .proc/start_vent_moving, exit_vent, travel_time), travel_time + rand(20,60))
+				addtimer(CALLBACK(src, PROC_REF(start_vent_moving), exit_vent, travel_time), travel_time + rand(20,60))
 				travelling_in_vent = TRUE
 				return
 			else
@@ -331,7 +338,7 @@
 	name = "cocoon"
 	desc = "Something wrapped in silky spider web."
 	icon_state = "cocoon1"
-	health = 60
+	max_health = 60
 
 /obj/effect/spider/cocoon/Initialize()
 	. = ..()

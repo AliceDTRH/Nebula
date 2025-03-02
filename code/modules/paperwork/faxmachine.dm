@@ -4,7 +4,6 @@
 #define FAX_ADMIN_COOLDOWN  30 SECONDS    //Cooldown after faxing an admin
 
 var/global/list/allfaxes       = list()
-var/global/list/alldepartments = list()
 var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to admins
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -14,7 +13,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 	name = "circuitboard (fax machine)"
 	build_path = /obj/machinery/faxmachine
 	board_type = "machine"
-	origin_tech = "{'engineering':1, 'programming':1}"
+	origin_tech = @'{"engineering":1, "programming":1}'
 	req_components = list(
 		/obj/item/stock_parts/printer         = 1,
 		/obj/item/stock_parts/manipulator     = 1,
@@ -61,6 +60,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 	density                 = TRUE
 	idle_power_usage        = 30
 	active_power_usage      = 200
+	base_type               = /obj/machinery/faxmachine
 	construct_state         = /decl/machine_construction/default/panel_closed
 	maximum_component_parts = list(
 		/obj/item/stock_parts/item_holder/disk_reader = 1,
@@ -81,6 +81,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 	var/obj/item/scanner_item                         //Item to fax
 	var/list/quick_dial                              //List of name tag to network ids for other fax machines that the user added as quick dial options
 	var/list/fax_history                             //List of the last 10 devices that sent us faxes, and when
+	var/tmp/init_network_tag                         //The network tag of this fax machine, set by mappers.
 
 	var/tmp/time_cooldown_end = 0
 	var/tmp/current_page      = "main"
@@ -90,7 +91,9 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 	. = ..()
 	if(. != INITIALIZE_HINT_QDEL)
 		global.allfaxes += src
-		set_extension(src, /datum/extension/network_device/fax)
+		var/datum/extension/network_device/fax/netdevice = set_extension(src, /datum/extension/network_device/fax)
+		if(init_network_tag)
+			netdevice.set_network_tag(init_network_tag)
 		if(populate_parts && printer)
 			printer.make_full()
 
@@ -115,27 +118,28 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 	printer     = get_component_of_type(/obj/item/stock_parts/printer)
 
 	if(disk_reader)
-		disk_reader.register_on_insert(CALLBACK(src, /obj/machinery/faxmachine/proc/on_insert_disk))
-		disk_reader.register_on_eject( CALLBACK(src, /obj/machinery/faxmachine/proc/update_ui))
+		disk_reader.register_on_insert(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, on_insert_disk)))
+		disk_reader.register_on_eject( CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, update_ui)))
 
 	if(card_reader)
-		card_reader.register_on_insert(CALLBACK(src, /obj/machinery/faxmachine/proc/on_insert_card))
-		card_reader.register_on_eject( CALLBACK(src, /obj/machinery/faxmachine/proc/update_ui))
+		card_reader.register_on_insert(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, on_insert_card)))
+		card_reader.register_on_eject( CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, update_ui)))
 
 	if(printer)
-		printer.register_on_printed_page(  CALLBACK(src, /obj/machinery/faxmachine/proc/on_printed_page))
-		printer.register_on_finished_queue(CALLBACK(src, /obj/machinery/faxmachine/proc/on_queue_finished))
-		printer.register_on_print_error(   CALLBACK(src, /obj/machinery/faxmachine/proc/on_print_error))
-		printer.register_on_status_changed(CALLBACK(src, /obj/machinery/faxmachine/proc/update_ui))
+		printer.register_on_printed_page(  CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, on_printed_page)))
+		printer.register_on_finished_queue(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, on_queue_finished)))
+		printer.register_on_print_error(   CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, on_print_error)))
+		printer.register_on_status_changed(CALLBACK(src, TYPE_PROC_REF(/obj/machinery/faxmachine, update_ui)))
 
 /obj/machinery/faxmachine/interface_interact(mob/user)
 	ui_interact(user)
 	return TRUE
 
-/obj/machinery/faxmachine/attackby(obj/item/I, mob/user)
+/obj/machinery/faxmachine/attackby(obj/item/used_item, mob/user)
 	if(istype(construct_state, /decl/machine_construction/default/panel_closed))
-		if(istype(I, /obj/item/paper) || istype(I, /obj/item/photo) || istype(I, /obj/item/paper_bundle))
-			return insert_scanner_item(I, user)
+		if(istype(used_item, /obj/item/paper) || istype(used_item, /obj/item/photo) || istype(used_item, /obj/item/paper_bundle))
+			insert_scanner_item(used_item, user)
+			return TRUE
 	. = ..()
 
 /obj/machinery/faxmachine/ui_data(mob/user, ui_key)
@@ -242,7 +246,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 			if(C)
 				eject_card(user)
 			else
-				var/obj/item/card/id/ID = user.get_active_hand()
+				var/obj/item/card/id/ID = user.get_active_held_item()
 				if(!istype(ID) && !istype(ID, /obj/item/card/data))
 					to_chat(user, SPAN_WARNING("You need to hold a valid id/data card!"))
 				else if(card_reader.should_swipe)
@@ -259,9 +263,9 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 			to_chat(user, SPAN_WARNING("There's already a [scanner_item] in \the [src]!"))
 			return TOPIC_NOACTION
 		else
-			var/obj/item/I = user.get_active_hand()
-			if(I)
-				insert_scanner_item(I, user)
+			var/obj/item/thing = user.get_active_held_item()
+			if(thing)
+				insert_scanner_item(thing, user)
 			else
 				to_chat(user, SPAN_WARNING("You're not holding anything!"))
 				return TOPIC_NOACTION
@@ -284,7 +288,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		if(!disk_reader)
 			to_chat(user, SPAN_WARNING("There is no disk drive installed on \the [src]!"))
 			return TOPIC_NOACTION
-		var/obj/item/disk/D = user.get_active_hand()
+		var/obj/item/disk/D = user.get_active_held_item()
 		if(!istype(D))
 			to_chat(user, SPAN_WARNING("You need to hold a valid data disk!"))
 			return TOPIC_NOACTION
@@ -345,19 +349,19 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		return
 	return D
 
-/obj/machinery/faxmachine/proc/insert_scanner_item(var/obj/item/I, var/mob/user)
+/obj/machinery/faxmachine/proc/insert_scanner_item(var/obj/item/thing, var/mob/user)
 	if(!QDELETED(scanner_item))
 		if(user)
 			to_chat(user, SPAN_WARNING("\The [src] already has something being scanned!"))
 		return FALSE
 
 	if(user)
-		to_chat(user, SPAN_NOTICE("You place \the [I] into \the [src]'s scanner."))
-		if(!user.try_unequip(I, src))
+		to_chat(user, SPAN_NOTICE("You place \the [thing] into \the [src]'s scanner."))
+		if(!user.try_unequip(thing, src))
 			return FALSE
 	else
-		I.dropInto(src)
-	scanner_item = I
+		thing.dropInto(src)
+	scanner_item = thing
 	update_ui()
 	return TRUE
 
@@ -382,7 +386,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 			to_chat(user, SPAN_WARNING("\The [card_reader] is currently set to swipe mode, which is unsupported by this machine. Please contact your system administrator."))
 		return
 	if(user)
-		to_chat(user, SPAN_NOTICE("Loading \the '[C]'..."))
+		to_chat(user, SPAN_NOTICE("You insert \the [C] into \the [src]."))
 	update_ui()
 
 /obj/machinery/faxmachine/proc/eject_card(var/mob/user)
@@ -430,22 +434,15 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		return FALSE
 	use_power_oneoff(active_power_usage)
 
+	var/obj/item/card/id/ID = try_get_card()
+	ID = istype(ID)? ID : null
+
 	//Grab our network
 	var/datum/extension/network_device/sender_dev = get_extension(src, /datum/extension/network_device)
 	var/datum/computer_network/origin_network = sender_dev?.get_network()
 	if(!origin_network)
 		to_chat(user, SPAN_WARNING("No network connection!"))
 		return FALSE
-
-	if(!length(target_net_id))
-		target_net_id = origin_network.network_id //Use the current network if none specified
-
-	if((target_net_id != origin_network.network_id) && !sender_dev.has_internet_connection(origin_network))
-		to_chat(user, SPAN_WARNING("No internet connection!"))
-		return FALSE
-
-	var/obj/item/card/id/ID = try_get_card()
-	ID = istype(ID)? ID : null
 
 	//If sending to admins, don't try to get a target network or device
 	var/target_URI = uppertext("[target_net_tag].[target_net_id]")
@@ -462,8 +459,8 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		else if(prob(1))
 			spark_at(src, 1)
 
-		.= send_fax_to_admin(user, scanner_item, target_URI, src)
-		log_history("Outgoing", "'[scanner_item]', from '[get_area(src)]'s [src]' @ '[sender_dev.get_network_URI()]' to [target_admin_fax["name"]]' @ '[target_URI]'.")
+		. = send_fax_to_admin(user, scanner_item, target_URI, src)
+		log_history("Outgoing", "'[scanner_item]', from '[get_area(src)]'s [src]' @ '[sender_dev?.get_network_URI() || "UNKNOWN SENDER"]' to [target_admin_fax["name"]]' @ '[target_URI]'.")
 		update_ui()
 		flick("faxsend", src)
 		//#TODO: sync the animation, sound and message together when I got enough patience.
@@ -471,6 +468,13 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		ping("Message transmitted successfully!")
 		time_cooldown_end = world.timeofday + FAX_ADMIN_COOLDOWN
 		return TRUE
+
+	if(!length(target_net_id))
+		target_net_id = origin_network.network_id //Use the current network if none specified
+
+	if((target_net_id != origin_network.network_id) && !sender_dev.has_internet_connection(origin_network))
+		to_chat(user, SPAN_WARNING("No internet connection!"))
+		return FALSE
 
 	var/datum/computer_network/target_net
 	if(target_net_id != origin_network.network_id)
@@ -632,6 +636,8 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		if(user)
 			to_chat(user, SPAN_WARNING("Please select a contact to remove!"))
 		return FALSE
+
+	var/remove_uri = LAZYACCESS(quick_dial, contact_name)
 	LAZYREMOVE(quick_dial, contact_name)
 
 	//Overwrite quick dial
@@ -642,7 +648,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		D.write_file(datfile, FAX_QUICK_DIAL_FILE)
 
 	if(user)
-		to_chat(user, SPAN_NOTICE("Successfully removed contact '[contact_name]' with URI '[LAZYACCESS(quick_dial, contact_name)]'!"))
+		to_chat(user, SPAN_NOTICE("Successfully removed contact '[contact_name]' with URI '[remove_uri]'!"))
 	update_ui()
 	return TRUE
 
@@ -652,7 +658,7 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 /decl/public_access/public_method/fax_receive_document
 	name = "Send Fax Message"
 	desc = "Sends the specified document over to the specified network tag."
-	call_proc = /obj/machinery/faxmachine/proc/receive_fax
+	call_proc = TYPE_PROC_REF(/obj/machinery/faxmachine, receive_fax)
 	forward_args = TRUE
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -677,8 +683,12 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 		reply_type = "UNKNOWN"
 
 	var/msg = "<span class='notice'><b><font color='[font_colour]'>[faxname]: </font>[get_options_bar(sender, 2,1,1)]"
-	msg += "(<A HREF='?_src_=holder;take_ic=\ref[sender]'>TAKE</a>) (<a href='?_src_=holder;FaxReply=\ref[sender];originfax=\ref[source_fax];replyorigin=[reply_type]'>REPLY</a>)</b>: "
-	msg += "Receiving '[rcvdcopy.name]' via secure connection ... <a href='?_src_=holder;AdminFaxView=\ref[rcvdcopy]'>view message</a></span>"
+	msg += "(<A HREF='byond://?_src_=holder;take_ic=\ref[sender]'>TAKE</a>) (<a href='byond://?_src_=holder;FaxReply=\ref[sender];originfax=\ref[source_fax];replyorigin=[reply_type]'>REPLY</a>)</b>: "
+	msg += "Receiving '[rcvdcopy.name]' via secure connection ... <a href='byond://?_src_=holder;AdminFaxView=\ref[rcvdcopy]'>view message</a></span>"
+
+	if (istype(doc, /obj/item/paper))
+		var/obj/item/paper/paper = doc
+		SSwebhooks.send(WEBHOOK_FAX_SENT, list("title" = "Incoming fax transmission from [sender] in [faxname] for [dest_display_name].", "body" = "[paper.info]"))
 
 	for(var/client/C in global.admins)
 		if(check_rights((R_ADMIN|R_MOD),0,C))
@@ -690,3 +700,19 @@ var/global/list/adminfaxes     = list()	//cache for faxes that have been sent to
 #undef FAX_HISTORY_FILE
 #undef FAX_COOLDOWN
 #undef FAX_ADMIN_COOLDOWN
+
+/obj/machinery/faxmachine/mapped/Initialize()
+	. = ..()
+	if(. != INITIALIZE_HINT_QDEL)
+		return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/faxmachine/mapped/LateInitialize()
+	..()
+	// Pre-populate our admin targets.
+	if(!disk_reader)
+		CRASH("Missing disk reader from pre-mapped fax machine!")
+	if(!disk_reader.disk)
+		disk_reader.insert_item(new /obj/item/disk(disk_reader))
+	for(var/uri in global.using_map.map_admin_faxes)
+		var/list/contact_info = global.using_map.map_admin_faxes[uri]
+		add_quick_dial_contact(contact_info["name"], uri)

@@ -1,24 +1,10 @@
-var/global/list/decl/topic_command/topic_commands = list()
-
 /decl/topic_command
+	abstract_type = /decl/topic_command
 	var/name
 	var/has_params = FALSE
-	var/base_type = /decl/topic_command
-
-/// Initialises the assoc list of topic commands by key.
-/hook/startup/proc/setup_api()
-	var/list/commands = decls_repository.get_decls_of_subtype(/decl/topic_command)
-	for (var/command in commands)
-		var/decl/topic_command/TC = commands[command]
-		if(TC.base_type == command)
-			continue
-		global.topic_commands[TC.name] = TC
-	return TRUE
 
 /// Returns TRUE if we can use this command, and FALSE otherwise
 /decl/topic_command/proc/can_use(var/T, var/addr, var/master, var/key)
-	if(base_type == type) // this is an abstract type
-		return FALSE
 	if (has_params)
 		if (copytext(T, 1, length(name) + 1) != name)
 			return FALSE
@@ -38,16 +24,17 @@ var/global/list/decl/topic_command/topic_commands = list()
 	return use(params)
 
 /decl/topic_command/secure
-	base_type = /decl/topic_command/secure
+	abstract_type = /decl/topic_command/secure
 
 /decl/topic_command/secure/try_use(var/T, var/addr, var/master, var/key)
 	if (!can_use(T, addr, master, key))
 		return FALSE
 	var/list/params = params2list(T)
-	if (!config.comms_password)
+	var/comms_password = get_config_value(/decl/config/text/comms_password)
+	if (!comms_password)
 		set_throttle(addr, 10 SECONDS, "Comms Not Enabled")
 		return "Not Enabled"
-	if (params["key"] != config.comms_password)
+	if (params["key"] != comms_password)
 		set_throttle(addr, 30 SECONDS, "Bad Comms Key")
 		return "Bad Key"
 	return use(params)
@@ -59,6 +46,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/ping
 	name = "ping"
+	uid = "topic_command_ping"
 
 /decl/topic_command/ping/use()
 	var/x = 1
@@ -68,23 +56,25 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/players
 	name = "players"
+	uid = "topic_command_players"
 
 /decl/topic_command/players/use()
 	return global.clients.len
 
 /decl/topic_command/status
 	name = "status"
+	uid = "topic_command_status"
 	has_params = TRUE
 
 /decl/topic_command/status/use(var/list/params)
 	var/list/s = list()
 	s["version"] = game_version
-	s["mode"] = PUBLIC_GAME_MODE
-	s["respawn"] = config.abandon_allowed
-	s["enter"] = config.enter_allowed
-	s["vote"] = config.allow_vote_mode
-	s["ai"] = !!length(empty_playable_ai_cores)
-	s["host"] = host || null
+	s["mode"] =    PUBLIC_GAME_MODE
+	s["respawn"] = get_config_value(/decl/config/toggle/on/abandon_allowed)
+	s["enter"] =   get_config_value(/decl/config/toggle/on/enter_allowed)
+	s["vote"] =    get_config_value(/decl/config/toggle/vote_mode)
+	s["ai"] =      !!length(empty_playable_ai_cores)
+	s["host"] =    get_config_value(/decl/config/text/hosted_by)
 
 	// This is dumb, but spacestation13.com's banners break if player count isn't the 8th field of the reply, so... this has to go here.
 	s["players"] = 0
@@ -104,7 +94,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 		if(legacy)
 			s["player[players.len]"] = C.key
 		players += C.key
-		if(istype(C.mob, /mob/living))
+		if(isliving(C.mob))
 			active++
 
 	s["players"] = players.len
@@ -118,6 +108,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/manifest
 	name = "manifest"
+	uid = "topic_command_manifest"
 
 /decl/topic_command/manifest/use()
 	var/list/positions = list()
@@ -137,6 +128,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/revision
 	name = "revision"
+	uid = "topic_command_revision"
 
 /decl/topic_command/revision/use()
 	var/list/L = list()
@@ -161,16 +153,18 @@ var/global/list/decl/topic_command/topic_commands = list()
 * * * * * * * */
 /decl/topic_command/ban
 	name = "placepermaban"
+	uid = "topic_command_placepermaban"
 	has_params = TRUE
 
 /decl/topic_command/ban/try_use(var/T, var/addr, var/master, var/key)
 	if (!can_use(T, addr, master, key))
 		return FALSE
 	var/list/params = params2list(T)
-	if(!config.ban_comms_password)
+	var/ban_comms_password = get_config_value(/decl/config/text/ban_comms_password)
+	if(!ban_comms_password)
 		set_throttle(addr, 10 SECONDS, "Bans Not Enabled")
 		return "Not Enabled"
-	if(params["bankey"] != config.ban_comms_password)
+	if(params["bankey"] != ban_comms_password)
 		set_throttle(addr, 30 SECONDS, "Bad Bans Key")
 		return "Bad Key"
 	return use(params)
@@ -203,6 +197,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/laws
 	name = "laws"
+	uid = "topic_command_laws"
 	has_params = TRUE
 
 /decl/topic_command/secure/laws/use(var/list/params)
@@ -216,10 +211,10 @@ var/global/list/decl/topic_command/topic_commands = list()
 		info["name"] = S.name
 		info["key"] = S.key
 
-		if(istype(S, /mob/living/silicon/robot))
-			var/mob/living/silicon/robot/R = S
-			info["master"] = R.connected_ai?.name
-			info["sync"] = R.lawupdate
+		if(isrobot(S))
+			var/mob/living/silicon/robot/robot = S
+			info["master"] = robot.connected_ai?.name
+			info["sync"] = robot.lawupdate
 
 		if(!S.laws)
 			info["laws"] = null
@@ -249,6 +244,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/info
 	name = "info"
+	uid = "topic_command_info"
 	has_params = TRUE
 
 /decl/topic_command/secure/info/use(var/list/params)
@@ -273,15 +269,15 @@ var/global/list/decl/topic_command/topic_commands = list()
 		if(isliving(M))
 			var/mob/living/L = M
 			info["damage"] = list2params(list(
-				oxy = L.getOxyLoss(),
-				tox = L.getToxLoss(),
-				fire = L.getFireLoss(),
-				brute = L.getBruteLoss(),
-				clone = L.getCloneLoss(),
-				brain = L.getBrainLoss()
+				oxy   = L.get_damage(OXY),
+				tox   = L.get_damage(TOX),
+				fire  = L.get_damage(BURN),
+				brute = L.get_damage(BRUTE),
+				clone = L.get_damage(CLONE),
+				brain = L.get_damage(BRAIN)
 			))
 			if(ishuman(M))
-				var/mob/living/carbon/human/H = M
+				var/mob/living/human/H = M
 				info["species"] = H.species.name
 			else
 				info["species"] = "non-human"
@@ -298,6 +294,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/adminmsg
 	name = "adminmsg"
+	uid = "topic_command_adminmsg"
 	has_params = TRUE
 
 /decl/topic_command/secure/adminmsg/use(var/list/params)
@@ -317,8 +314,8 @@ var/global/list/decl/topic_command/topic_commands = list()
 	if(rank == "Unknown")
 		rank = "Staff"
 
-	var/message =	SPAN_RED("[rank] PM from <b><a href='?irc_msg=[params["sender"]]'>[params["sender"]]</a></b>: [params["msg"]]")
-	var/amessage =  SPAN_BLUE("[rank] PM from <a href='?irc_msg=[params["sender"]]'>[params["sender"]]</a> to <b>[key_name(C)]</b> : [params["msg"]]")
+	var/message =	SPAN_RED("[rank] PM from <b><a href='byond://?irc_msg=[params["sender"]]'>[params["sender"]]</a></b>: [params["msg"]]")
+	var/amessage =  SPAN_BLUE("[rank] PM from <a href='byond://?irc_msg=[params["sender"]]'>[params["sender"]]</a> to <b>[key_name(C)]</b> : [params["msg"]]")
 
 	C.received_irc_pm = world.time
 	C.irc_admin = params["sender"]
@@ -333,6 +330,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/notes
 	name = "notes"
+	uid = "topic_command_notes"
 	has_params = TRUE
 
 /decl/topic_command/secure/notes/use(var/list/params)
@@ -340,6 +338,7 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/age
 	name = "age"
+	uid = "topic_command_age"
 	has_params = TRUE
 
 /decl/topic_command/secure/age/use(var/list/params)
@@ -354,8 +353,8 @@ var/global/list/decl/topic_command/topic_commands = list()
 
 /decl/topic_command/secure/prometheus_metrics
 	name = "prometheus_metrics"
+	uid = "topic_command_prometheus_metrics"
 
 /decl/topic_command/secure/prometheus_metrics/use()
-	if(!global.prometheus_metrics)
-		return "Metrics not ready"
-	return global.prometheus_metrics.collect()
+	var/static/decl/prometheus_metrics/prometheus_metrics = IMPLIED_DECL
+	return prometheus_metrics.collect()

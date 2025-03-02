@@ -29,8 +29,8 @@
 /decl/hierarchy/supply_pack/engineering/electrical
 	name = "Gear - Electrical maintenance"
 	contains = list(
-		/obj/item/storage/toolbox/electrical = 1,
-		/obj/item/storage/toolbox/repairs = 1,
+		/obj/item/toolbox/electrical = 1,
+		/obj/item/toolbox/repairs = 1,
 		/obj/item/clothing/gloves/insulated = 2,
 		/obj/item/cell = 2,
 		/obj/item/cell/high = 2
@@ -39,8 +39,8 @@
 
 /decl/hierarchy/supply_pack/engineering/mechanical
 	name = "Gear - Mechanical maintenance"
-	contains = list(/obj/item/storage/belt/utility/full = 3,
-					/obj/item/clothing/suit/storage/hazardvest = 3,
+	contains = list(/obj/item/belt/utility/full = 3,
+					/obj/item/clothing/suit/hazardvest = 3,
 					/obj/item/clothing/head/welding = 2,
 					/obj/item/clothing/head/hardhat)
 	containername = "mechanical maintenance crate"
@@ -87,7 +87,7 @@
 	containername = "collector crate"
 	access = access_engine_equip
 
-/decl/hierarchy/supply_pack/engineering/PA
+/decl/hierarchy/supply_pack/engineering/particle_accelerator
 	name = "Equipment - Particle accelerator"
 	contains = list(/obj/structure/particle_accelerator/fuel_chamber,
 					/obj/machinery/particle_accelerator/control_box,
@@ -155,24 +155,10 @@
 	containername = "shield generator construction kit crate"
 	access = access_engine
 
-/decl/hierarchy/supply_pack/engineering/inertial_damper
-	name = "Equipment - inertial damper construction kit"
-	contains = list(/obj/item/stock_parts/circuitboard/inertial_damper, /obj/item/stock_parts/capacitor, /obj/item/stock_parts/micro_laser, /obj/item/stock_parts/console_screen)
-	containertype = /obj/structure/closet/crate/secure
-	containername = "inertial damper construction kit crate"
-	access = access_engine
-
-/decl/hierarchy/supply_pack/engineering/smbig
-	name = "Power - Supermatter core"
-	contains = list(/obj/machinery/power/supermatter)
-	containertype = /obj/structure/closet/crate/secure/large/supermatter
-	containername = "\improper Supermatter crate (CAUTION)"
-	access = access_ce
-
 /decl/hierarchy/supply_pack/engineering/robotics
 	name = "Parts - Robotics assembly"
 	contains = list(/obj/item/assembly/prox_sensor = 3,
-					/obj/item/storage/toolbox/electrical,
+					/obj/item/toolbox/electrical,
 					/obj/item/flash = 4,
 					/obj/item/cell/high = 2)
 	containertype = /obj/structure/closet/crate/secure/gear
@@ -193,7 +179,7 @@
 					/obj/item/stock_parts/manipulator,
 					/obj/item/stock_parts/subspace/filter,
 					/obj/item/stock_parts/subspace/crystal,
-					/obj/item/storage/toolbox/electrical)
+					/obj/item/toolbox/electrical)
 	containername = "emergency communication relay assembly kit"
 
 /decl/hierarchy/supply_pack/engineering/firefighter

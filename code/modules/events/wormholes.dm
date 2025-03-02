@@ -17,7 +17,9 @@
 	var/list/areas = area_repository.get_areas_by_z_level()
 	for(var/i in areas)
 		var/area/A = areas[i]
-		for(var/turf/simulated/floor/T in A)
+		for(var/turf/T in A)
+			if(!T.is_floor() || !T.simulated)
+				continue
 			if(!(T.z in affecting_z))
 				continue
 			if(isAdminLevel(T.z))
@@ -33,7 +35,7 @@
 		wormholes += create_wormhole(enter, exit)
 
 /datum/event/wormholes/announce()
-	command_announcement.Announce("Space-time anomalies detected on the station. There is no additional data.", "[location_name()] Sensor Array", zlevels = affecting_z)
+	global.using_map.space_time_anomaly_detected_annoncement(affecting_z)
 
 /datum/event/wormholes/tick()
 	if(activeFor % shift_frequency == 0)
@@ -48,6 +50,6 @@
 /proc/create_wormhole(turf/enter, turf/exit)
 	if(!enter || !exit)
 		return
-	var/obj/effect/portal/wormhole/W = new (enter)
-	W.target = exit
-	return W
+	var/obj/effect/portal/wormhole/wormhole = new (enter)
+	wormhole.target = exit
+	return wormhole

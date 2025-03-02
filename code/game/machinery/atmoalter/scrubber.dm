@@ -6,7 +6,7 @@
 	density = TRUE
 	w_class = ITEM_SIZE_NORMAL
 	base_type = /obj/machinery/portable_atmospherics/powered/scrubber
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE
+	atom_flags = ATOM_FLAG_CLIMBABLE
 	movable_flags = MOVABLE_FLAG_WHEELED
 	var/volume_rate = 800
 
@@ -49,7 +49,7 @@
 	if(holding)
 		overlays += "scrubber-open"
 
-	if(connected_port)
+	if(get_port())
 		overlays += "scrubber-connector"
 
 /obj/machinery/portable_atmospherics/powered/scrubber/Process()
@@ -95,7 +95,7 @@
 /obj/machinery/portable_atmospherics/powered/scrubber/ui_interact(mob/user, ui_key = "rcon", datum/nanoui/ui=null, force_open=1)
 	var/list/data[0]
 	var/obj/item/cell/cell = get_cell()
-	data["portConnected"] = connected_port ? 1 : 0
+	data["portConnected"] = get_port() ? 1 : 0
 	data["tankPressure"] = round(air_contents.return_pressure() > 0 ? air_contents.return_pressure() : 0)
 	data["rate"] = round(volume_rate)
 	data["minrate"] = round(minrate)
@@ -148,7 +148,7 @@
 
 //Huge scrubber
 /obj/machinery/portable_atmospherics/powered/scrubber/huge
-	name = "Huge Air Scrubber"
+	name = "huge air scrubber"
 	icon_state = "scrubber:0"
 	anchored = TRUE
 	volume = 50000
@@ -181,31 +181,31 @@
 	cut_overlays()
 	icon_state = "scrubber:[!!((use_power == POWER_USE_ACTIVE) && !(stat & (NOPOWER|BROKEN)))]"
 
-/obj/machinery/portable_atmospherics/powered/scrubber/huge/attackby(var/obj/item/I, var/mob/user)
-	if(IS_WRENCH(I))
+/obj/machinery/portable_atmospherics/powered/scrubber/huge/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_WRENCH(used_item))
 		if(use_power == POWER_USE_ACTIVE)
 			to_chat(user, "<span class='warning'>Turn \the [src] off first!</span>")
-			return
+			return TRUE
 
 		anchored = !anchored
 		playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
 		to_chat(user, "<span class='notice'>You [anchored ? "wrench" : "unwrench"] \the [src].</span>")
 
-		return
+		return TRUE
 	//doesn't hold tanks
-	if(istype(I, /obj/item/tank))
-		return
+	if(istype(used_item, /obj/item/tank))
+		return FALSE
 
 	return ..()
 
 
 /obj/machinery/portable_atmospherics/powered/scrubber/huge/stationary
-	name = "Stationary Air Scrubber"
+	name = "stationary air scrubber"
 	base_type = /obj/machinery/portable_atmospherics/powered/scrubber/huge/stationary
 
-/obj/machinery/portable_atmospherics/powered/scrubber/huge/stationary/attackby(var/obj/item/I, var/mob/user)
-	if(IS_WRENCH(I))
+/obj/machinery/portable_atmospherics/powered/scrubber/huge/stationary/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_WRENCH(used_item))
 		to_chat(user, "<span class='warning'>The bolts are too tight for you to unscrew!</span>")
-		return
+		return TRUE
 
 	return ..()

@@ -13,7 +13,7 @@
 /datum/gear_tweak/proc/tweak_gear_data(var/metadata, var/datum/gear_data)
 	return
 
-/datum/gear_tweak/proc/tweak_item(var/user, var/obj/item/I, var/metadata)
+/datum/gear_tweak/proc/tweak_item(mob/user, obj/item/gear, metadata)
 	return GEAR_TWEAK_SKIPPED
 
 /datum/gear_tweak/proc/tweak_description(var/description, var/metadata)
@@ -41,10 +41,20 @@
 		return input(user, "Choose a color.", title, metadata) as null|anything in valid_colors
 	return input(user, "Choose a color.", title, metadata) as color|null
 
-/datum/gear_tweak/color/tweak_item(var/user, var/obj/item/I, var/metadata)
+/datum/gear_tweak/color/tweak_item(mob/user, obj/item/gear, metadata)
 	if(valid_colors && !(metadata in valid_colors))
 		return GEAR_TWEAK_SKIPPED
-	I.color = sanitize_hexcolor(metadata, I.color)
+	gear.set_color(sanitize_hexcolor(metadata, gear.get_color()))
+	return GEAR_TWEAK_SUCCESS
+
+// This subtype sets the markings color for clothing.
+/datum/gear_tweak/color/markings/get_contents(var/metadata)
+	return "Secondary color: <font color='[metadata]'>&#9899;</font>"
+
+/datum/gear_tweak/color/markings/tweak_item(mob/user, obj/item/clothing/clothes, metadata)
+	if(valid_colors && !(metadata in valid_colors))
+		return GEAR_TWEAK_SKIPPED
+	clothes.markings_color = sanitize_hexcolor(metadata, clothes.markings_color)
 	return GEAR_TWEAK_SUCCESS
 
 /*
@@ -134,7 +144,7 @@
 		else
 			return metadata
 
-/datum/gear_tweak/contents/tweak_item(var/owner, var/obj/item/I, var/list/metadata)
+/datum/gear_tweak/contents/tweak_item(mob/user, obj/item/gear, metadata)
 	if(length(metadata) != length(valid_contents))
 		return GEAR_TWEAK_SKIPPED
 	for(var/i = 1 to valid_contents.len)
@@ -148,7 +158,7 @@
 		else
 			path = 	contents[metadata[i]]
 		if(path)
-			new path(I)
+			new path(gear)
 		else
 			log_debug("Failed to tweak item: Index [i] in [json_encode(metadata)] did not result in a valid path. Valid contents: [json_encode(valid_contents)]")
 	return GEAR_TWEAK_SUCCESS
@@ -175,7 +185,7 @@
 	if(!.)
 		return metadata
 
-/datum/gear_tweak/reagents/tweak_item(var/user, var/obj/item/I, var/list/metadata)
+/datum/gear_tweak/reagents/tweak_item(mob/user, obj/item/gear, metadata)
 	if(metadata == "None")
 		return GEAR_TWEAK_SKIPPED
 	var/reagent
@@ -183,8 +193,9 @@
 		reagent = valid_reagents[pick(valid_reagents)]
 	else
 		reagent = valid_reagents[metadata]
-	if(reagent)
-		I.reagents.add_reagent(reagent, REAGENTS_FREE_SPACE(I.reagents))
+	if(reagent && gear.reagents)
+		gear.reagents?.clear_reagents() // in case we're applying to an existing item with reagents
+		gear.add_to_reagents(reagent, REAGENTS_FREE_SPACE(gear.reagents))
 	return GEAR_TWEAK_SUCCESS
 
 /*
@@ -202,11 +213,12 @@
 	src.additional_arguments = additional_arguments
 	..()
 
-/datum/gear_tweak/custom_setup/tweak_item(var/user, var/item)
-	var/arglist = list(user)
+/datum/gear_tweak/custom_setup/tweak_item(mob/user, obj/item/gear, metadata)
+	var/list/arglist = list(user)
 	if(length(additional_arguments))
 		arglist += additional_arguments
-	call(item, custom_setup_proc)(arglist(arglist))
+	call(gear, custom_setup_proc)(arglist(arglist))
+	arglist.Cut()
 	return GEAR_TWEAK_SUCCESS
 
 /*
@@ -358,31 +370,31 @@
 	for(var/i in 1 to TWEAKABLE_COMPUTER_PART_SLOTS)
 		. += 1
 
-/datum/gear_tweak/tablet/tweak_item(var/user, var/obj/item/modular_computer/tablet/I, var/list/metadata)
+/datum/gear_tweak/tablet/tweak_item(mob/user, obj/item/gear, metadata)
 	if(length(metadata) < TWEAKABLE_COMPUTER_PART_SLOTS)
 		return GEAR_TWEAK_SKIPPED
-	var/datum/extension/assembly/modular_computer/assembly = get_extension(I, /datum/extension/assembly)
+	var/datum/extension/assembly/modular_computer/assembly = get_extension(gear, /datum/extension/assembly)
 	if(ValidProcessors[metadata[1]])
 		var/t = ValidProcessors[metadata[1]]
-		assembly.add_replace_component(null, PART_CPU, new t(I))
+		assembly.add_replace_component(null, PART_CPU, new t(gear))
 	if(ValidBatteries[metadata[2]])
 		var/t = ValidBatteries[metadata[2]]
-		assembly.add_replace_component(null, PART_BATTERY, new t(I))
+		assembly.add_replace_component(null, PART_BATTERY, new t(gear))
 	if(ValidHardDrives[metadata[3]])
 		var/t = ValidHardDrives[metadata[3]]
-		assembly.add_replace_component(null, PART_HDD, new t(I))
+		assembly.add_replace_component(null, PART_HDD, new t(gear))
 	if(ValidNetworkCards[metadata[4]])
 		var/t = ValidNetworkCards[metadata[4]]
-		assembly.add_replace_component(null, PART_NETWORK, new t(I))
+		assembly.add_replace_component(null, PART_NETWORK, new t(gear))
 	if(ValidNanoPrinters[metadata[5]])
 		var/t = ValidNanoPrinters[metadata[5]]
-		assembly.add_replace_component(null, PART_PRINTER, new t(I))
+		assembly.add_replace_component(null, PART_PRINTER, new t(gear))
 	if(ValidCardSlots[metadata[6]])
 		var/t = ValidCardSlots[metadata[6]]
-		assembly.add_replace_component(null, PART_CARD, new t(I))
+		assembly.add_replace_component(null, PART_CARD, new t(gear))
 	if(ValidTeslaLinks[metadata[7]])
 		var/t = ValidTeslaLinks[metadata[7]]
-		assembly.add_replace_component(null, PART_TESLA, new t(I))
+		assembly.add_replace_component(null, PART_TESLA, new t(gear))
 	return GEAR_TWEAK_SUCCESS
 
 /*
@@ -409,9 +421,9 @@ var/global/datum/gear_tweak/custom_name/gear_tweak_free_name = new()
 		return input(user, "Choose an item name.", CHARACTER_PREFERENCE_INPUT_TITLE, metadata) as null|anything in valid_custom_names
 	return sanitize(input(user, "Choose the item's name. Leave it blank to use the default name.", "Item Name", metadata) as text|null, MAX_LNAME_LEN)
 
-/datum/gear_tweak/custom_name/tweak_item(obj/item/I, metadata)
+/datum/gear_tweak/custom_name/tweak_item(mob/user, obj/item/gear, metadata)
 	if(metadata)
-		I.name = metadata
+		gear.set_custom_name(metadata)
 		return GEAR_TWEAK_SUCCESS
 	return GEAR_TWEAK_SKIPPED
 
@@ -439,8 +451,54 @@ var/global/datum/gear_tweak/custom_desc/gear_tweak_free_desc = new()
 		return input(user, "Choose an item description.", CHARACTER_PREFERENCE_INPUT_TITLE, metadata) as null|anything in valid_custom_desc
 	return sanitize(input(user, "Choose the item's description. Leave it blank to use the default description.", "Item Description", metadata) as message|null)
 
-/datum/gear_tweak/custom_desc/tweak_item(obj/item/I, metadata)
+/datum/gear_tweak/custom_desc/tweak_item(mob/user, obj/item/gear, metadata)
 	if(metadata)
-		I.desc = metadata
+		gear.set_custom_desc(metadata)
 		return GEAR_TWEAK_SUCCESS
 	return GEAR_TWEAK_SKIPPED
+
+/*
+* Material selection
+*/
+
+/datum/gear_tweak/material
+	var/list/valid_materials
+
+/datum/gear_tweak/material/New(var/list/_valid_materials)
+	if(!length(_valid_materials))
+		CRASH("No material paths given")
+	var/list/duplicate_keys = duplicates(_valid_materials)
+	if(duplicate_keys.len)
+		CRASH("Duplicate material names found: [english_list(duplicate_keys)]")
+	var/list/duplicate_values = duplicates(list_values(_valid_materials))
+	if(duplicate_values.len)
+		CRASH("Duplicate material types found: [english_list(duplicate_values)]")
+	// valid_materials, but with names sanitized to remove \improper
+	var/list/valid_materials_san = list()
+	for(var/mat_name in _valid_materials)
+		if(!istext(mat_name))
+			CRASH("Expected a text key, was [log_info_line(mat_name)]")
+		var/selection_type = _valid_materials[mat_name]
+		if(ispath(selection_type, /decl/material/solid))
+			var/decl/material/solid/mat = GET_DECL(selection_type)
+			if(mat?.phase_at_temperature() != MAT_PHASE_SOLID)
+				CRASH("Expected a room temperature solid, was [log_info_line(mat?.type) || "NULL"]")
+		else
+			CRASH("Expected a /decl/material/solid path, was [log_info_line(selection_type) || "NULL"]")
+		var/mat_name_san = replacetext(mat_name, "\improper", "")
+		valid_materials_san[mat_name_san] = selection_type
+	valid_materials = sortTim(_valid_materials, /proc/cmp_text_asc)
+
+/datum/gear_tweak/material/get_contents(var/metadata)
+	return "Material: [metadata]"
+
+/datum/gear_tweak/material/get_default()
+	return valid_materials[1]
+
+/datum/gear_tweak/material/get_metadata(var/user, var/metadata, title)
+	return input(user, "Choose a material.", CHARACTER_PREFERENCE_INPUT_TITLE, metadata) as null|anything in valid_materials
+
+/datum/gear_tweak/material/tweak_gear_data(var/metadata, var/datum/gear_data/gear_data)
+	if(!(metadata in valid_materials))
+		return
+	gear_data.material = valid_materials[metadata]

@@ -13,7 +13,7 @@
 	)
 	equipment = list(
 		/obj/item/forensics/sample_kit/swabs,
-		/obj/item/storage/evidence,
+		/obj/item/evidence,
 		/obj/item/forensics/sample_kit,
 		/obj/item/forensics/sample_kit/powder,
 		/obj/item/gripper/clerical,
@@ -36,7 +36,7 @@
 		SKILL_ANATOMY             = SKILL_ADEPT
 	)
 
-/obj/item/robot_module/flying/forensics/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/flying/forensics/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	var/obj/item/chems/spray/luminol/luminol = locate() in equipment
 	if(!luminol)
 		luminol = new(src)
@@ -44,5 +44,5 @@
 	if(luminol.reagents.total_volume < luminol.volume)
 		var/adding = min(luminol.volume-luminol.reagents.total_volume, 2*amount)
 		if(adding > 0)
-			luminol.reagents.add_reagent(/decl/material/liquid/luminol, adding)
+			luminol.add_to_reagents(/decl/material/liquid/luminol, adding)
 	..()

@@ -17,7 +17,7 @@ Must be implemented by subtypes.
 // Reads off the var value and returns it
 /decl/public_access/public_variable/proc/access_var(datum/owner)
 
-// Writes to the var. Returns true if change occured, false otherwise.
+// Writes to the var. Returns true if change occurred, false otherwise.
 // Subtypes shall call parent, and perform the actual write if the return value is true.
 // If the var has_updates, you must never modify the var except through this proc.
 /decl/public_access/public_variable/proc/write_var(datum/owner, new_value)
@@ -62,7 +62,7 @@ Must be implemented by subtypes.
 			return islist(new_value)
 		if(IC_FORMAT_INDEX)
 			return isnum(new_value)
-		
+
 /*
 Listener registration. You must unregister yourself if you are destroyed; the owner being destroyed will be handled automatically.
 */
@@ -75,7 +75,7 @@ Listener registration. You must unregister yourself if you are destroyed; the ow
 		return // Can try and register, but updates aren't coming
 	if(!listeners[owner])
 		listeners[owner] = list()
-		events_repository.register(/decl/observ/destroyed, owner, src, .proc/owner_destroyed)
+		events_repository.register(/decl/observ/destroyed, owner, src, PROC_REF(owner_destroyed))
 	LAZYADD(listeners[owner][listener], registered_proc)
 	return TRUE
 

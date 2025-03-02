@@ -9,12 +9,12 @@
  */
 /obj/item/a_gift
 	name = "gift"
-	desc = "PRESENTS!!!! eek!"
+	desc = "PRESENTS!!!! Eek!"
 	icon = 'icons/obj/items/gift_wrapped.dmi'
 	icon_state = "gift"
 	item_state = "gift"
 	randpixel = 10
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
 
 /obj/item/a_gift/Initialize()
 	. = ..()
@@ -28,17 +28,17 @@
 	if(!QDELETED(src))
 		qdel(src)
 
+// this can't be made, should it just be removed?
+// should it be made into a subtype of closet? of living statue?
 /obj/effect/spresent/relaymove(mob/user)
 	if (user.stat)
 		return
 	to_chat(user, "<span class='warning'>You can't move.</span>")
 
-/obj/effect/spresent/attackby(obj/item/W, mob/user)
-	..()
-
-	if(!IS_WIRECUTTER(W))
+/obj/effect/spresent/attackby(obj/item/used_item, mob/user)
+	if(!IS_WIRECUTTER(used_item))
 		to_chat(user, "<span class='warning'>I need wirecutters for that.</span>")
-		return
+		return TRUE
 
 	to_chat(user, "<span class='notice'>You cut open the present.</span>")
 
@@ -49,26 +49,28 @@
 			M.client.perspective = MOB_PERSPECTIVE
 
 	qdel(src)
+	return TRUE
 
 /obj/item/a_gift/attack_self(mob/M)
 	var/gift_type = pick(
-		/obj/item/storage/wallet,
-		/obj/item/storage/photo_album,
-		/obj/item/storage/box/snappops,
-		/obj/item/storage/fancy/crayons,
-		/obj/item/storage/backpack/holding,
-		/obj/item/storage/belt/champion,
-		/obj/item/pickaxe/silver,
+		/obj/item/wallet,
+		/obj/item/photo_album,
+		/obj/item/box/snappops,
+		/obj/item/box/fancy/crayons,
+		/obj/item/backpack/holding,
+		/obj/item/belt/champion,
+		/obj/item/tool/pickaxe/titanium,
 		/obj/item/pen/invisible,
-		/obj/random/lipstick,
+		/obj/random/makeup,
 		/obj/item/grenade/smokebomb,
 		/obj/item/corncob,
-		/obj/item/contraband/poster,
+		/obj/item/poster,
 		/obj/item/book/manual/barman_recipes,
 		/obj/item/book/manual/chef_recipes,
 		/obj/item/bikehorn,
-		/obj/item/beach_ball,
-		/obj/item/beach_ball/holoball,
+		/obj/item/ball,
+		/obj/item/ball/basketball,
+		/obj/item/ball/volleyball,
 		/obj/item/chems/water_balloon,
 		/obj/item/toy/blink,
 		/obj/item/gun/launcher/foam/crossbow,
@@ -87,15 +89,15 @@
 		/obj/item/toy/prize/seraph,
 		/obj/item/toy/spinningtoy,
 		/obj/item/energy_blade/sword/toy,
-		/obj/item/chems/food/grown/ambrosiadeus,
-		/obj/item/chems/food/grown/ambrosiavulgaris,
+		/obj/item/food/grown/ambrosiadeus,
+		/obj/item/food/grown/ambrosiavulgaris,
 		/obj/item/paicard,
 		/obj/item/synthesized_instrument/violin,
-		/obj/item/storage/belt/utility/full,
-		/obj/item/clothing/accessory/horrible,
-		/obj/item/storage/box/large/foam_gun,
-		/obj/item/storage/box/large/foam_gun/burst,
-		/obj/item/storage/box/large/foam_gun/revolver)
+		/obj/item/belt/utility/full,
+		/obj/item/clothing/neck/tie/horrible,
+		/obj/item/box/large/foam_gun,
+		/obj/item/box/large/foam_gun/burst,
+		/obj/item/box/large/foam_gun/revolver)
 
 	if(!ispath(gift_type,/obj/item))	return
 

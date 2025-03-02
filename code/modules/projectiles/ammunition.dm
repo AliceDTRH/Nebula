@@ -4,12 +4,16 @@
 	icon = 'icons/obj/ammo.dmi'
 	icon_state = "pistolcasing"
 	randpixel = 10
-	obj_flags = OBJ_FLAG_CONDUCTIBLE
+	obj_flags = OBJ_FLAG_CONDUCTIBLE | OBJ_FLAG_HOLLOW
 	slot_flags = SLOT_LOWER_BODY | SLOT_EARS
-	throwforce = 1
 	w_class = ITEM_SIZE_TINY
-	obj_flags = OBJ_FLAG_HOLLOW
 	material = /decl/material/solid/metal/brass
+	material_alteration = MAT_FLAG_ALTERATION_COLOR | MAT_FLAG_ALTERATION_NAME
+	drop_sound = list(
+		'sound/weapons/guns/casingfall1.ogg',
+		'sound/weapons/guns/casingfall2.ogg',
+		'sound/weapons/guns/casingfall3.ogg'
+	)
 
 	var/leaves_residue = 1
 	var/caliber = ""					//Which kind of guns it can be loaded into
@@ -18,7 +22,11 @@
 	var/spent_icon = "pistolcasing-spent"
 	var/bullet_color = COLOR_COPPER
 	var/marking_color
-	drop_sound = list('sound/weapons/guns/casingfall1.ogg','sound/weapons/guns/casingfall2.ogg','sound/weapons/guns/casingfall3.ogg')
+
+/obj/item/ammo_casing/get_contained_external_atoms()
+	. = ..()
+	if(. && BB)
+		LAZYREMOVE(., BB)
 
 /obj/item/ammo_casing/Initialize()
 	if(ispath(projectile_type))
@@ -31,40 +39,42 @@
 		pixel_y = rand(-randpixel, randpixel)
 	. = ..()
 
+/obj/item/ammo_casing/Destroy()
+	QDEL_NULL(BB)
+	return ..()
+
 //removes the projectile from the ammo casing
 /obj/item/ammo_casing/proc/expend()
 	. = BB
 	BB = null
 	set_dir(pick(global.alldirs)) //spin spent casings
-
 	// Aurora forensics port, gunpowder residue.
 	if(leaves_residue)
 		leave_residue()
-
 	update_icon()
+	update_name()
 
-/obj/item/ammo_casing/Crossed(atom/AM)
+/obj/item/ammo_casing/Crossed(atom/movable/AM)
 	..()
+	if(!isliving(AM))
+		return
 
-	if(isliving(AM))
-		var/mob/living/L = AM
+	var/mob/living/L = AM
+	if(L.buckled || MOVING_DELIBERATELY(L) || prob(90))
+		return
 
-		if(L.buckled)
-			return
-
-		if(!MOVING_DELIBERATELY(L) && prob(10))
-			playsound(src, pick(drop_sound), 50, 1)
-			var/turf/turf_current = get_turf(src)
-			var/turf/turf_destiinaton = get_step(turf_current, AM.dir)
-			if(turf_destiinaton.Adjacent(turf_current))
-				throw_at(turf_destiinaton, 2, 2, spin = FALSE)
-				animate(src, pixel_x = rand(-16, 16), pixel_y = rand(-16, 16), transform = turn(matrix(), rand(120, 300)), time = rand(3, 8))
+	playsound(src, pick(drop_sound), 50, 1)
+	var/turf/turf_current = get_turf(src)
+	var/turf/turf_destiinaton = get_step(turf_current, AM.dir)
+	if(turf_destiinaton.Adjacent(turf_current))
+		throw_at(turf_destiinaton, 2, 2, spin = FALSE)
+		animate(src, pixel_x = rand(-16, 16), pixel_y = rand(-16, 16), transform = turn(matrix(), rand(120, 300)), time = rand(3, 8))
 
 /obj/item/ammo_casing/proc/leave_residue()
 	var/obj/item/gun/G = get_recursive_loc_of_type(/obj/item/gun)
 	if(G)
 		put_residue_on(G)
-		var/mob/living/carbon/human/H = G.get_recursive_loc_of_type(/mob/living/carbon/human)
+		var/mob/living/human/H = G.get_recursive_loc_of_type(/mob/living/human)
 		if(H)
 			var/holding_slot = H.get_held_slot_for_item(G)
 			if(holding_slot)
@@ -79,23 +89,24 @@
 		var/datum/extension/forensic_evidence/forensics = get_or_create_extension(A, /datum/extension/forensic_evidence)
 		forensics.add_from_atom(/datum/forensics/gunshot_residue, src)
 
-/obj/item/ammo_casing/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W))
-		if(!BB)
-			to_chat(user, "<span class='notice'>There is no bullet in the casing to inscribe anything into.</span>")
-			return
+/obj/item/ammo_casing/attackby(obj/item/used_item, mob/user)
+	if(!IS_SCREWDRIVER(used_item))
+		return ..()
+	if(!BB)
+		to_chat(user, "<span class='notice'>There is no bullet in the casing to inscribe anything into.</span>")
+		return TRUE
 
-		var/tmp_label = ""
-		var/label_text = sanitize_safe(input(user, "Inscribe some text into \the [initial(BB.name)]","Inscription",tmp_label), MAX_NAME_LEN)
-		if(length(label_text) > 20)
-			to_chat(user, "<span class='warning'>The inscription can be at most 20 characters long.</span>")
-		else if(!label_text)
-			to_chat(user, "<span class='notice'>You scratch the inscription off of [initial(BB)].</span>")
-			BB.SetName(initial(BB.name))
-		else
-			to_chat(user, "<span class='notice'>You inscribe \"[label_text]\" into \the [initial(BB.name)].</span>")
-			BB.SetName("[initial(BB.name)] (\"[label_text]\")")
-	else ..()
+	var/tmp_label = ""
+	var/label_text = sanitize_safe(input(user, "Inscribe some text into \the [initial(BB.name)]","Inscription",tmp_label), MAX_NAME_LEN)
+	if(length(label_text) > 20)
+		to_chat(user, "<span class='warning'>The inscription can be at most 20 characters long.</span>")
+	else if(!label_text)
+		to_chat(user, "<span class='notice'>You scratch the inscription off of [initial(BB)].</span>")
+		BB.SetName(initial(BB.name))
+	else
+		to_chat(user, "<span class='notice'>You inscribe \"[label_text]\" into \the [initial(BB.name)].</span>")
+		BB.SetName("[initial(BB.name)] (\"[label_text]\")")
+	return TRUE
 
 /obj/item/ammo_casing/on_update_icon()
 	. = ..()
@@ -111,12 +122,17 @@
 	else if(spent_icon && !BB)
 		icon_state = spent_icon
 
-/obj/item/ammo_casing/examine(mob/user)
+/obj/item/ammo_casing/update_name()
+	. = ..()
+	if(!BB)
+		SetName("spent [name]")
+
+/obj/item/ammo_casing/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(caliber)
-		to_chat(user, "Its caliber is [caliber].")
+		. += "Its caliber is [caliber]."
 	if (!BB)
-		to_chat(user, "This one is spent.")
+		. += "This one is spent."
 
 //An item that holds casings and can be used to put them inside guns
 /obj/item/ammo_magazine
@@ -128,7 +144,6 @@
 	slot_flags = SLOT_LOWER_BODY
 	item_state = "syringe_kit"
 	material = /decl/material/solid/metal/steel
-	throwforce = 5
 	w_class = ITEM_SIZE_SMALL
 	throw_speed = 4
 	throw_range = 10
@@ -147,8 +162,35 @@
 	var/list/icon_keys = list()		//keys
 	var/list/ammo_states = list()	//values
 
+	/// Determines whether or not we wait until the first time our contents are gotten to initialize contents. May lead to icon bugs if not handled delicately.
+	var/lazyload_contents = TRUE
+	/// Whether or not our contents have been initialized or not, used in lazyloaded contents.
+	var/contents_initialized = FALSE
+
 /obj/item/ammo_magazine/box
 	w_class = ITEM_SIZE_NORMAL
+
+/obj/item/ammo_magazine/proc/create_initial_contents()
+	if(contents_initialized || !initial_ammo || !ammo_type)
+		return
+	for(var/i in 1 to initial_ammo)
+		stored_ammo += new ammo_type(src)
+	contents_initialized = TRUE
+
+/obj/item/ammo_magazine/get_contained_matter()
+	. = ..()
+	if(!lazyload_contents || contents_initialized || !ammo_type || !initial_ammo)
+		return
+	// Add our expected matter from lazyloaded stuff.
+	var/list/ammo_matter = atom_info_repository.get_matter_for(ammo_type).Copy()
+	for(var/matter_entry in ammo_matter)
+		ammo_matter[matter_entry] *= initial_ammo
+	. = MERGE_ASSOCS_WITH_NUM_VALUES(., ammo_matter)
+
+/obj/item/ammo_magazine/proc/get_stored_ammo_count()
+	. = length(stored_ammo)
+	if(!contents_initialized)
+		. += initial_ammo
 
 /obj/item/ammo_magazine/Initialize()
 	. = ..()
@@ -158,32 +200,33 @@
 	if(isnull(initial_ammo))
 		initial_ammo = max_ammo
 
-	if(initial_ammo)
-		for(var/i in 1 to initial_ammo)
-			stored_ammo += new ammo_type(src)
+	if(!lazyload_contents)
+		create_initial_contents()
 	if(caliber)
 		LAZYINSERT(labels, caliber, 1)
 	if(LAZYLEN(labels))
 		SetName("[name] ([english_list(labels, and_text = ", ")])")
 	update_icon()
 
-/obj/item/ammo_magazine/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/ammo_casing))
-		var/obj/item/ammo_casing/C = W
-		if(C.caliber != caliber)
-			to_chat(user, "<span class='warning'>[C] does not fit into [src].</span>")
-			return
-		if(stored_ammo.len >= max_ammo)
-			to_chat(user, "<span class='warning'>[src] is full!</span>")
-			return
-		if(!user.try_unequip(C, src))
-			return
-		stored_ammo.Add(C)
-		playsound(user, 'sound/weapons/guns/interaction/bullet_insert.ogg', 50, 1)
-		update_icon()
-	else ..()
+/obj/item/ammo_magazine/attackby(obj/item/used_item, mob/user)
+	if(!istype(used_item, /obj/item/ammo_casing))
+		return ..()
+	var/obj/item/ammo_casing/C = used_item
+	if(C.caliber != caliber)
+		to_chat(user, "<span class='warning'>[C] does not fit into [src].</span>")
+		return TRUE
+	if(get_stored_ammo_count() >= max_ammo)
+		to_chat(user, "<span class='warning'>[src] is full!</span>")
+		return TRUE
+	if(!user.try_unequip(C, src))
+		return TRUE
+	stored_ammo.Add(C)
+	playsound(user, 'sound/weapons/guns/interaction/bullet_insert.ogg', 50, 1)
+	update_icon()
+	return TRUE
 
 /obj/item/ammo_magazine/attack_self(mob/user)
+	create_initial_contents()
 	if(!stored_ammo.len)
 		to_chat(user, "<span class='notice'>[src] is already empty!</span>")
 		return
@@ -198,6 +241,7 @@
 /obj/item/ammo_magazine/attack_hand(mob/user)
 	if(!user.is_holding_offhand(src) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
 		return ..()
+	create_initial_contents()
 	if(!stored_ammo.len)
 		to_chat(user, SPAN_NOTICE("\The [src] is already empty!"))
 		return TRUE
@@ -214,18 +258,20 @@
 /obj/item/ammo_magazine/on_update_icon()
 	. = ..()
 	if(multiple_sprites)
-		//find the lowest key greater than or equal to stored_ammo.len
+		//find the lowest key greater than or equal to our ammo count
 		var/new_state = null
+		var/self_ammo_count = get_stored_ammo_count()
 		for(var/idx in 1 to icon_keys.len)
-			var/ammo_count = icon_keys[idx]
-			if (ammo_count >= stored_ammo.len)
+			var/icon_ammo_count = icon_keys[idx]
+			if (icon_ammo_count >= self_ammo_count)
 				new_state = ammo_states[idx]
 				break
 		icon_state = (new_state)? new_state : initial(icon_state)
 
-/obj/item/ammo_magazine/examine(mob/user)
+/obj/item/ammo_magazine/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "There [(stored_ammo.len == 1)? "is" : "are"] [stored_ammo.len] round\s left!")
+	var/self_ammo_count = get_stored_ammo_count()
+	. += "There [(self_ammo_count == 1)? "is" : "are"] [self_ammo_count] round\s left!"
 
 //magazine icon state caching
 var/global/list/magazine_icondata_keys = list()
@@ -242,10 +288,9 @@ var/global/list/magazine_icondata_states = list()
 /proc/magazine_icondata_cache_add(var/obj/item/ammo_magazine/M)
 	var/list/icon_keys = list()
 	var/list/ammo_states = list()
-	var/list/states = icon_states(M.icon)
 	for(var/i = 0, i <= M.max_ammo, i++)
 		var/ammo_state = "[M.icon_state]-[i]"
-		if(ammo_state in states)
+		if(check_state_in_icon(ammo_state, M.icon))
 			icon_keys += i
 			ammo_states += ammo_state
 

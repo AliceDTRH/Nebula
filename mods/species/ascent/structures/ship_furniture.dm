@@ -1,12 +1,11 @@
-MANTIDIFY(/obj/structure/bed/chair/padded/purple, "mantid nest", "resting place")
+MANTIDIFY(/obj/structure/chair/padded/purple, "mantid nest", "resting place") // sets up name, description and color
 
-/obj/structure/bed/chair/padded/purple/ascent
-	icon_state = "nest_chair"
-	pixel_z = 0
+/obj/structure/chair/padded/purple/ascent // sets up icon and offsets
+	icon = 'mods/species/ascent/icons/furniture/chair_nest.dmi'
 
-/obj/structure/bed/chair/padded/purple/ascent/gyne
+/obj/structure/chair/padded/purple/ascent/gyne
 	name = "mantid throne"
-	icon_state = "nest_chair_large"
+	icon = 'mods/species/ascent/icons/furniture/chair_nest_large.dmi'
 
 /obj/structure/ascent_spawn
 	name = "mantid cryotank"
@@ -41,7 +40,7 @@ MANTIDIFY(/obj/structure/bed/chair/padded/purple, "mantid nest", "resting place"
 	desc = "An alien device housing liquid for alien purposes."
 	icon = 'mods/species/ascent/icons/ascent_doodads.dmi'
 	cups = 50
-	cup_type = /obj/item/chems/food/hydration
+	cup_type = /obj/item/food/hydration
 
 /obj/structure/reagent_dispensers/water_cooler/ascent/dispense_cup(mob/user, skip_text)
 	. = ..(user, TRUE)

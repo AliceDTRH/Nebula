@@ -1,19 +1,11 @@
 /datum/universal_state/nuclear_explosion
 	name = "Nuclear Demolition Warhead"
 	var/atom/explosion_source
-	var/obj/screen/cinematic
+	var/obj/screen/cinematic/cinematic
 
 /datum/universal_state/nuclear_explosion/New(atom/nuke)
 	explosion_source = nuke
-
-	//create the cinematic screen obj
 	cinematic = new
-	cinematic.icon = 'icons/effects/station_explosion.dmi'
-	cinematic.icon_state = "station_intact"
-	cinematic.plane = HUD_PLANE
-	cinematic.layer = HUD_ABOVE_ITEM_LAYER
-	cinematic.mouse_opacity = MOUSE_OPACITY_PRIORITY
-	cinematic.screen_loc = "LEFT+1,BOTTOM"
 
 /datum/universal_state/nuclear_explosion/OnEnter()
 	set waitfor = FALSE
@@ -46,7 +38,7 @@
 		SSticker.mode.station_was_nuked = 1
 		SSticker.mode.station_explosion_in_progress = FALSE
 		if(!SSticker.mode.check_finished())//If the mode does not deal with the nuke going off so just reboot because everyone is stuck as is
-			universe_has_ended = 1
+			universe_has_ended = TRUE
 
 /datum/universal_state/nuclear_explosion/OnExit()
 	if(SSticker.mode)
@@ -57,7 +49,7 @@
 		var/turf/T = get_turf(L)
 		if(T && (T.z in affected_z_levels))
 			//this is needed because dusting resets client screen 1.5 seconds after being called (delayed due to the dusting animation)
-			var/mob/ghost = L.ghostize(0) //So we ghostize them right beforehand instead
+			var/mob/ghost = L.ghostize(CORPSE_CANNOT_REENTER) //So we ghostize them right beforehand instead
 			if(ghost && ghost.client)
 				ghost.client.screen += cinematic
 			L.dust() //then dust the body

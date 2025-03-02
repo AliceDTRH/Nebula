@@ -39,8 +39,14 @@
 /obj/machinery/atmospherics/binary/stirling/Process()
 	..()
 
+	if(!active)
+		return
+
 	var/line1_heatcap = air1.heat_capacity()
 	var/line2_heatcap = air2.heat_capacity()
+
+	if(!(line1_heatcap + line2_heatcap))
+		return
 
 	var/delta_t = air1.temperature - air2.temperature
 
@@ -50,8 +56,8 @@
 	// Some passive equilibrium between the lines.
 	var/passive_heat_transfer = min(HEAT_TRANSFER*abs(delta_t), line_equilibrium_heat)
 
-	air1.add_thermal_energy(-sign(delta_t)*passive_heat_transfer)
-	air2.add_thermal_energy(sign(delta_t)*passive_heat_transfer)
+	air1.add_thermal_energy(-(SIGN(delta_t))*passive_heat_transfer)
+	air2.add_thermal_energy( (SIGN(delta_t))*passive_heat_transfer)
 
 	if(!istype(inserted_cylinder))
 		return
@@ -96,7 +102,7 @@
 	var/work_coefficient = working_volume.get_total_moles()*R_IDEAL_GAS_EQUATION*log(1.5)
 
 	// Direction of heat flow, 1 for air1 -> air 2, -1 for air2 -> air 1
-	var/heat_dir = sign(delta_t)
+	var/heat_dir = SIGN(delta_t)
 
 	// We multiply by the cycle frequency to get reasonable values for power generation.
 	// Energy is still conserved, but the efficiency of the engine is slightly overestimated.
@@ -127,40 +133,39 @@
 	last_genlev = genlev
 	update_networks()
 
-/obj/machinery/atmospherics/binary/stirling/examine(mob/user, distance)
+/obj/machinery/atmospherics/binary/stirling/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	if(distance > 1)
-		return
-	if(active)
-		to_chat(user, "\The [src] is generating [round(last_gen/1000, 0.1)] kW")
-	if(!inserted_cylinder)
-		to_chat(user, "There is no piston cylinder inserted into \the [src].")
+	if(distance <= 1)
+		if(active)
+			. += "\The [src] is generating [round(last_gen/1000, 0.1)] kW"
+		if(!inserted_cylinder)
+			. += "There is no piston cylinder inserted into \the [src]."
 
-/obj/machinery/atmospherics/binary/stirling/attackby(var/obj/item/W, var/mob/user)
-	if((istype(W, /obj/item/tank/stirling)))
+/obj/machinery/atmospherics/binary/stirling/attackby(var/obj/item/used_item, var/mob/user)
+	if((istype(used_item, /obj/item/tank/stirling)))
 		if(inserted_cylinder)
-			return
-		if(!user.try_unequip(W, src))
-			return
-		to_chat(user, SPAN_NOTICE("You insert \the [W] into \the [src]."))
-		inserted_cylinder = W
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		to_chat(user, SPAN_NOTICE("You insert \the [used_item] into \the [src]."))
+		inserted_cylinder = used_item
 		update_icon()
 		return TRUE
 
 	if(!panel_open)
-		if(IS_CROWBAR(W) && inserted_cylinder)
+		if(IS_CROWBAR(used_item) && inserted_cylinder)
 			inserted_cylinder.dropInto(get_turf(src))
 			to_chat(user, SPAN_NOTICE("You remove \the [inserted_cylinder] from \the [src]."))
 			inserted_cylinder = null
 			stop_engine()
 			return TRUE
 
-		if(IS_WRENCH(W))
+		if(IS_WRENCH(used_item))
 			var/target_frequency = input(user, "Enter the cycle frequency you would like \the [src] to operate at ([MAX_FREQUENCY/4] - [MAX_FREQUENCY] Hz)", "Stirling Frequency", cycle_frequency) as num | null
 			if(!CanPhysicallyInteract(user) || !target_frequency)
-				return
+				return TRUE
 			cycle_frequency = round(clamp(target_frequency, MAX_FREQUENCY/4, MAX_FREQUENCY))
-			to_chat(usr, SPAN_NOTICE("You adjust \the [src] to operate at a frequency of [cycle_frequency] Hz."))
+			to_chat(user, SPAN_NOTICE("You adjust \the [src] to operate at a frequency of [cycle_frequency] Hz."))
 			return TRUE
 
 	. = ..()
@@ -172,12 +177,13 @@
 
 	if(!inserted_cylinder)
 		to_chat(user, SPAN_WARNING("You must insert a stirling piston cylinder into \the [src] before you can start it!"))
-		return
+		return TRUE
 	to_chat(user, "You start trying to manually rev up \the [src].")
 	if(do_after(user, 2 SECONDS, src) && !active && inserted_cylinder && !(stat & BROKEN))
 		visible_message("[user] pulls on the starting cord of \the [src], revving it up!", "You pull on the starting cord of \the [src], revving it up!")
 		playsound(src.loc, 'sound/machines/engine.ogg', 35, 1)
 		active = TRUE
+	return TRUE
 
 /obj/machinery/atmospherics/binary/stirling/on_update_icon()
 	cut_overlays()

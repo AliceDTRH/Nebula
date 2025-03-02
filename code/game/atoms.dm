@@ -1,8 +1,8 @@
 /atom
-	/// (1 | 2) Determines if this atom is below `1` or above `2` plating. TODO: Use defines.
-	var/level = 2
+	/// (DEFINE) Determines where this atom sits in terms of turf plating. See misc.dm
+	var/level = LEVEL_ABOVE_PLATING
 	/// (BITFLAG) See flags.dm
-	var/atom_flags = ATOM_FLAG_NO_TEMP_CHANGE
+	var/atom_flags = 0
 	/// (FLOAT) The world.time that this atom last bumped another. Used mostly by mobs.
 	var/last_bumped = 0
 	/// (BITFLAG) See flags.dm
@@ -24,11 +24,11 @@
 	/// (DICTIONARY) A lazy map. The `key` is a MD5 player name and the `value` is the blood type.
 	var/list/blood_DNA
 	/// (BOOL) If this atom was bloodied before.
-	var/was_bloodied
+	var/was_bloodied = FALSE
 	/// (COLOR) The color of the blood shown on blood overlays.
 	var/blood_color
-	/// (1 | 2 | 3) If it shows up under UV light. 0 doesn't, 1 does, 2 is currently glowing due to UV light. TODO: Use defines
-	var/fluorescent
+	/// (FALSE|DEFINES) How this atom is interacting with UV light. See misc.dm
+	var/fluorescent = FALSE
 
 
 	/// (LIST) A list of all mobs that are climbing or currently on this atom
@@ -52,6 +52,26 @@
 	var/tmp/default_pixel_z
 	var/tmp/default_pixel_w
 
+	/// (FLOAT) Current remaining health value.
+	var/current_health
+	/// (FLOAT) Theoretical maximum health value.
+	var/max_health
+
+	/// (BOOL) Does this atom respond to changes in local temperature via the `temperature` var?
+	var/temperature_sensitive = FALSE
+	/// (DATUM) /datum/storage instance to use for this obj. Set to a type for instantiation on init.
+	var/datum/storage/storage
+	/// (FLOAT) world.time of last on_reagent_update call, used to prevent recursion due to reagents updating reagents
+	VAR_PRIVATE/_reagent_update_started = 0
+
+/atom/proc/get_max_health()
+	return max_health
+
+/atom/proc/get_health_ratio()
+	return current_health/get_max_health()
+
+/atom/proc/get_health_percent(var/sigfig = 1)
+	return round(get_health_ratio()*100, sigfig)
 
 /**
 	Adjust variables prior to Initialize() based on the map
@@ -82,6 +102,13 @@
 	return null
 
 /**
+	Merge an exhaled air volume into air contents..
+*/
+/atom/proc/merge_exhaled_volume(datum/gas_mixture/exhaled)
+	var/datum/gas_mixture/environment = return_air()
+	environment?.merge(exhaled)
+
+/**
 	Get the air of this atom or its location's air
 
 	- Return: The `/datum/gas_mixture` of this atom
@@ -97,7 +124,7 @@
 	- TODO: Also sometimes handles resetting of view itself, probably should be more consistent.
 */
 /atom/proc/check_eye(user)
-	if (istype(user, /mob/living/silicon/ai)) // WHY
+	if (isAI(user)) // WHY
 		return 0
 	return -1
 
@@ -115,8 +142,23 @@
 	return 0
 
 /// Handle reagents being modified
+/atom/proc/try_on_reagent_change()
+	SHOULD_NOT_OVERRIDE(TRUE)
+	set waitfor = FALSE
+	if(QDELETED(src) || _reagent_update_started >= world.time)
+		return FALSE
+	_reagent_update_started = world.time
+	sleep(0) // Defer to end of tick so we don't drop subsequent reagent updates.
+	if(QDELETED(src))
+		return
+	return on_reagent_change()
+
 /atom/proc/on_reagent_change()
-	return
+	SHOULD_CALL_PARENT(TRUE)
+	if(storage && reagents?.total_volume)
+		for(var/obj/item/thing in get_stored_inventory())
+			thing.fluid_act(reagents)
+	return TRUE
 
 /**
 	Handle an atom bumping this atom
@@ -143,7 +185,7 @@
 	Handle an atom entering this atom's proximity
 
 	Called when an atom enters this atom's proximity. Both this and the other atom
-	need to have the PROXMOVE flag (as it helps reduce lag).
+	need to have the MOVABLE_FLAG_PROXMOVE flag (as it helps reduce lag).
 
 	- `AM`: The atom entering proximity
 	- Return: `TRUE` if proximity should continue to be handled, otherwise `FALSE`
@@ -174,7 +216,8 @@
 	SHOULD_CALL_PARENT(TRUE)
 	if(density != new_density)
 		density = !!new_density
-		RAISE_EVENT(/decl/observ/density_set, src, !density, density)
+		if(event_listeners?[/decl/observ/density_set])
+			raise_event_non_global(/decl/observ/density_set, !density, density)
 
 /**
 	Handle a projectile `P` hitting this atom
@@ -230,32 +273,68 @@
 	Overrides should either return the result of ..() or `TRUE` if not calling it.
 	Calls to ..() should generally not supply any arguments and instead rely on
 	BYOND's automatic argument passing. There is no need to check the return
-	value of ..(), this is only done by the calling `/examinate()` proc to validate
+	value of ..(), this is only done by the calling `/examine_verb()` proc to validate
 	the call chain.
 
 	- `user`: The mob examining this atom
 	- `distance`: The distance this atom is from the `user`
-	- `infix`: TODO
-	- `suffix`: TODO
+	- `infix`: An optional string appended directly to the 'That's an X' string, between the name the end of the sentence.
+	- `suffix`: An optional string appended in a separate sentence after the initial introduction line.
 	- Return: `TRUE` when the call chain is valid, otherwise `FALSE`
 	- Events: `atom_examined`
 */
-/atom/proc/examine(mob/user, distance, infix = "", suffix = "")
-	SHOULD_CALL_PARENT(TRUE)
-	//This reformat names to get a/an properly working on item descriptions when they are bloody
-	var/f_name = "\a [src][infix]."
-	if(blood_color && !istype(src, /obj/effect/decal))
-		if(gender == PLURAL)
-			f_name = "some "
-		else
-			f_name = "a "
-		f_name += "<font color ='[blood_color]'>stained</font> [name][infix]!"
-
-	to_chat(user, "[html_icon(src)] That's [f_name] [suffix]")
-	to_chat(user, desc)
+/atom/proc/examined_by(mob/user, distance, infix, suffix)
+	var/list/examine_lines
+	// to_chat(user, "<blockquote>") // these don't work in BYOND's native output panel. If we switch to browser output instead, you can readd this
+	for(var/add_lines in list(get_examine_header(user, distance, infix, suffix), get_examine_strings(user, distance, infix, suffix), get_examine_hints(user, distance, infix, suffix)))
+		if(islist(add_lines) && LAZYLEN(add_lines))
+			LAZYADD(examine_lines, add_lines)
+	if(LAZYLEN(examine_lines))
+		to_chat(user, jointext(examine_lines, "<br/>"))
+	// to_chat(user, "</blockquote>") // see above
 	RAISE_EVENT(/decl/observ/atom_examined, src, user, distance)
 	return TRUE
 
+// Name, displayed at the top.
+/atom/proc/get_examine_header(mob/user, distance, infix, suffix)
+	SHOULD_CALL_PARENT(TRUE)
+	var/article_name = name
+	if(is_improper(name)) // no 'that's bloody oily slimy Bob', that's just Bob
+		//This reformats names to get a/an properly working on item descriptions when they are bloody or coated in reagents.
+		var/examine_prefix = get_examine_prefix()
+		if(examine_prefix)
+			examine_prefix += " " // add a space to the end to be polite
+		article_name = ADD_ARTICLE_GENDER("[examine_prefix][name]", gender)
+	return list("[html_icon(src)] That's [article_name][infix][get_examine_punctuation()] [suffix]")
+
+// Main body of examine, displayed after the header and before hints.
+/atom/proc/get_examine_strings(mob/user, distance, infix, suffix)
+	SHOULD_CALL_PARENT(TRUE)
+	. = list()
+	if(desc)
+		. += desc
+
+// Addendum to examine, displayed at the bottom
+/atom/proc/get_examine_hints(mob/user, distance, infix, suffix)
+
+	SHOULD_CALL_PARENT(TRUE)
+
+	var/list/alt_interactions = get_alt_interactions(user)
+	if(LAZYLEN(alt_interactions))
+		var/list/interaction_strings = list()
+		for(var/interaction_type as anything in alt_interactions)
+			var/decl/interaction_handler/interaction = GET_DECL(interaction_type)
+			if(interaction.examine_desc && (interaction.always_show_on_examine || interaction.is_possible(src, user, user?.get_active_held_item())))
+				interaction_strings += emote_replace_target_tokens(interaction.examine_desc, src)
+		if(length(interaction_strings))
+			LAZYADD(., SPAN_INFO("Alt-click on \the [src] to [english_list(interaction_strings, and_text = " or ")]."))
+
+	var/decl/interaction_handler/handler = get_quick_interaction_handler(user)
+	if(handler)
+		LAZYADD(., SPAN_NOTICE("<b>Ctrl-click</b> \the [src] while in your inventory to [lowertext(handler.name)]."))
+
+	if(user?.get_preference_value(/datum/client_preference/inquisitive_examine) == PREF_ON && user.can_use_codex() && SScodex.get_codex_entry(get_codex_value(user)))
+		LAZYADD(., SPAN_NOTICE("The codex has <b><a href='byond://?src=\ref[SScodex];show_examined_info=\ref[src];show_to=\ref[user]'>relevant information</a></b> available."))
 
 /**
 	Relay movement to this atom.
@@ -300,7 +379,16 @@
 			if(L.light_angle)
 				L.source_atom.update_light()
 
-	RAISE_EVENT(/decl/observ/dir_set, src, old_dir, new_dir)
+	if(event_listeners?[/decl/observ/dir_set])
+		raise_event_non_global(/decl/observ/dir_set, old_dir, new_dir)
+
+
+/// Set the icon to `new_icon`
+/atom/proc/set_icon(new_icon)
+	if(icon != new_icon)
+		icon = new_icon
+		return TRUE
+	return FALSE
 
 /// Set the icon_state to `new_icon_state`
 /atom/proc/set_icon_state(var/new_icon_state)
@@ -319,8 +407,9 @@
 */
 /atom/proc/update_icon()
 	SHOULD_CALL_PARENT(TRUE)
-	on_update_icon(arglist(args))
-	RAISE_EVENT(/decl/observ/updated_icon, src)
+	on_update_icon()
+	if(event_listeners?[/decl/observ/updated_icon])
+		raise_event_non_global(/decl/observ/updated_icon)
 
 /**
 	Update this atom's icon.
@@ -331,17 +420,45 @@
 	SHOULD_CALL_PARENT(FALSE) //Don't call the stub plz
 	return
 
+/**
+ * Returns the sum of this atoms's reagents plus the combined matter of all its contents.
+ * Obj adds matter contents. Other overrides may add extra handling for things like material storage.
+ * Most useful for calculating worth or deconstructing something along with its contents.
+ */
+/atom/proc/get_contained_matter()
+	if(length(reagents?.reagent_volumes))
+		LAZYINITLIST(.)
+		for(var/reagent in reagents.reagent_volumes)
+			.[reagent] += floor(REAGENT_VOLUME(reagents, reagent) / REAGENT_UNITS_PER_MATERIAL_UNIT)
+	for(var/atom/contained_obj as anything in get_contained_external_atoms()) // machines handle component parts separately
+		. = MERGE_ASSOCS_WITH_NUM_VALUES(., contained_obj.get_contained_matter())
+
 /// Return a list of all simulated atoms inside this one.
 /atom/proc/get_contained_external_atoms()
 	for(var/atom/movable/AM in contents)
 		if(!QDELETED(AM) && AM.simulated)
 			LAZYADD(., AM)
+	if(has_extension(src, /datum/extension/loaded_cell))
+		var/datum/extension/loaded_cell/cell_loaded = get_extension(src, /datum/extension/loaded_cell)
+		var/cell = cell_loaded?.get_cell()
+		if(cell)
+			LAZYREMOVE(., cell)
+
+// Return a list of all stored (in inventory) atoms, defaulting to above.
+/atom/proc/get_stored_inventory()
+	SHOULD_CALL_PARENT(TRUE)
+	return get_contained_external_atoms()
+
+// Return a list of all temperature-sensitive atoms, defaulting to above.
+/atom/proc/get_contained_temperature_sensitive_atoms()
+	SHOULD_CALL_PARENT(TRUE)
+	return get_contained_external_atoms()
 
 /// Dump the contents of this atom onto its loc
-/atom/proc/dump_contents()
+/atom/proc/dump_contents(atom/forced_loc = loc, mob/user)
 	for(var/thing in get_contained_external_atoms())
 		var/atom/movable/AM = thing
-		AM.dropInto(loc)
+		AM.dropInto(forced_loc)
 		if(ismob(AM))
 			var/mob/M = AM
 			if(M.client)
@@ -349,7 +466,7 @@
 				M.client.perspective = MOB_PERSPECTIVE
 
 /**
-	Handle the destruction of this atom, spilling it's contents by default
+	Handle the destruction of this atom, spilling its contents by default
 
 	- `skip_qdel`: If calling qdel() on this atom should be skipped.
 	- Return: Unknown, feel free to change this
@@ -369,8 +486,8 @@
 /atom/proc/try_detonate_reagents(var/severity = 3)
 	if(reagents)
 		for(var/r_type in reagents.reagent_volumes)
-			var/decl/material/R = GET_DECL(r_type)
-			R.explosion_act(src, severity)
+			var/decl/material/reagent = GET_DECL(r_type)
+			reagent.explosion_act(src, severity)
 
 /**
 	Handle an explosion of `severity` affecting this atom
@@ -408,11 +525,15 @@
 	- `exposed_volume`: The volume of the air
 */
 /atom/proc/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
-	return
+	SHOULD_CALL_PARENT(TRUE)
+	handle_external_heating(exposed_temperature)
 
 /// Handle this atom being destroyed through melting
-/atom/proc/melt()
-	return
+/atom/proc/handle_melting(list/meltable_materials)
+	SHOULD_CALL_PARENT(TRUE)
+
+/atom/proc/handle_destroyed_by_heat()
+	return handle_melting()
 
 /**
 	Handle this atom being exposed to lava. Calls qdel() by default
@@ -420,22 +541,26 @@
 	- Returns: `TRUE` if qdel() was called, otherwise `FALSE`
 */
 /atom/proc/lava_act()
-	visible_message(SPAN_DANGER("\The [src] sizzles and melts away, consumed by the lava!"))
-	playsound(src, 'sound/effects/flare.ogg', 100, 3)
-	qdel(src)
-	. = TRUE
+	if(simulated)
+		visible_message(SPAN_DANGER("\The [src] sizzles and melts away, consumed by the lava!"))
+		playsound(src, 'sound/effects/flare.ogg', 100, 3)
+		qdel(src)
+		return TRUE
+	return FALSE
 
 /**
 	Handle this atom being hit by a thrown atom
 
 	- `AM`: The atom hitting this atom
 	- `TT`: A datum wrapper for a thrown atom, containing important info
+	- Returns: TRUE if successfully hit the atom.
 */
 /atom/proc/hitby(atom/movable/AM, var/datum/thrownthing/TT)
 	SHOULD_CALL_PARENT(TRUE)
 	if(isliving(AM))
 		var/mob/living/M = AM
 		M.apply_damage(TT.speed*5, BRUTE)
+	return TRUE
 
 /**
 	Attempt to add blood to this atom
@@ -445,21 +570,15 @@
 	- `M?`: The mob whose blood will be used
 	- Returns: TRUE if made bloody, otherwise FALSE
 */
-/atom/proc/add_blood(mob/living/carbon/human/M)
+/atom/proc/add_blood(mob/living/M, amount = 2, list/blood_data)
 	if(atom_flags & ATOM_FLAG_NO_BLOOD)
 		return FALSE
 
-	if(!blood_DNA || !istype(blood_DNA, /list))	//if our list of DNA doesn't exist yet (or isn't a list) initialize it.
+	if(!islist(blood_DNA))	//if our list of DNA doesn't exist yet (or isn't a list) initialize it.
 		blood_DNA = list()
 
 	was_bloodied = 1
-	blood_color = COLOR_BLOOD_HUMAN
-	if(istype(M))
-		if (!istype(M.dna, /datum/dna))
-			M.dna = new /datum/dna()
-			M.dna.real_name = M.real_name
-		M.check_dna()
-		blood_color = M.species.get_blood_color(M)
+	blood_color = istype(M) ? M.get_blood_color() : COLOR_BLOOD_HUMAN
 	return TRUE
 
 /**
@@ -467,11 +586,11 @@
 
 	- Return: `TRUE` if blood with DNA was removed
 */
-/atom/proc/clean_blood()
+/atom/proc/clean(clean_forensics = TRUE)
 	SHOULD_CALL_PARENT(TRUE)
 	if(!simulated)
 		return
-	fluorescent = 0
+	fluorescent = FALSE
 	germ_level = 0
 	blood_color = null
 	if(istype(blood_DNA, /list))
@@ -481,25 +600,7 @@
 			forensics.remove_data(/datum/forensics/blood_dna)
 			forensics.remove_data(/datum/forensics/gunshot_residue)
 		return TRUE
-
-/// Only used by Sandbox_Spacemove, which is used by nothing
-/// - TODO: Remove this
-/atom/proc/get_global_map_pos()
-	if(!islist(global.global_map) || !length(global.global_map)) return
-	var/cur_x = null
-	var/cur_y = null
-	var/list/y_arr = null
-	for(cur_x=1,cur_x<=global.global_map.len,cur_x++)
-		y_arr = global.global_map[cur_x]
-		cur_y = y_arr.Find(src.z)
-		if(cur_y)
-			break
-//	log_debug("X = [cur_x]; Y = [cur_y]")
-
-	if(cur_x && cur_y)
-		return list("x"=cur_x,"y"=cur_y)
-	else
-		return 0
+	return FALSE
 
 /**
 	Check if this atom can be passed by another given the flags provided
@@ -526,7 +627,7 @@
 	var/turf/T = get_turf(src)
 	var/list/mobs = list()
 	var/list/objs = list()
-	get_mobs_and_objs_in_view_fast(T,range, mobs, objs, check_ghosts)
+	get_listeners_in_range(T,range, mobs, objs, check_ghosts)
 
 	for(var/o in objs)
 		var/obj/O = o
@@ -545,7 +646,7 @@
 	Used for atoms performing audible actions
 
 	- `message`: The string to show to anyone who can hear this atom
-	- `dead_message?`: The string deaf mobs will see
+	- `deaf_message?`: The string deaf mobs will see
 	- `hearing_distance?`: The number of tiles away the message can be heard. Defaults to world.view
 	- `check_ghosts?`: TRUE if ghosts should hear the message if their preferences allow
 	- `radio_message?`: The string to send over radios
@@ -554,7 +655,7 @@
 	var/turf/T = get_turf(src)
 	var/list/mobs = list()
 	var/list/objs = list()
-	get_mobs_and_objs_in_view_fast(T, hearing_distance, mobs, objs, check_ghosts)
+	get_listeners_in_range(T, hearing_distance, mobs, objs, check_ghosts)
 
 	for(var/m in mobs)
 		var/mob/M = m
@@ -603,7 +704,7 @@
 	- `G`: The grab hitting this atom
 	- Return: `TRUE` to skip attackby() and afterattack() or `FALSE`
 */
-/atom/proc/grab_attack(var/obj/item/grab/G)
+/atom/proc/grab_attack(obj/item/grab/grab, mob/user)
 	return FALSE
 
 /atom/proc/climb_on()
@@ -679,7 +780,10 @@
 		LAZYREMOVE(climbers,user)
 		return FALSE
 
-	var/target_turf = get_turf(src)
+	// handle multitile objects
+	// this should also be fine for non-multitile objects
+	// and ensures we don't ever move more than 1 tile
+	var/target_turf = get_step(user, get_dir(user, src))
 
 	//climbing over border objects like railings
 	if((atom_flags & ATOM_FLAG_CHECKS_BORDER) && get_turf(user) == target_turf)
@@ -692,7 +796,7 @@
 	LAZYREMOVE(climbers,user)
 	return TRUE
 
-/// Shake this atom and all it's climbers.
+/// Shake this atom and all its climbers.
 /atom/proc/object_shaken()
 	for(var/mob/living/M in climbers)
 		SET_STATUS_MAX(M, STAT_WEAK, 1)
@@ -700,46 +804,53 @@
 		climbers.Cut(1,2)
 
 	for(var/mob/living/M in get_turf(src))
-		if(M.lying) return //No spamming this on people.
+		if(M.current_posture.prone) return //No spamming this on people.
 
 		SET_STATUS_MAX(M, STAT_WEAK, 3)
-		to_chat(M, "<span class='danger'>You topple as \the [src] moves under you!</span>")
-
+		to_chat(M, SPAN_DANGER("You topple as \the [src] moves under you!"))
 		if(prob(25))
-
 			var/damage = rand(15,30)
-			var/mob/living/carbon/human/H = M
-			if(!istype(H))
-				to_chat(H, "<span class='danger'>You land heavily!</span>")
-				M.adjustBruteLoss(damage)
-				return
-
-			var/obj/item/organ/external/affecting = pick(H.get_external_organs())
-			if(affecting)
-				to_chat(M, "<span class='danger'>You land heavily on your [affecting.name]!</span>")
-				affecting.take_external_damage(damage, 0)
+			var/obj/item/organ/external/affecting = SAFEPICK(M.get_external_organs())
+			if(!affecting)
+				to_chat(M, SPAN_DANGER("You land heavily!"))
+				M.take_damage(damage)
+			else
+				to_chat(M, SPAN_DANGER("You land heavily on your [affecting.name]!"))
+				affecting.take_damage(damage)
 				if(affecting.parent)
 					affecting.parent.add_autopsy_data("Misadventure", damage)
-			else
-				to_chat(H, "<span class='danger'>You land heavily!</span>")
-				H.adjustBruteLoss(damage)
-
-			H.UpdateDamageIcon()
-			H.updatehealth()
-	return
 
 /// Get the current color of this atom.
 /atom/proc/get_color()
 	return color
 
-/// Set the color of this atom to `new_color`.
-/atom/proc/set_color(new_color)
-	color = new_color
+/* Set the atom colour. This is a stub effectively due to the broad use of direct setting. */
+// TODO: implement this everywhere that it should be used instead of direct setting.
+/atom/proc/set_color(var/new_color)
+	if(isnull(new_color))
+		return reset_color()
+	if(color != new_color)
+		color = new_color
+		return TRUE
+	return FALSE
+
+/atom/proc/reset_color()
+	if(!isnull(color))
+		color = null
+		return TRUE
+	return FALSE
+
+/atom/proc/set_alpha(var/new_alpha)
+	if(alpha != new_alpha)
+		alpha = new_alpha
+		return TRUE
+	return FALSE
 
 /// Get any power cell associated with this atom.
 /atom/proc/get_cell()
 	RETURN_TYPE(/obj/item/cell)
-	return
+	var/datum/extension/loaded_cell/cell_loaded = get_extension(src, /datum/extension/loaded_cell)
+	return cell_loaded?.get_cell()
 
 /**
 	Get any radio associated with this atom.
@@ -752,21 +863,12 @@
 	RETURN_TYPE(/obj/item/radio)
 	return
 
-/**
-	Get the material cost of this atom.
-
-	- Return: An dictionary where key is the material and value is the amount.
-*/
-/atom/proc/building_cost()
-	RETURN_TYPE(/list)
-	. = list()
-
 /atom/Topic(href, href_list)
 	var/mob/user = usr
 	if(href_list["look_at_me"] && istype(user))
 		var/turf/T = get_turf(src)
 		if(T.CanUseTopic(user, global.view_topic_state) != STATUS_CLOSE)
-			user.examinate(src)
+			user.examine_verb(src)
 			return TOPIC_HANDLED
 	. = ..()
 
@@ -833,17 +935,6 @@
 			return check_loc
 		check_loc = check_loc.loc
 
-/**
-	Get a list of alt interactions for a user from this atom.
-
-	- `user`: The mob that these alt interactions are for
-	- Return: A list containing the alt interactions
-*/
-/atom/proc/get_alt_interactions(var/mob/user)
-	SHOULD_CALL_PARENT(TRUE)
-	RETURN_TYPE(/list)
-	return list()
-
 /atom/proc/can_climb_from_below(var/mob/climber)
 	return FALSE
 
@@ -853,5 +944,102 @@
 /atom/proc/singularity_pull(S, current_size)
 	return
 
-/atom/proc/on_defilement()
+/atom/proc/get_overhead_text_x_offset()
+	return 0
+
+/atom/proc/get_overhead_text_y_offset()
+	return 0
+
+/atom/proc/can_be_injected_by(var/atom/injector)
+	return FALSE
+
+//Returns the storage depth of an atom. This is the number of storage items the atom is contained in before reaching toplevel (the area).
+//Returns -1 if the atom was not found on container.
+/atom/proc/storage_depth(atom/container)
+	. = 0
+	var/atom/cur_atom = src
+	while (cur_atom && !(cur_atom in container.contents))
+		if (isarea(cur_atom))
+			return -1
+		if(cur_atom.loc?.storage)
+			.++
+		cur_atom = cur_atom.loc
+	if (!cur_atom)
+		return -1	//inside something with a null loc.
+
+//Like storage depth, but returns the depth to the nearest turf
+//Returns -1 if no top level turf (a loc was null somewhere, or a non-turf atom's loc was an area somehow).
+/atom/proc/storage_depth_turf()
+	. = 0
+	var/atom/cur_atom = src
+	while (cur_atom && !isturf(cur_atom))
+		if (isarea(cur_atom))
+			return -1
+		if(cur_atom.loc?.storage)
+			.++
+		cur_atom = cur_atom.loc
+	if (!cur_atom)
+		. = -1	//inside something with a null loc.
+
+/atom/proc/storage_inserted(atom/movable/thing)
 	return
+
+/atom/proc/storage_removed(atom/movable/thing)
+	return
+
+/atom/proc/OnSimulatedTurfEntered(turf/T, old_loc)
+	set waitfor = FALSE
+	return
+
+/atom/proc/get_thermal_mass()
+	return 0
+
+/atom/proc/get_thermal_mass_coefficient(delta)
+	return 1
+
+/atom/proc/spark_act(obj/effect/sparks/sparks)
+	return
+
+/atom/proc/get_affecting_weather()
+	return
+
+/atom/proc/is_outside()
+	var/turf/turf = get_turf(src)
+	return istype(turf) ? turf.is_outside() : OUTSIDE_UNCERTAIN
+
+/atom/proc/can_be_poured_into(atom/source)
+	return (reagents?.maximum_volume > 0) && ATOM_IS_OPEN_CONTAINER(src)
+
+/// This is whether it's physically possible to pour from this atom to the target atom, based on context like user intent and src being open, etc.
+/// This should not check things like whether there is actually anything in src to pour.
+/// It should also not check anything controlled by the target atom, because can_be_poured_into() already exists.
+/atom/proc/can_be_poured_from(mob/user, atom/target)
+	return (reagents?.maximum_volume > 0) && ATOM_IS_OPEN_CONTAINER(src)
+
+/atom/proc/take_vaporized_reagent(reagent, amount)
+	return
+
+/atom/proc/is_watertight()
+	return !ATOM_IS_OPEN_CONTAINER(src)
+
+/atom/proc/can_drink_from(mob/user)
+	return ATOM_IS_OPEN_CONTAINER(src) && reagents?.total_volume && user.check_has_mouth()
+
+/atom/proc/adjust_required_attack_dexterity(mob/user, required_dexterity)
+	if(storage) // TODO: possibly check can_be_inserted() to avoid being able to shoot mirrors as a drake.
+		return DEXTERITY_HOLD_ITEM
+	return required_dexterity
+
+/atom/proc/immune_to_floor_hazards()
+	return !simulated || !has_gravity()
+/// The punctuation used for the "That's an X." string.
+/atom/proc/get_examine_punctuation()
+	// Could theoretically check if reagents in a coating are 'dangerous' or 'suspicious' (blood, acid, etc)
+	// in an override, but that'd require setting such a var on a bunch of materials and I'm lazy.
+	return blood_color ? "!" : "."
+
+/// The prefix that goes before the atom name on examine.
+/atom/proc/get_examine_prefix()
+	if(blood_color)
+		return FONT_COLORED(blood_color, "stained")
+	return null

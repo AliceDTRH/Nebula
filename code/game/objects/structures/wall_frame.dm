@@ -6,7 +6,7 @@
 	desc = "A low wall section which serves as the base of windows, amongst other things."
 	icon = 'icons/obj/structures/wall_frame.dmi'
 	icon_state = "frame"
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_CLIMBABLE | ATOM_FLAG_CAN_BE_PAINTED | ATOM_FLAG_ADJACENT_EXCEPTION
+	atom_flags = ATOM_FLAG_CLIMBABLE | ATOM_FLAG_CAN_BE_PAINTED | ATOM_FLAG_ADJACENT_EXCEPTION
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
 	anchored = TRUE
 	density = TRUE
@@ -16,11 +16,9 @@
 	material = DEFAULT_WALL_MATERIAL
 	handle_generic_blending = TRUE
 	tool_interaction_flags = (TOOL_INTERACTION_ANCHOR | TOOL_INTERACTION_DECONSTRUCT)
-	maxhealth = 40
+	max_health = 40
 	parts_amount = 2
-	parts_type = /obj/item/stack/material/strut
-
-	var/paint_color
+	parts_type = /obj/item/stack/material/rods
 	var/stripe_color
 	var/list/connections
 	var/list/other_connections
@@ -43,49 +41,50 @@
 	update_connections(1)
 	update_icon()
 
-/obj/structure/wall_frame/examine(mob/user)
+/obj/structure/wall_frame/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(paint_color)
-		to_chat(user, SPAN_NOTICE("It has a smooth coat of paint applied."))
+		. += SPAN_NOTICE("It has a smooth coat of paint applied.")
 
-/obj/structure/wall_frame/get_examined_damage_string(health_ratio)
-	if(maxhealth == -1)
+/obj/structure/wall_frame/get_examined_damage_string()
+	if(!can_take_damage())
 		return
-	if(health_ratio > 0.7)
+	var/health_percent = get_percent_health()
+	if(health_percent > 70)
 		return SPAN_NOTICE("It's got a few dents and scratches.")
-	else if(health_ratio > 0.3)
+	else if(health_percent > 30)
 		return SPAN_WARNING("A few pieces of panelling have fallen off.")
 	else
 		return SPAN_DANGER("It's nearly falling to pieces.")
 
-/obj/structure/wall_frame/attackby(var/obj/item/W, var/mob/user)
+/obj/structure/wall_frame/attackby(var/obj/item/used_item, var/mob/user)
 	. = ..()
 	if(!.)
 		//grille placing
-		if(istype(W, /obj/item/stack/material/rods))
+		if(istype(used_item, /obj/item/stack/material/rods))
 			for(var/obj/structure/window/WINDOW in loc)
 				if(WINDOW.dir == get_dir(src, user))
 					to_chat(user, SPAN_WARNING("There is a window in the way."))
 					return TRUE
-			place_grille(user, loc, W)
+			place_grille(user, loc, used_item)
 			return TRUE
 
 		//window placing
-		if(istype(W,/obj/item/stack/material))
-			var/obj/item/stack/material/ST = W
+		if(istype(used_item,/obj/item/stack/material))
+			var/obj/item/stack/material/ST = used_item
 			if(ST.material.opacity <= 0.7)
 				place_window(user, loc, SOUTHWEST, ST)
 			return TRUE
 
-		if(istype(W, /obj/item/gun/energy/plasmacutter))
-			var/obj/item/gun/energy/plasmacutter/cutter = W
+		if(istype(used_item, /obj/item/gun/energy/plasmacutter))
+			var/obj/item/gun/energy/plasmacutter/cutter = used_item
 			if(!cutter.slice(user))
 				return
 			playsound(src.loc, 'sound/items/Welder.ogg', 100, 1)
-			visible_message(SPAN_NOTICE("\The [user] begins slicing through \the [src] with \the [W]."))
+			visible_message(SPAN_NOTICE("\The [user] begins slicing through \the [src] with \the [used_item]."))
 			if(do_after(user, 20,src))
-				visible_message(SPAN_NOTICE("\The [user] slices \the [src] apart with \the [W]."))
-				dismantle()
+				visible_message(SPAN_NOTICE("\The [user] slices \the [src] apart with \the [used_item]."))
+				dismantle_structure(user)
 			return TRUE
 
 /obj/structure/wall_frame/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)
@@ -137,28 +136,16 @@
 /obj/structure/wall_frame/bullet_act(var/obj/item/projectile/Proj)
 	var/proj_damage = Proj.get_structure_damage()
 	var/damage = min(proj_damage, 100)
-	take_damage(damage)
+	take_damage(damage, Proj.atom_damage_type)
 	return
 
-/obj/structure/wall_frame/hitby(AM, var/datum/thrownthing/TT)
-	..()
-	var/tforce = 0
-	if(ismob(AM)) // All mobs have a multiplier and a size according to mob_defines.dm
-		var/mob/I = AM
-		tforce = I.mob_size * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	else
-		var/obj/O = AM
-		tforce = O.throwforce * (TT.speed/THROWFORCE_SPEED_DIVISOR)
-	if (tforce < 15)
-		return
-	take_damage(tforce)
-
-/obj/structure/wall_frame/get_color()
-	return paint_color
-
-/obj/structure/wall_frame/set_color(new_color)
-	paint_color = new_color
-	update_icon()
+/obj/structure/wall_frame/hitby(atom/movable/AM, var/datum/thrownthing/TT)
+	. = ..()
+	if(.)
+		var/tforce = AM.get_thrown_attack_force() * (TT.speed/THROWFORCE_SPEED_DIVISOR)
+		if (tforce < 15)
+			return
+		take_damage(tforce)
 
 //Subtypes
 /obj/structure/wall_frame/standard
@@ -171,3 +158,27 @@
 /obj/structure/wall_frame/hull
 	paint_color = COLOR_HULL
 	stripe_color = COLOR_HULL
+
+/obj/structure/wall_frame/log
+	name = "low log wall"
+	desc = "A section of log wall with empty space for fitting a window or simply letting air in."
+	icon = 'icons/obj/structures/log_wall_frame.dmi'
+	material_alteration = MAT_FLAG_ALTERATION_NAME | MAT_FLAG_ALTERATION_DESC // material color is applied in on_update_icon
+
+/obj/structure/wall_frame/log/Initialize()
+	color = null // clear mapping preview color
+	. = ..()
+
+#define LOW_LOG_WALL_SUBTYPE(material_name) \
+/obj/structure/wall_frame/log/##material_name { \
+	material = /decl/material/solid/organic/wood/##material_name; \
+	color = /decl/material/solid/organic/wood/##material_name::color; \
+}
+
+LOW_LOG_WALL_SUBTYPE(fungal)
+LOW_LOG_WALL_SUBTYPE(ebony)
+LOW_LOG_WALL_SUBTYPE(walnut)
+LOW_LOG_WALL_SUBTYPE(maple)
+LOW_LOG_WALL_SUBTYPE(mahogany)
+LOW_LOG_WALL_SUBTYPE(bamboo)
+LOW_LOG_WALL_SUBTYPE(yew)

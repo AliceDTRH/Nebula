@@ -35,7 +35,7 @@
 	if(world.time < last_paged + 5 SECONDS)
 		return
 	last_paged = world.time
-	var/paged = MS.send_to_department(department,"Department page to <b>[location.proper_name]</b> received. <a href='?src=\ref[src];ack=1'>Take</a>", "*page*")
+	var/paged = MS.send_to_department(department,"Department page to <b>[location.proper_name]</b> received. <a href='byond://?src=\ref[src];ack=1'>Take</a>", "*page*")
 	acknowledged = 0
 	if(paged)
 		playsound(src, 'sound/machines/ping.ogg', 60)
@@ -43,16 +43,14 @@
 	else
 		to_chat(user,"<span class='warning'>No valid destinations were found for the page.</span>")
 
-/obj/machinery/network/pager/Topic(href, href_list)
-	if(..())
-		return 1
-	if(stat & NOPOWER)
+/obj/machinery/network/pager/OnTopic(mob/user, href_list, datum/topic_state/state)
+	if((. = ..()))
 		return
 	if(!acknowledged && href_list["ack"])
 		playsound(src, 'sound/machines/ping.ogg', 60)
 		visible_message("<span class='notice'>Page acknowledged.</span>")
 		acknowledged = 1
+		. = TOPIC_REFRESH
 		var/obj/machinery/network/message_server/MS = get_message_server(z)
-		if(!MS)
-			return
-		MS.send_to_department(department,"Page to <b>[location.proper_name]</b> was acknowledged.", "*ack*")
+		if(MS)
+			MS.send_to_department(department,"Page to <b>[location.proper_name]</b> was acknowledged.", "*ack*")

@@ -38,7 +38,6 @@
 	material = /decl/material/solid/metal/aluminium
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
 
-	var/obj/item/cell/cell = /obj/item/cell/device
 	var/power_usage = 2800
 	var/last_radio_sound = -INFINITY
 	var/initial_network_id
@@ -64,6 +63,13 @@
 	var/analog = FALSE
 	var/analog_secured = list() // list of accesses used for encrypted analog, mainly for mercs/raiders
 	var/datum/radio_frequency/analog_radio_connection
+
+/obj/item/radio/proc/get_radio_listeners()
+	for(var/mob/listener in hearers(canhear_range, get_turf(src)))
+		LAZYDISTINCTADD(., listener.resolve_to_radio_listeners())
+
+/obj/item/radio/setup_power_supply(loaded_cell_type, accepted_cell_type, power_supply_extension_type, charge_value)
+	return ..(/obj/item/cell/device, /obj/item/cell/device, /datum/extension/loaded_cell, charge_value)
 
 /obj/item/radio/get_radio(var/message_mode)
 	return src
@@ -93,13 +99,12 @@
 /obj/item/radio/Initialize()
 	. = ..()
 	wires = new(src)
-	if(ispath(cell))
-		cell = new(src)
+	setup_power_supply()
 
 	global.listening_objects += src
 	set_frequency(sanitize_frequency(frequency, RADIO_LOW_FREQ, RADIO_HIGH_FREQ))
 	if(radio_device_type)
-		set_extension(src, /datum/extension/network_device/radio, initial_network_id, initial_network_key, RECEIVER_STRONG_WIRELESS)
+		set_extension(src, radio_device_type, initial_network_id, initial_network_key, RECEIVER_STRONG_WIRELESS)
 
 	var/list/created_encryption_keys
 	for(var/keytype in encryption_keys)
@@ -128,7 +133,6 @@
 /obj/item/radio/Destroy()
 	QDEL_NULL(wires)
 	QDEL_NULL_LIST(encryption_keys)
-	global.listening_objects -= src
 	set_frequency(null) // clean up the radio connection
 	channels = null
 	. = ..()
@@ -212,9 +216,6 @@
 /obj/item/radio/proc/has_channel_access(var/mob/user, var/freq)
 	return TRUE // TODO: add antag/valid bounds checking
 
-/obj/item/radio/get_cell()
-	return cell
-
 /obj/item/radio/proc/toggle_broadcast()
 	broadcasting = !broadcasting && !(wires.IsIndexCut(WIRE_TRANSMIT) || wires.IsIndexCut(WIRE_SIGNAL))
 
@@ -226,11 +227,11 @@
 		return STATUS_CLOSE
 	return ..()
 
-/obj/item/radio/OnTopic(href, href_list)
+/obj/item/radio/OnTopic(mob/user, href_list)
 	if((. = ..()))
 		return
 
-	usr.set_machine(src)
+	user.set_machine(src)
 	if(href_list["analog"])
 		if(can_use_analog)
 			analog = text2num(href_list["analog"])
@@ -257,8 +258,8 @@
 		var/new_frequency = sanitize_frequency(frequency + text2num(href_list["freq"]))
 		set_frequency(new_frequency)
 		if(hidden_uplink)
-			if(hidden_uplink.check_trigger(usr, frequency, traitor_frequency))
-				close_browser(usr, "window=radio")
+			if(hidden_uplink.check_trigger(user, frequency, traitor_frequency))
+				close_browser(user, "window=radio")
 		. = TOPIC_REFRESH
 	else if (href_list["talk"])
 		toggle_broadcast()
@@ -277,22 +278,14 @@
 		. = TOPIC_REFRESH
 	else if(href_list["spec_freq"])
 		var freq = href_list["spec_freq"]
-		if(has_channel_access(usr, freq))
+		if(has_channel_access(user, freq))
 			set_frequency(text2num(freq))
 		. = TOPIC_REFRESH
 	if(href_list["nowindow"]) // here for pAIs, maybe others will want it, idk
 		return TOPIC_HANDLED
-
-	if(href_list["remove_cell"])
-		if(cell)
-			var/mob/user = usr
-			user.put_in_hands(cell)
-			to_chat(user, SPAN_NOTICE("You remove [cell] from \the [src]."))
-			cell = null
-		. = TOPIC_REFRESH
 	if(href_list["network_settings"])
 		var/datum/extension/network_device/D = get_extension(src, /datum/extension/network_device)
-		D.ui_interact(usr)
+		D.ui_interact(user)
 		. = TOPIC_HANDLED
 	if(. & TOPIC_REFRESH)
 		SSnano.update_uis(src)
@@ -328,25 +321,24 @@
 	set waitfor = FALSE
 	if(!on) return 0 // the device has to be on
 	//  Fix for permacell radios, but kinda eh about actually fixing them.
-	if(!M || !message) return 0
+	if(!istype(M) || !message) return 0
 
 	if(speaking && (speaking.flags & (LANG_FLAG_NONVERBAL|LANG_FLAG_SIGNLANG))) return 0
 
 	if (!broadcasting)
 		// Sedation chemical effect should prevent radio use.
-		var/mob/living/carbon/C = M
-		if(istype(C) && (C.has_chemical_effect(CE_SEDATE, 1) || C.incapacitated(INCAPACITATION_DISRUPTED)))
+		if((M.has_chemical_effect(CE_SEDATE, 1) || M.incapacitated(INCAPACITATION_DISRUPTED)))
 			to_chat(M, SPAN_WARNING("You're unable to reach \the [src]."))
 			return 0
 
-		if((istype(C)) && C.radio_interrupt_cooldown > world.time)
+		if(M.radio_interrupt_cooldown > world.time)
 			to_chat(M, SPAN_WARNING("You're disrupted as you reach for \the [src]."))
 			return 0
 
 		if(istype(M))
 			M.trigger_aiming(TARGET_CAN_RADIO)
 
-	addtimer(CALLBACK(src, .proc/transmit, M, message, message_mode, verb, speaking), 0)
+	addtimer(CALLBACK(src, PROC_REF(transmit), M, message, message_mode, verb, speaking), 0)
 
 /obj/item/radio/proc/can_transmit_binary()
 	for(var/obj/item/encryptionkey/key in encryption_keys)
@@ -453,33 +445,33 @@
 	if(can_transmit_binary())
 		LAZYADD(., "<b>- Robot talk:</b> [prefix]+")
 
-/obj/item/radio/examine(mob/user, distance)
+/obj/item/radio/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if (distance <= 1 || loc == user)
 		var/list/channel_descriptions = get_accessible_channel_descriptions(user)
 		if(length(channel_descriptions))
-			to_chat(user, "\The [src] has the following channel [length(channel_descriptions) == 1 ? "shortcut" : "shortcuts"] configured:")
+			. += "\The [src] has the following channel [length(channel_descriptions) == 1 ? "shortcut" : "shortcuts"] configured:"
 			for(var/line in channel_descriptions)
-				to_chat(user, line)
+				. += line
 		if(panel_open)
-			to_chat(user, SPAN_WARNING("A panel on the back of \the [src] is hanging open."))
+			. += SPAN_WARNING("A panel on the back of \the [src] is hanging open.")
 
-/obj/item/radio/attackby(obj/item/W, mob/user)
+/obj/item/radio/attackby(obj/item/used_item, mob/user)
 	user.set_machine(src)
 
-	if(istype(W, /obj/item/encryptionkey))
+	if(istype(used_item, /obj/item/encryptionkey))
 		if(!encryption_key_capacity)
 			to_chat(user, SPAN_WARNING("\The [src] cannot accept an encryption key."))
 			return TRUE
 		if(length(encryption_keys) >= encryption_key_capacity)
 			to_chat(user, SPAN_WARNING("\The [src] cannot fit any more encryption keys."))
 			return TRUE
-		if(user.try_unequip(W, src))
-			LAZYADD(encryption_keys, W)
+		if(user.try_unequip(used_item, src))
+			LAZYADD(encryption_keys, used_item)
 			channels = null
 			return TRUE
 
-	if(IS_SCREWDRIVER(W))
+	if(IS_SCREWDRIVER(used_item))
 		if(length(encryption_keys))
 			var/obj/item/encryptionkey/ekey = pick(encryption_keys)
 			ekey.dropInto(loc)
@@ -489,11 +481,6 @@
 			sanitize_analog_secured()
 			return TRUE
 		return toggle_panel(user)
-
-	if(!cell && power_usage && istype(W, /obj/item/cell/device) && user.try_unequip(W, target = src))
-		to_chat(user, SPAN_NOTICE("You slot \the [W] into \the [src]."))
-		cell = W
-		return TRUE
 
 	. = ..()
 
@@ -509,13 +496,11 @@
 	var/list/current_channels = get_available_channels()
 	for(var/channel in current_channels)
 		LAZYSET(channels, channel, FALSE)
-	if(cell)
-		cell.emp_act(severity)
-	..()
+	return ..()
 
 /obj/item/radio/CouldUseTopic(var/mob/user)
 	..()
-	if(istype(user, /mob/living/carbon))
+	if(isliving(user))
 		playsound(src, "button", 10)
 
 /obj/item/radio/off

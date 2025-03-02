@@ -4,19 +4,18 @@
 	taste_description = "gross metal"
 	color = "#660000"
 	touch_met = 5
-	fuel_value = 1
+	ignition_point = T0C+150
+	accelerant_value = FUEL_VALUE_ACCELERANT + 0.2
 	burn_product = /decl/material/gas/carbon_monoxide
 	gas_flags = XGM_GAS_FUEL
 	exoplanet_rarity_plant = MAT_RARITY_UNCOMMON
 	exoplanet_rarity_gas = MAT_RARITY_UNCOMMON
 	uid = "chem_fuel"
+	toxicity = 2
 
 	glass_name = "welder fuel"
 	glass_desc = "Unless you are an industrial tool, this is probably not safe for consumption."
 	value = 1.5
-
-/decl/material/liquid/fuel/affect_blood(var/mob/living/M, var/removed, var/datum/reagents/holder)
-	M.adjustToxLoss(2 * removed)
 
 /decl/material/liquid/fuel/explosion_act(obj/item/chems/holder, severity)
 	. = ..()
@@ -39,11 +38,11 @@
 
 /decl/material/liquid/fuel/hydrazine
 	name = "hydrazine"
-	lore_text = "A toxic, colorless, flammable liquid with a strong ammonia-like odor, in hydrate form."
+	lore_text = "A toxic, colorless, flammable liquid with a strong ammonia-like odour, in hydrate form."
 	taste_description = "sweet tasting metal"
 	color = "#808080"
 	metabolism = REM * 0.2
 	touch_met = 5
 	value = 1.2
-	fuel_value = 1.2
+	accelerant_value = FUEL_VALUE_ACCELERANT + 0.5
 	uid = "chem_hydrazine"

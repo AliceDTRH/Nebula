@@ -42,9 +42,9 @@
 		for(var/type in spawn_cartridges)
 			add_cartridge(new type(src))
 
-/obj/machinery/chemical_dispenser/examine(mob/user)
+/obj/machinery/chemical_dispenser/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It has [cartridges.len] cartridges installed, and has space for [DISPENSER_MAX_CARTRIDGES - cartridges.len] more.")
+	. += "It has [cartridges.len] cartridges installed, and has space for [DISPENSER_MAX_CARTRIDGES - cartridges.len] more."
 
 /obj/machinery/chemical_dispenser/proc/add_cartridge(obj/item/chems/chem_disp_cartridge/C, mob/user)
 	. = FALSE
@@ -86,38 +86,38 @@
 	cartridges -= label
 	SSnano.update_uis(src)
 
-/obj/machinery/chemical_dispenser/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/chems/chem_disp_cartridge))
-		add_cartridge(W, user)
+/obj/machinery/chemical_dispenser/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/chems/chem_disp_cartridge))
+		add_cartridge(used_item, user)
 		return TRUE
 
-	if(IS_CROWBAR(W) && !panel_open && length(cartridges))
+	if(IS_CROWBAR(used_item) && !panel_open && length(cartridges))
 		var/label = input(user, "Which cartridge would you like to remove?", "Chemical Dispenser") as null|anything in cartridges
-		if(!label) return
+		if(!label) return TRUE
 		var/obj/item/chems/chem_disp_cartridge/C = remove_cartridge(label)
 		if(C)
-			to_chat(user, "<span class='notice'>You remove \the [C] from \the [src].</span>")
+			to_chat(user, SPAN_NOTICE("You remove \the [C] from \the [src]."))
 			C.dropInto(loc)
 			return TRUE
 
-	if(is_type_in_list(W, acceptable_containers))
+	if(is_type_in_list(used_item, acceptable_containers))
 		if(container)
-			to_chat(user, "<span class='warning'>There is already \a [container] on \the [src]!</span>")
+			to_chat(user, SPAN_WARNING("There is already \a [container] on \the [src]!"))
 			return TRUE
 
-		var/obj/item/chems/RC = W
+		var/obj/item/chems/new_container = used_item
 
-		if(!accept_drinking && (istype(RC,/obj/item/chems/condiment) || istype(RC,/obj/item/chems/drinks)))
-			to_chat(user, "<span class='warning'>This machine only accepts beakers!</span>")
+		if(!accept_drinking && (istype(new_container,/obj/item/chems/condiment) || istype(new_container,/obj/item/chems/drinks)))
+			to_chat(user, SPAN_WARNING("This machine only accepts beakers!"))
 			return TRUE
 
-		if(!ATOM_IS_OPEN_CONTAINER(RC))
-			to_chat(user, "<span class='warning'>You don't see how \the [src] could dispense reagents into \the [RC].</span>")
+		if(!ATOM_IS_OPEN_CONTAINER(new_container))
+			to_chat(user, SPAN_WARNING("You don't see how \the [src] could dispense reagents into \the [new_container]."))
 			return TRUE
-		if(!user.try_unequip(RC, src))
+		if(!user.try_unequip(new_container, src))
 			return TRUE
-		set_container(RC)
-		to_chat(user, "<span class='notice'>You set \the [RC] on \the [src].</span>")
+		set_container(new_container)
+		to_chat(user, SPAN_NOTICE("You set \the [new_container] on \the [src]."))
 		return TRUE
 
 	return ..()
@@ -130,8 +130,8 @@
 		events_repository.unregister(/decl/observ/destroyed, container, src)
 	container = new_container
 	if(container)
-		events_repository.register(/decl/observ/moved, container, src, .proc/check_container_status)
-		events_repository.register(/decl/observ/destroyed, container, src, .proc/check_container_status)
+		events_repository.register(/decl/observ/moved, container, src, PROC_REF(check_container_status))
+		events_repository.register(/decl/observ/destroyed, container, src, PROC_REF(check_container_status))
 	update_icon()
 	SSnano.update_uis(src) // update all UIs attached to src
 

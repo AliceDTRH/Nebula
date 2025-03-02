@@ -12,14 +12,14 @@
 	idle_power_usage = 500
 	active_power_usage = 10 KILOWATTS
 	interact_offline = TRUE
-
 	transform_animate_time = 0.2 SECONDS
 	uncreated_component_parts = list(/obj/item/stock_parts/power/apc)
+	abstract_type = /obj/machinery/turret
+
 	// Visuals.
 	var/image/turret_stand = null
 	var/image/turret_ray = null
 	var/ray_color = "#ffffffff" // Color of the ray, changed by the FSM when switching states.
-
 	var/image/transverse_left // Images for displaying the range of the turret's transverse
 	var/image/transverse_right
 
@@ -38,7 +38,7 @@
 
 	// Angles
 	// Remember that in BYOND, NORTH equals 0 absolute degrees, and not 90.
-	var/traverse = 180 // Determines how wide the turret can turn to shoot things, in degrees. The 'front' of the turret is determined by it's dir variable.
+	var/traverse = 180 // Determines how wide the turret can turn to shoot things, in degrees. The 'front' of the turret is determined by its dir variable.
 	var/leftmost_traverse = null // How far left or right the turret can turn. Set automatically using the above variable and the inital dir value.
 	var/rightmost_traverse = null
 	var/current_bearing = 0 // Current absolute angle the turret has, used to calculate if it needs to turn to try to shoot the target.
@@ -125,30 +125,26 @@
 /obj/machinery/turret/Process()
 	if(istype(installed_gun, /obj/item/gun/energy))
 		var/obj/item/gun/energy/energy_gun = installed_gun
-		if(energy_gun.power_supply)
-			var/obj/item/cell/power_cell = energy_gun.power_supply
-			if(!power_cell.fully_charged())
-				power_cell.give(active_power_usage*CELLRATE)
-				update_use_power(POWER_USE_ACTIVE)
-				return
-
+		var/obj/item/cell/power_supply = energy_gun.get_cell()
+		if(power_supply && !power_supply.fully_charged())
+			power_supply.give(active_power_usage*CELLRATE)
+			update_use_power(POWER_USE_ACTIVE)
+			return
 	update_use_power(POWER_USE_IDLE)
 
-/obj/machinery/turret/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/gun))
-		if(!installed_gun)
-			if(!user.try_unequip(I, src))
-				return
-			to_chat(user, SPAN_NOTICE("You install \the [I] into \the [src]!"))
-			installed_gun = I
-			setup_gun()
-			return
+/obj/machinery/turret/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/gun) && !installed_gun)
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		to_chat(user, SPAN_NOTICE("You install \the [used_item] into \the [src]!"))
+		installed_gun = used_item
+		setup_gun()
+		return TRUE
 
-	if(istype(I, /obj/item/ammo_magazine) || istype(I, /obj/item/ammo_casing))
+	if(istype(used_item, /obj/item/ammo_magazine) || istype(used_item, /obj/item/ammo_casing))
 		var/obj/item/stock_parts/ammo_box/ammo_box = get_component_of_type(/obj/item/stock_parts/ammo_box)
 		if(istype(ammo_box))
-			ammo_box.attackby(I, user)
-			return
+			return ammo_box.attackby(used_item, user)
 	. = ..()
 
 // This is called after the gun gets instantiated or slotted in.
@@ -173,7 +169,7 @@
 		if(installed_gun && is_valid_target(target?.resolve()))
 			var/atom/resolved_target = target.resolve()
 			if(istype(resolved_target))
-				addtimer(CALLBACK(src, .proc/fire_weapon, resolved_target), 0)
+				addtimer(CALLBACK(src, PROC_REF(fire_weapon), resolved_target), 0)
 		else
 			target = null
 	state_machine.evaluate()
@@ -192,7 +188,7 @@
 				playsound(src.loc, 'sound/weapons/flipblade.ogg', 50, 1)
 				reloading_progress = 0
 
-			else if(stored_magazine && length(stored_magazine.stored_ammo) < stored_magazine.max_ammo)
+			else if(stored_magazine && stored_magazine.get_stored_ammo_count() < stored_magazine.max_ammo)
 				var/obj/item/stock_parts/ammo_box/ammo_box = get_component_of_type(/obj/item/stock_parts/ammo_box)
 				if(ammo_box?.is_functional() && ammo_box.stored_caliber == proj_gun.caliber)
 					var/obj/item/ammo_casing/casing = ammo_box.remove_ammo(stored_magazine)
@@ -327,12 +323,12 @@
 
 	else if(length(potential_targets))
 		while(length(potential_targets))
-			var/weakref/W = potential_targets[1]
-			potential_targets -= W
-			if(is_valid_target(W.resolve()))
-				target = W
+			var/weakref/target_ref = potential_targets[1]
+			potential_targets -= target_ref
+			if(is_valid_target(target_ref.resolve()))
+				target = target_ref
 				track_target()
-				return W
+				return target_ref
 
 	target = null
 	return null
@@ -370,10 +366,9 @@
 				// Only reload the magazine if we're completely out of ammo or we don't have a target.
 				if(ammo_remaining == 0)
 					return TRUE
-				if(!is_valid_target(target?.resolve()) && length(proj_gun.ammo_magazine.stored_ammo) != proj_gun.ammo_magazine.max_ammo)
+				if(!is_valid_target(target?.resolve()) && proj_gun.ammo_magazine.get_stored_ammo_count() != proj_gun.ammo_magazine.max_ammo)
 					return TRUE
-		else
-			return FALSE
+	return FALSE
 
 /obj/machinery/turret/emag_act(remaining_charges, mob/user, emag_source)
 	if(!emagged)
@@ -381,7 +376,7 @@
 		to_chat(user, SPAN_WARNING("You short out \the [src]'s threat assessment circuits."))
 		visible_message("\The [src] hums oddly...")
 		enabled = FALSE
-		addtimer(CALLBACK(src, .proc/emagged_targeting), 6 SECONDS)
+		addtimer(CALLBACK(src, PROC_REF(emagged_targeting)), 6 SECONDS)
 		state_machine.evaluate()
 
 /obj/machinery/turret/proc/emagged_targeting()
@@ -390,7 +385,7 @@
 	state_machine.evaluate()
 
 /obj/machinery/turret/power_change()
-	..()
+	. = ..()
 	state_machine.evaluate()
 
 /obj/machinery/turret/on_component_failure()
@@ -449,12 +444,16 @@
 			return TOPIC_REFRESH
 
 	if(href_list["set_default"])
-		var/amount = input(user, "Input an angle between [leftmost_traverse] and [rightmost_traverse] degrees. Click cancel to disable default.", "Set Default Bearing", default_bearing) as null|num
+		var/leftmost_default = leftmost_traverse
+		var/rightmost_default = rightmost_traverse
+		if(traverse >= 360)
+			leftmost_default = 0
+			rightmost_default = 360
+		var/amount = input(user, "Input an angle between [leftmost_default] and [rightmost_default] degrees. Click cancel to disable default.", "Set Default Bearing", default_bearing) as null|num
 		if(isnum(amount))
-			default_bearing = clamp(amount, leftmost_traverse, rightmost_traverse)
+			default_bearing = clamp(amount, leftmost_default, rightmost_default)
 		else
 			default_bearing = null
-
 		return TOPIC_REFRESH
 
 	if(href_list["manual_fire"])

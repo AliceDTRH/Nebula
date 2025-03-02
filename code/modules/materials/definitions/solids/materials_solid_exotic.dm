@@ -2,9 +2,8 @@
 	name = "metallic hydrogen"
 	uid = "solid_metallic_hydrogen"
 	lore_text = "When hydrogen is exposed to extremely high pressures and temperatures, such as at the core of gas giants like Jupiter, it can take on metallic properties and - more importantly - acts as a room temperature superconductor. Achieving solid metallic hydrogen at room temperature, though, has proven to be rather tricky."
-	name = "metallic hydrogen"
 	color = "#e6c5de"
-	stack_origin_tech = "{'materials':6,'powerstorage':6,'magnets':5}"
+	stack_origin_tech = @'{"materials":6,"powerstorage":6,"magnets":5}'
 	heating_products = list(
 		/decl/material/gas/hydrogen/tritium =   0.7,
 		/decl/material/gas/hydrogen/deuterium = 0.3
@@ -35,16 +34,16 @@
 /decl/material/solid/exotic_matter
 	name = "exotic matter"
 	uid = "solid_exotic_matter"
-	lore_text = "Hypercrystalline supermatter is a subset of non-baryonic 'exotic' matter. It is found mostly in the heart of large stars, and features heavily in all kinds of fringe physics-defying technology."
+	lore_text = "Exotic matter is a non-baryonic form of matter, which features heavily in all kinds of fringe physics-defying technology."
 	color = "#ffff00"
 	radioactivity = 20
-	stack_origin_tech = "{'wormholes':2,'materials':6,'exoticmatter':4}"
+	stack_origin_tech = @'{"wormholes":2,"materials":6,"exoticmatter":4}'
 	luminescence = 3
 	value = 3
 	icon_base = 'icons/turf/walls/stone.dmi'
 	wall_flags = 0
 	table_icon_base = "stone"
-	shard_type = SHARD_SHARD
+	shard_name = SHARD_SHARD
 	hardness = MAT_VALUE_RIGID
 	flags = MAT_FLAG_FUSION_FUEL
 	construction_difficulty = MAT_VALUE_HARD_DIY
@@ -59,7 +58,7 @@
 	taste_mult = 1.5
 	toxicity = 30
 	touch_met = 5
-	fuel_value = 2
+	accelerant_value = FUEL_VALUE_VOLATILE
 	vapor_products = list(
 		/decl/material/solid/exotic_matter = 1
 	)

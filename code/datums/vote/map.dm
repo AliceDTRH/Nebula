@@ -2,21 +2,21 @@
 	name = "map"
 
 /datum/vote/map/can_run(mob/creator, automatic)
-	if(!config.allow_map_switching)
+	if(!get_config_value(/decl/config/toggle/allow_map_switching))
 		return FALSE
 	if(!automatic && !is_admin(creator))
 		return FALSE // Must be an admin.
 	return ..()
 
 /datum/vote/map/setup_vote()
-	for(var/name in global.all_maps)
+	for(var/name in global.votable_maps)
 		choices += name
 	..()
 
 /datum/vote/map/report_result()
 	if(..())
 		return 1
-	var/datum/map/M = global.all_maps[result[1]]
+	var/datum/map/M = global.votable_maps[result[1]]
 	fdel("use_map")
 	text2file(M.path, "use_map")
 

@@ -1,19 +1,3 @@
-/client/proc/Debug2()
-	set category = "Debug"
-	set name = "Debug-Game"
-	if(!check_rights(R_DEBUG))	return
-
-	if(Debug2)
-		Debug2 = 0
-		message_admins("[key_name(src)] toggled debugging off.")
-		log_admin("[key_name(src)] toggled debugging off.")
-	else
-		Debug2 = 1
-		message_admins("[key_name(src)] toggled debugging on.")
-		log_admin("[key_name(src)] toggled debugging on.")
-
-	SSstatistics.add_field_details("admin_verb","DG2") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-
 // callproc moved to code/modules/admin/callproc
 
 
@@ -45,7 +29,7 @@
 	if(GAME_STATE < RUNLEVEL_GAME)
 		alert("Wait until the game starts")
 		return
-	if(istype(M, /mob/living/carbon/human))
+	if(ishuman(M))
 		log_admin("[key_name(src)] has robotized [M.key].")
 		spawn(10)
 			M:Robotize()
@@ -65,7 +49,7 @@
 		alert("That mob doesn't seem to exist, close the panel and try again.")
 		return
 
-	if(istype(M, /mob/new_player))
+	if(isnewplayer(M))
 		alert("The mob must not be a new_player.")
 		return
 
@@ -80,9 +64,9 @@
 	set desc = "Specify a location to spawn a pAI device, then specify a key to play that pAI"
 
 	var/list/available = list()
-	for(var/mob/C in SSmobs.mob_list)
-		if(C.key)
-			available.Add(C)
+	for(var/mob/player in SSmobs.mob_list)
+		if(player.key)
+			available.Add(player)
 	var/mob/choice = input("Choose a player to play the pAI", "Spawn pAI") in available
 	if(!choice)
 		return 0
@@ -107,7 +91,7 @@
 	set name = "Del-All"
 
 	// to prevent REALLY stupid deletions
-	var/blocked = list(/obj, /mob, /mob/living, /mob/living/carbon, /mob/living/carbon/human, /mob/observer, /mob/living/silicon, /mob/living/silicon/robot, /mob/living/silicon/ai)
+	var/blocked = list(/obj, /mob, /mob/living, /mob/living/human, /mob/observer, /mob/living/silicon, /mob/living/silicon/robot, /mob/living/silicon/ai)
 	var/hsbitem = input(usr, "Choose an object to delete.", "Delete:") as null|anything in typesof(/obj) + typesof(/mob) - blocked
 	if(hsbitem)
 		for(var/atom/O in world)
@@ -128,10 +112,13 @@
 /client/proc/cmd_debug_tog_aliens()
 	set category = "Server"
 	set name = "Toggle Aliens"
+	if(toggle_config_value(/decl/config/toggle/aliens_allowed))
+		log_admin("[key_name(src)] has turned aliens on.")
+		message_admins("[key_name_admin(src)] has turned aliens on.", 0)
+	else
+		log_admin("[key_name(src)] has turned aliens off.")
+		message_admins("[key_name_admin(src)] has turned aliens off.", 0)
 
-	config.aliens_allowed = !config.aliens_allowed
-	log_admin("[key_name(src)] has turned aliens [config.aliens_allowed ? "on" : "off"].")
-	message_admins("[key_name_admin(src)] has turned aliens [config.aliens_allowed ? "on" : "off"].", 0)
 	SSstatistics.add_field_details("admin_verb","TAL") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /client/proc/cmd_admin_grantfullaccess(var/mob/M in SSmobs.mob_list)
@@ -141,8 +128,8 @@
 	if (GAME_STATE < RUNLEVEL_GAME)
 		alert("Wait until the game starts")
 		return
-	if (istype(M, /mob/living/carbon/human))
-		var/mob/living/carbon/human/H = M
+	if (ishuman(M))
+		var/mob/living/human/H = M
 		var/obj/item/card/id/id = H.GetIdCard()
 		if(id)
 			id.icon_state = "gold"
@@ -155,7 +142,6 @@
 			id.assignment = "Captain"
 			id.SetName("[id.registered_name]'s ID Card ([id.assignment])")
 			H.equip_to_slot_or_del(id, slot_wear_id_str)
-			H.update_inv_wear_id()
 	else
 		alert("Invalid mob")
 	SSstatistics.add_field_details("admin_verb","GFA") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
@@ -280,27 +266,27 @@
 	if(!check_rights(R_FUN))
 		return
 
-	var/mob/living/carbon/human/H = input("Select mob.", "Select equipment.") as null|anything in global.human_mob_list
+	var/mob/living/human/H = input("Select mob.", "Select equipment.") as null|anything in global.human_mob_list
 	if(!H)
 		return
 
-	var/decl/hierarchy/outfit/outfit = input("Select outfit.", "Select equipment.") as null|anything in outfits()
+	var/decl/outfit/outfit = input("Select outfit.", "Select equipment.") as null|anything in decls_repository.get_decls_of_subtype_unassociated(/decl/outfit)
 	if(!outfit)
 		return
 
-	var/reset_equipment = (outfit.flags&OUTFIT_RESET_EQUIPMENT)
+	var/reset_equipment = (outfit.outfit_flags & OUTFIT_RESET_EQUIPMENT)
 	if(!reset_equipment)
 		reset_equipment = alert("Do you wish to delete all current equipment first?", "Delete Equipment?","Yes", "No") == "Yes"
 
 	SSstatistics.add_field_details("admin_verb","SEQ")
 	dressup_human(H, outfit, reset_equipment)
 
-/proc/dressup_human(var/mob/living/carbon/human/H, var/decl/hierarchy/outfit/outfit, var/undress = TRUE)
+/proc/dressup_human(var/mob/living/human/H, var/decl/outfit/outfit, var/undress = TRUE)
 	if(!H || !outfit)
 		return
 	if(undress)
 		H.delete_inventory(TRUE)
-	outfit.equip(H)
+	outfit.equip_outfit(H)
 	log_and_message_admins("changed the equipment of [key_name(H)] to [outfit.name].")
 
 /client/proc/startSinglo()
@@ -358,22 +344,6 @@
 		if("Clients")
 			to_chat(usr, jointext(global.clients,","))
 
-// DNA2 - Admin Hax
-/client/proc/cmd_admin_toggle_block(var/mob/M,var/block)
-	if(GAME_STATE < RUNLEVEL_GAME)
-		alert("Wait until the game starts")
-		return
-	if(istype(M, /mob/living/carbon))
-		M.dna.SetSEState(block,!M.dna.GetSEState(block))
-		domutcheck(M,null,MUTCHK_FORCED)
-		M.update_mutations()
-		var/state="[M.dna.GetSEState(block)?"on":"off"]"
-		var/blockname=assigned_blocks[block]
-		message_admins("[key_name_admin(src)] has toggled [M.key]'s [blockname] block [state]!")
-		log_admin("[key_name(src)] has toggled [M.key]'s [blockname] block [state]!")
-	else
-		alert("Invalid mob")
-
 /datum/admins/proc/view_runtimes()
 	set category = "Debug"
 	set name = "View Runtimes"
@@ -389,12 +359,12 @@
 	set name = "Analyse Health"
 	set desc = "Get an advanced health reading on a human mob."
 
-	var/mob/living/carbon/human/H = input("Select mob.", "Analyse Health") as null|anything in global.human_mob_list
+	var/mob/living/human/H = input("Select mob.", "Analyse Health") as null|anything in global.human_mob_list
 	if(!H)	return
 
 	cmd_analyse_health(H)
 
-/client/proc/cmd_analyse_health(var/mob/living/carbon/human/H)
+/client/proc/cmd_analyse_health(var/mob/living/human/H)
 
 	if(!check_rights(R_DEBUG))
 		return
@@ -403,10 +373,10 @@
 
 	var/dat = display_medical_data(H.get_raw_medical_data(), SKILL_MAX)
 
-	dat += text("<BR><A href='?src=\ref[];mach_close=scanconsole'>Close</A>", usr)
+	dat += text("<BR><A href='byond://?src=\ref[];mach_close=scanconsole'>Close</A>", usr)
 	show_browser(usr, dat, "window=scanconsole;size=430x600")
 
-/client/proc/cmd_analyse_health_context(mob/living/carbon/human/H as mob in global.human_mob_list)
+/client/proc/cmd_analyse_health_context(mob/living/human/H as mob in global.human_mob_list)
 	set category = null
 	set name = "Analyse Human Health"
 
@@ -455,11 +425,10 @@
 	set name = "Spawn Material Stack"
 	if(!check_rights(R_DEBUG)) return
 
-	var/material = input("Select material to spawn") as null|anything in SSmaterials.materials_by_name
-	if(!material)
+	var/decl/material/material = input("Select material to spawn") as null|anything in decls_repository.get_decls_of_subtype_unassociated(/decl/material)
+	if(!istype(material))
 		return
-	var/decl/material/M = SSmaterials.materials_by_name[material]
-	M.create_object(get_turf(mob), 50)
+	material.create_object(get_turf(mob), 50)
 
 /client/proc/force_ghost_trap_trigger()
 	set category = "Debug"
@@ -506,8 +475,7 @@
 		PD._theme_forced = theme
 	planet_template.load_new_z(gen_data = PD)
 	if(!daycycle)
-		PD.day_duration = null
-		SSdaycyle.remove_linked_levels(PD.topmost_level_id)
+		SSdaycycle.remove_level(PD.get_linked_level_zs(), PD.daycycle_id)
 
 /client/proc/display_del_log()
 	set category = "Debug"
@@ -527,6 +495,8 @@
 		. += "<li>qdel() Count: [I.qdels]</li>"
 		if(I.early_destroy)
 			. += "<li>Early destroy count: [I.early_destroy]</li>"
+		if(I.qdels)
+			. += "<li>Average Destroy() Cost: [I.destroy_time / I.qdels]ms/call</li>"
 		. += "<li>Destroy() Cost: [I.destroy_time]ms</li>"
 		if(I.hard_deletes)
 			. += "<li>Total Hard Deletes [I.hard_deletes]</li>"

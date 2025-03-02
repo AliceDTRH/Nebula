@@ -11,6 +11,9 @@
 	var/max_amount = 1 // How many instances can be queued at once
 	var/list/required_technology
 	var/list/species_locked
+	/// Set to explicit FALSE to cause n stacks to be created instead of 1 stack of n amount.
+	/// Does not work for non-stacks being created as stacks, do not set to explicit TRUE for non-stacks.
+	var/pass_multiplier_to_product_new
 
 // Populate name and resources from the product type.
 /datum/fabricator_recipe/proc/get_product_name()
@@ -20,17 +23,13 @@
 	..()
 	if(!path)
 		return
+	if(isnull(pass_multiplier_to_product_new))
+		pass_multiplier_to_product_new = ispath(path, /obj/item/stack)
 	if(!name)
 		name = get_product_name()
 	if(required_technology == TRUE)
 		if(ispath(path, /obj/item))
-			var/list/res = build(null, new/datum/fabricator_build_order(src, 1))
-			if(length(res))
-				var/obj/item/O = res[1]
-				var/tech = O.get_origin_tech()
-				if(tech)
-					required_technology = cached_json_decode(tech)
-				QDEL_NULL_LIST(res)
+			required_technology = atom_info_repository.get_origin_tech_for(path, amount = 1)
 		if(!islist(required_technology))
 			required_technology = list()
 	if(!resources)
@@ -55,20 +54,9 @@
 	for(var/mat in building_cost)
 		resources[mat] = building_cost[mat] * FABRICATOR_EXTRA_COST_FACTOR
 
-/obj/building_cost()
-	. = ..()
-	if(length(matter))
-		for(var/material in matter)
-			var/decl/material/M = GET_DECL(material)
-			if(istype(M))
-				.[M.type] = matter[material]
-	if(reagents && length(reagents.reagent_volumes))
-		for(var/R in reagents.reagent_volumes)
-			.[R] = FLOOR(REAGENT_VOLUME(reagents, R) / REAGENT_UNITS_PER_MATERIAL_UNIT)
-
 /datum/fabricator_recipe/proc/build(var/turf/location, var/datum/fabricator_build_order/order)
 	. = list()
-	if(ispath(path, /obj/item/stack))
+	if(ispath(path, /obj/item/stack) && pass_multiplier_to_product_new)
 		. += new path(location, order.multiplier)
 	else
 		for(var/i = 1, i <= order.multiplier, i++)

@@ -31,10 +31,10 @@
 	if(job && LAZYLEN(job.possible_goals))
 		available_goals |= job.possible_goals
 	if(ishuman(current))
-		var/mob/living/carbon/human/H = current
-		for(var/token in H.cultural_info)
-			var/decl/cultural_info/culture = H.get_cultural_value(token)
-			var/list/new_goals = culture.get_possible_personal_goals(job ? job.department_types : null)
+		var/mob/living/human/H = current
+		for(var/token in H.background_info)
+			var/decl/background_detail/background = H.get_background_datum(token)
+			var/list/new_goals = background.get_possible_personal_goals(job ? job.department_types : null)
 			if(LAZYLEN(new_goals))
 				available_goals |= new_goals
 	if(isnull(add_amount))

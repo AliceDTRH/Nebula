@@ -4,7 +4,7 @@
 	anchored = FALSE
 	density = FALSE
 
-	var/mob/living/carbon/human/attached
+	var/mob/living/human/attached
 	var/mode = 1 // 1 is injecting, 0 is taking blood.
 	var/obj/item/chems/beaker
 	var/list/transfer_amounts = list(REM, 1, 2)
@@ -75,7 +75,7 @@
 
 			add_overlay(light)
 
-/obj/structure/iv_drip/handle_mouse_drop(atom/over, mob/user)
+/obj/structure/iv_drip/handle_mouse_drop(atom/over, mob/user, params)
 	if(attached)
 		drip_detach()
 		return TRUE
@@ -84,16 +84,17 @@
 		return TRUE
 	. = ..()
 
-/obj/structure/iv_drip/attackby(obj/item/W, mob/user)
-	if (istype(W, /obj/item/chems))
+/obj/structure/iv_drip/attackby(obj/item/used_item, mob/user)
+	if (istype(used_item, /obj/item/chems))
 		if(!isnull(src.beaker))
 			to_chat(user, "There is already a reagent container loaded!")
-			return
-		if(!user.try_unequip(W, src))
-			return
-		beaker = W
-		to_chat(user, "You attach \the [W] to \the [src].")
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
+		beaker = used_item
+		to_chat(user, "You attach \the [used_item] to \the [src].")
 		queue_icon_update()
+		return TRUE
 	else
 		return ..()
 
@@ -185,36 +186,32 @@
 	mode = !mode
 	to_chat(usr, "The IV drip is now [mode ? "injecting" : "taking blood"].")
 
-/obj/structure/iv_drip/examine(mob/user, distance)
+/obj/structure/iv_drip/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-
 	if (distance >= 2)
 		return
-
-	to_chat(user, "The IV drip is [mode ? "injecting" : "taking blood"].")
-	to_chat(user, "It is set to transfer [transfer_amount]u of chemicals per cycle.")
-
+	. += "The IV drip is [mode ? "injecting" : "taking blood"]."
+	. += "It is set to transfer [transfer_amount]u of chemicals per cycle."
 	if(beaker)
 		if(beaker.reagents && beaker.reagents.total_volume)
-			to_chat(usr, SPAN_NOTICE("Attached is \a [beaker] with [beaker.reagents.total_volume] units of liquid."))
+			. += SPAN_NOTICE("Attached is \a [beaker] with [beaker.reagents.total_volume] units of liquid.")
 		else
-			to_chat(usr, SPAN_NOTICE("Attached is an empty [beaker]."))
+			. += SPAN_NOTICE("Attached is an empty [beaker].")
 	else
-		to_chat(usr, SPAN_NOTICE("No chemicals are attached."))
-
-	to_chat(usr, SPAN_NOTICE("[attached ? attached : "No one"] is hooked up to it."))
+		. += SPAN_NOTICE("No chemicals are attached.")
+	. += SPAN_NOTICE("[attached ? attached : "No one"] is hooked up to it.")
 
 /obj/structure/iv_drip/proc/rip_out()
 	visible_message("The needle is ripped out of [src.attached], doesn't that hurt?")
 	attached.apply_damage(1, BRUTE, pick(BP_R_ARM, BP_L_ARM), damage_flags=DAM_SHARP)
 	attached = null
 
-/obj/structure/iv_drip/proc/hook_up(mob/living/carbon/human/target, mob/user)
+/obj/structure/iv_drip/proc/hook_up(mob/living/human/target, mob/user)
 	if(do_IV_hookup(target, user, src))
 		attached = target
 		START_PROCESSING(SSobj,src)
 
-/proc/do_IV_hookup(mob/living/carbon/human/target, mob/user, obj/IV)
+/proc/do_IV_hookup(mob/living/human/target, mob/user, obj/IV)
 	to_chat(user, SPAN_NOTICE("You start to hook up \the [target] to \the [IV]."))
 	if(!user.do_skilled(2 SECONDS, SKILL_MEDICAL, target))
 		return FALSE

@@ -25,11 +25,8 @@
 /mob/living/proc/can_use_rig()
 	return 0
 
-/mob/living/carbon/human/can_use_rig()
+/mob/living/human/can_use_rig()
 	return 1
-
-/mob/living/carbon/brain/can_use_rig()
-	return istype(loc, /obj/item/mmi)
 
 /mob/living/silicon/ai/can_use_rig()
 	return carded
@@ -49,6 +46,6 @@
 				return 0
 		rig.selected_module.engage(A, alert_ai)
 		if(ismob(A)) // No instant mob attacking - though modules have their own cooldowns
-			setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+			setClickCooldown(DEFAULT_QUICK_COOLDOWN)
 		return 1
 	return 0

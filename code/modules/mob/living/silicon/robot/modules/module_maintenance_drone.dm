@@ -1,8 +1,9 @@
 /obj/item/robot_module/drone
 	name = "drone module"
-	hide_on_manifest = 1
-	no_slip = 1
-	camera_channels = list(
+	hide_on_manifest  = 1
+	has_nonslip_feet  = TRUE
+	has_magnetic_feet = TRUE
+	camera_channels   = list(
 		CAMERA_CAMERA_CHANNEL_ENGINEERING
 	)
 	languages = list(
@@ -31,7 +32,6 @@
 		/obj/item/matter_decompiler,
 		/obj/item/stack/material/cyborg/steel,
 		/obj/item/stack/material/rods/cyborg,
-		/obj/item/stack/material/strut/cyborg,
 		/obj/item/stack/tile/floor/cyborg,
 		/obj/item/stack/tile/roof/cyborg,
 		/obj/item/stack/material/cyborg/glass,
@@ -58,10 +58,10 @@
 		SKILL_ELECTRICAL   = SKILL_EXPERT
 	)
 
-/obj/item/robot_module/drone/finalize_equipment(var/mob/living/silicon/robot/R)
+/obj/item/robot_module/drone/finalize_equipment(var/mob/living/silicon/robot/robot)
 	. = ..()
-	if(istype(R))
-		R.internals = locate(/obj/item/tank/jetpack/carbondioxide) in equipment
+	if(istype(robot))
+		robot.set_internals(locate(/obj/item/tank/jetpack/carbondioxide) in equipment)
 
 /obj/item/robot_module/drone/finalize_emag()
 	. = ..()
@@ -84,7 +84,6 @@
 	for(var/thing in list(
 		 /obj/item/stack/material/cyborg/steel,
 		 /obj/item/stack/material/rods/cyborg,
-		 /obj/item/stack/material/strut/cyborg,
 		 /obj/item/stack/tile/floor/cyborg,
 		 /obj/item/stack/tile/roof/cyborg,
 		 /obj/item/stack/material/cyborg/glass/reinforced
@@ -113,10 +112,12 @@
 	var/obj/item/stack/material/cyborg/plastic/P = locate() in equipment
 	P.synths = list(plastic)
 
-/obj/item/robot_module/drone/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/drone/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	..()
 	var/obj/item/chems/spray/cleaner/drone/SC = locate() in equipment
-	SC.reagents.add_reagent(/decl/material/liquid/cleaner, 8 * amount)
+	SC.add_to_reagents(/decl/material/liquid/cleaner, 8 * amount)
+	var/obj/item/lightreplacer/LR = locate() in equipment
+	LR.Charge(robot, amount)
 
 /obj/item/robot_module/drone/construction
 	name = "construction drone module"
@@ -128,8 +129,3 @@
 /obj/item/robot_module/drone/construction/Initialize()
 	equipment += /obj/item/rcd/borg
 	. = ..()
-
-/obj/item/robot_module/drone/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
-	var/obj/item/lightreplacer/LR = locate() in equipment
-	LR.Charge(R, amount)
-	..()

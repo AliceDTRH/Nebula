@@ -9,7 +9,6 @@
 	active_power_usage = 500
 	construct_state = /decl/machine_construction/default/panel_closed
 	uncreated_component_parts = null
-	stat_immune = 0
 	base_type = /obj/machinery/fusion_fuel_injector
 
 	var/fuel_usage = 0.001
@@ -45,41 +44,41 @@
 		else
 			Inject()
 
-/obj/machinery/fusion_fuel_injector/attackby(obj/item/W, mob/user)
+/obj/machinery/fusion_fuel_injector/attackby(obj/item/used_item, mob/user)
 
-	if(IS_MULTITOOL(W))
+	if(IS_MULTITOOL(used_item))
 		var/datum/extension/local_network_member/fusion = get_extension(src, /datum/extension/local_network_member)
 		fusion.get_new_tag(user)
-		return
+		return TRUE
 
-	if(istype(W, /obj/item/fuel_assembly))
+	if(istype(used_item, /obj/item/fuel_assembly))
 
 		if(injecting)
 			to_chat(user, "<span class='warning'>Shut \the [src] off before playing with the fuel rod!</span>")
-			return
-		if(!user.try_unequip(W, src))
-			return
+			return TRUE
+		if(!user.try_unequip(used_item, src))
+			return TRUE
 		if(cur_assembly)
-			visible_message("<span class='notice'>\The [user] swaps \the [src]'s [cur_assembly] for \a [W].</span>")
+			visible_message("<span class='notice'>\The [user] swaps \the [src]'s [cur_assembly] for \a [used_item].</span>")
 		else
-			visible_message("<span class='notice'>\The [user] inserts \a [W] into \the [src].</span>")
+			visible_message("<span class='notice'>\The [user] inserts \a [used_item] into \the [src].</span>")
 		if(cur_assembly)
 			cur_assembly.dropInto(loc)
 			user.put_in_hands(cur_assembly)
-		cur_assembly = W
-		return
+		cur_assembly = used_item
+		return TRUE
 
-	if(IS_WRENCH(W))
+	if(IS_WRENCH(used_item))
 		if(injecting)
 			to_chat(user, "<span class='warning'>Shut \the [src] off first!</span>")
-			return
+			return TRUE
 		anchored = !anchored
 		playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
 		if(anchored)
 			user.visible_message("\The [user] secures \the [src] to the floor.")
 		else
 			user.visible_message("\The [user] unsecures \the [src] from the floor.")
-		return
+		return TRUE
 
 	return ..()
 

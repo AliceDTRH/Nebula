@@ -6,9 +6,11 @@
 
 /obj/item/integrated_circuit/reagent
 	category_text = "Reagent"
-	unacidable = 1
 	cooldown_per_use = 10
 	var/volume = 0
+
+/obj/item/integrated_circuit/reagent/solvent_can_melt(var/solvent_power = MAT_SOLVENT_STRONG)
+	return FALSE
 
 /obj/item/integrated_circuit/reagent/Initialize()
 	. = ..()
@@ -17,7 +19,7 @@
 		push_vol()
 
 /obj/item/integrated_circuit/reagent/proc/push_vol()
-	set_pin_data(IC_OUTPUT, 1, reagents.total_volume)
+	set_pin_data(IC_OUTPUT, 1, reagents?.total_volume || 0)
 	push_data()
 
 /obj/item/integrated_circuit/reagent/smoke
@@ -47,8 +49,9 @@
 	var/smoke_radius = 5
 	var/notified = FALSE
 
-/obj/item/integrated_circuit/reagent/smoke/on_reagent_change()
-	push_vol()
+/obj/item/integrated_circuit/reagent/on_reagent_change()
+	if((. = ..()))
+		push_vol()
 
 /obj/item/integrated_circuit/reagent/smoke/do_work(ord)
 	switch(ord)
@@ -106,9 +109,6 @@
 	var/transfer_amount = 10
 	var/busy = FALSE
 
-/obj/item/integrated_circuit/reagent/injector/on_reagent_change(changetype)
-	push_vol()
-
 /obj/item/integrated_circuit/reagent/injector/on_data_written()
 	var/new_amount = get_pin_data(IC_INPUT, 2)
 	if(new_amount < 0)
@@ -150,16 +150,16 @@
 
 /obj/item/integrated_circuit/reagent/injector/proc/draw_after(var/weakref/target, var/amount)
 	busy = FALSE
-	var/mob/living/carbon/C = target_nearby(target)
-	if(!C)
+	var/mob/living/target_living = target_nearby(target)
+	if(!target_living)
 		activate_pin(3)
 		return
 	var/atom/movable/acting_object = get_object()
 
-	C.visible_message("<span class='warning'>\The [acting_object] draws blood from \the [C]</span>",
+	target_living.visible_message("<span class='warning'>\The [acting_object] draws blood from \the [target_living]</span>",
 					"<span class='warning'>\The [acting_object] draws blood from you.</span>"
 					)
-	C.take_blood(src, amount)
+	target_living.take_blood(src, amount)
 	activate_pin(2)
 
 
@@ -184,7 +184,6 @@
 		if(isliving(AM))
 			var/mob/living/L = AM
 			var/injection_status = L.can_inject(null, BP_CHEST)
-			log_world("Injection status? [injection_status]")
 			var/injection_delay = 3 SECONDS
 			if(injection_status == INJECTION_PORT)
 				injection_delay += INJECTION_PORT_DELAY
@@ -196,7 +195,7 @@
 			L.visible_message("<span class='danger'>\The [acting_object] is trying to inject [L]!</span>", \
 								"<span class='danger'>\The [acting_object] is trying to inject you!</span>")
 			busy = TRUE
-			addtimer(CALLBACK(src, .proc/inject_after, weakref(L)), injection_delay)
+			addtimer(CALLBACK(src, PROC_REF(inject_after), weakref(L)), injection_delay)
 			return
 		else
 			if(!ATOM_IS_OPEN_CONTAINER(AM))
@@ -214,19 +213,20 @@
 
 		var/tramount = abs(transfer_amount)
 
-		if(istype(AM, /mob/living/carbon))
-			var/mob/living/carbon/C = AM
-			var/injection_status = C.can_inject(null, BP_CHEST)
+		if(ishuman(AM))
+			var/mob/living/human/H = AM
+			var/injection_status = H.can_inject(null, BP_CHEST)
 			var/injection_delay = 3 SECONDS
 			if(injection_status == INJECTION_PORT)
 				injection_delay += INJECTION_PORT_DELAY
-			if(!C.dna || !injection_status)
+			if(!H.vessel?.total_volume || !injection_status)
 				activate_pin(3)
 				return
-			C.visible_message("<span class='danger'>\The [acting_object] is trying to take a blood sample from [C]!</span>", \
-								"<span class='danger'>\The [acting_object] is trying to take a blood sample from you!</span>")
+			H.visible_message(
+				SPAN_DANGER("\The [acting_object] is trying to take a blood sample from \the [H]!"),
+				SPAN_DANGER("\The [acting_object] is trying to take a blood sample from you!"))
 			busy = TRUE
-			addtimer(CALLBACK(src, .proc/draw_after, weakref(C), tramount), injection_delay)
+			addtimer(CALLBACK(src, PROC_REF(draw_after), weakref(H), tramount), injection_delay)
 			return
 
 		else
@@ -321,9 +321,6 @@
 	set_pin_data(IC_OUTPUT, 2, weakref(src))
 	push_data()
 
-/obj/item/integrated_circuit/reagent/storage/on_reagent_change(changetype)
-	push_vol()
-
 /obj/item/integrated_circuit/reagent/storage/big
 	name = "big reagent storage"
 	icon_state = "reagent_storage_big"
@@ -340,13 +337,13 @@
 	icon_state = "reagent_storage_cryo"
 	extended_desc = "This is effectively an internal cryo beaker."
 
-	atom_flags = ATOM_FLAG_NO_TEMP_CHANGE | ATOM_FLAG_OPEN_CONTAINER | ATOM_FLAG_NO_REACT
+	atom_flags = ATOM_FLAG_OPEN_CONTAINER | ATOM_FLAG_NO_CHEM_CHANGE
 	complexity = 8
 	spawn_flags = IC_SPAWN_RESEARCH
 
 /obj/item/integrated_circuit/reagent/storage/grinder
 	name = "reagent grinder"
-	desc = "This is a reagent grinder. It accepts a ref to something, and refines it into reagents. It cannot grind materials. It can store up to 100u."
+	desc = "This is a reagent grinder. It accepts a ref to something and refines it into reagents. It cannot grind materials and can store up to 100u."
 	icon_state = "blender"
 	extended_desc = ""
 	inputs = list(
@@ -421,8 +418,8 @@
 		if(1)
 			var/cont[0]
 			for(var/rtype in reagents.reagent_volumes)
-				var/decl/material/RE = GET_DECL(rtype)
-				cont += RE.name
+				var/decl/material/reagent = GET_DECL(rtype)
+				cont += reagent.name
 			set_pin_data(IC_OUTPUT, 3, cont)
 			push_data()
 		if(2)
@@ -481,20 +478,20 @@
 	if(!source.reagents || !target.reagents)
 		return
 
-	if(!ATOM_IS_OPEN_CONTAINER(source) || istype(source, /mob))
+	if(!ATOM_IS_OPEN_CONTAINER(source) || ismob(source))
 		return
 
 	if(target.reagents.maximum_volume - target.reagents.total_volume <= 0)
 		return
 
 	for(var/rtype in source.reagents.reagent_volumes)
-		var/decl/material/G = GET_DECL(rtype)
+		var/decl/material/mat = GET_DECL(rtype)
 		if(!direction_mode)
-			if(G.name in demand)
-				source.reagents.trans_type_to(target, G.type, transfer_amount)
+			if(mat.name in demand)
+				source.reagents.trans_type_to(target, rtype, transfer_amount)
 		else
-			if(!(G.name in demand))
-				source.reagents.trans_type_to(target, G.type, transfer_amount)
+			if(!(mat.name in demand))
+				source.reagents.trans_type_to(target, rtype, transfer_amount)
 	activate_pin(2)
 	push_data()
 
@@ -512,12 +509,14 @@
 		"on transfer" = IC_PINTYPE_PULSE_OUT
 	)
 
-	unacidable = 1
 	spawn_flags = IC_SPAWN_DEFAULT|IC_SPAWN_RESEARCH
 	complexity = 4
 	power_draw_per_use = 5
 
-/obj/item/integrated_circuit/input/funnel/attackby_react(obj/item/I, mob/user, intent)
+/obj/item/integrated_circuit/input/funnel/solvent_can_melt(var/solvent_power = MAT_SOLVENT_STRONG)
+	return FALSE
+
+/obj/item/integrated_circuit/input/funnel/attackby_react(obj/item/I, mob/user, decl/intent/intent)
 	var/atom/movable/target = get_pin_data_as_type(IC_INPUT, 1, /atom/movable)
 	var/obj/item/chems/container = I
 
@@ -593,9 +592,6 @@
 		if(3)
 			set_pin_data(IC_OUTPUT, 4, weakref(src))
 			push_data()
-
-/obj/item/integrated_circuit/reagent/temp/on_reagent_change()
-	push_vol()
 
 /obj/item/integrated_circuit/reagent/temp/power_fail()
 	active = 0

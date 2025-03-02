@@ -1,7 +1,7 @@
 /decl/psionic_faculty/redaction
 	id = PSI_REDACTION
 	name = "Redaction"
-	associated_intent = I_HELP
+	associated_intent_flag = I_FLAG_HELP
 	armour_types = list(ARMOR_BIO, ARMOR_RAD)
 
 /decl/psionic_power/redaction
@@ -46,7 +46,7 @@
 	min_rank =        PSI_RANK_OPERANT
 	use_description = "Target a patient while on help intent at melee range to mend a variety of maladies, such as bleeding or broken bones. Higher ranks in this faculty allow you to mend a wider range of problems."
 
-/decl/psionic_power/redaction/mend/invoke(var/mob/living/user, var/mob/living/carbon/human/target)
+/decl/psionic_power/redaction/mend/invoke(var/mob/living/user, var/mob/living/human/target)
 	if(!istype(user) || !istype(target))
 		return FALSE
 	. = ..()
@@ -64,8 +64,9 @@
 		user.visible_message(SPAN_NOTICE("<i>\The [user] rests a hand on \the [target]'s [E.name]...</i>"))
 		to_chat(target, SPAN_NOTICE("A healing warmth suffuses you."))
 
-		var/redaction_rank = user.psi.get_rank(PSI_REDACTION)
-		var/pk_rank = user.psi.get_rank(PSI_PSYCHOKINESIS)
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+		var/redaction_rank = psi?.get_rank(PSI_REDACTION)
+		var/pk_rank = psi?.get_rank(PSI_PSYCHOKINESIS)
 		if(pk_rank >= PSI_RANK_LATENT && redaction_rank >= PSI_RANK_MASTER)
 			var/removal_size = clamp(5-pk_rank, 0, 5)
 			var/valid_objects = list()
@@ -93,24 +94,29 @@
 				E.status &= ~ORGAN_BROKEN
 				E.stage = 0
 				return TRUE
+			if(E.is_dislocated() && !E.is_parent_dislocated())
+				to_chat(user, SPAN_NOTICE("You carefully guide the dislocated joint back into place and soothe the inflamed muscles."))
+				E.undislocate(skip_pain = TRUE)
+				return TRUE
 
-		for(var/datum/wound/W in E.wounds)
-			if(W.bleeding())
-				if(redaction_rank >= PSI_RANK_MASTER || W.wound_damage() < 30)
+		for(var/datum/wound/wound in E.wounds)
+			if(wound.bleeding())
+				if(redaction_rank >= PSI_RANK_MASTER || wound.wound_damage() < 30)
 					to_chat(user, SPAN_NOTICE("You knit together severed veins and broken flesh, stemming the bleeding."))
-					W.bleed_timer = 0
-					W.clamped = TRUE
+					wound.bleed_timer = 0
+					wound.clamped = TRUE
 					E.status &= ~ORGAN_BLEEDING
 					return TRUE
 				else
-					to_chat(user, SPAN_NOTICE("This [W.desc] is beyond your power to heal."))
+					to_chat(user, SPAN_NOTICE("This [wound.desc] is beyond your power to heal."))
 
 		if(redaction_rank >= PSI_RANK_GRANDMASTER)
-			for(var/obj/item/organ/internal/I in E.internal_organs)
-				if(!BP_IS_PROSTHETIC(I) && !BP_IS_CRYSTAL(I) && I.damage > 0)
-					to_chat(user, SPAN_NOTICE("You encourage the damaged tissue of \the [I] to repair itself."))
+			for(var/obj/item/organ/internal/organ in E.internal_organs)
+				var/organ_damage = organ.get_organ_damage()
+				if(!BP_IS_PROSTHETIC(organ) && !BP_IS_CRYSTAL(organ) && organ_damage > 0 && organ.organ_tag != BP_BRAIN)
+					to_chat(user, SPAN_NOTICE("You encourage the damaged tissue of \the [organ] to repair itself."))
 					var/heal_rate = redaction_rank
-					I.damage = max(0, I.damage - rand(heal_rate,heal_rate*2))
+					organ.adjust_organ_damage(-rand(heal_rate, heal_rate*2))
 					return TRUE
 
 		to_chat(user, SPAN_NOTICE("You can find nothing within \the [target]'s [E.name] to mend."))
@@ -124,7 +130,7 @@
 	min_rank =        PSI_RANK_GRANDMASTER
 	use_description = "Target a patient while on help intent at melee range to cleanse radiation and genetic damage from a patient."
 
-/decl/psionic_power/redaction/cleanse/invoke(var/mob/living/user, var/mob/living/carbon/human/target)
+/decl/psionic_power/redaction/cleanse/invoke(var/mob/living/user, var/mob/living/human/target)
 	if(!istype(user) || !istype(target))
 		return FALSE
 	. = ..()
@@ -138,12 +144,12 @@
 			else
 				target.radiation = 0
 			return TRUE
-		if(target.getCloneLoss())
+		if(target.get_damage(CLONE))
 			to_chat(user, SPAN_NOTICE("You stitch together some of the mangled DNA within \the [target]..."))
-			if(target.getCloneLoss() >= removing)
-				target.adjustCloneLoss(-removing)
+			if(target.get_damage(CLONE) >= removing)
+				target.heal_damage(CLONE, removing)
 			else
-				target.adjustCloneLoss(-(target.getCloneLoss()))
+				target.heal_damage(CLONE, target.get_damage(CLONE))
 			return TRUE
 		to_chat(user, SPAN_NOTICE("You can find no genetic damage or radiation to heal within \the [target]."))
 		return TRUE
@@ -173,7 +179,8 @@
 
 		user.visible_message(SPAN_NOTICE("<i>\The [user] splays out their hands over \the [target]'s body...</i>"))
 		if(!do_after(user, 100, target, 0, 1))
-			user.psi.backblast(rand(10,25))
+			var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+			psi?.backblast(rand(10,25))
 			return TRUE
 
 		for(var/mob/observer/G in global.dead_mob_list_)
@@ -182,6 +189,6 @@
 				break
 		to_chat(target, SPAN_NOTICE("<font size = 3><b>Life floods back into your body!</b></font>"))
 		target.visible_message(SPAN_NOTICE("\The [target] shudders violently!"))
-		target.adjustOxyLoss(-rand(15,20))
+		target.heal_damage(OXY, rand(15,20))
 		target.basic_revival()
 		return TRUE

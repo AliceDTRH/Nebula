@@ -1,26 +1,41 @@
-// These involve BYOND's built in filters that do visual effects, and not stuff that distinguishes between things.
+// These involve BYOND's built-in filters that do visual effects, and not stuff that distinguishes between things.
 
 // All of this ported from TG.
 // And then ported to Nebula from Polaris.
 /atom/movable
-	var/list/filter_data // For handling persistent filters
-
-/proc/cmp_filter_data_priority(list/A, list/B)
-	return A["priority"] - B["priority"]
+	VAR_PRIVATE/list/filter_data // For handling persistent filters
 
 // Defining this for future proofing and ease of searching for erroneous usage.
 /image/proc/add_filter(filter_name, priority, list/params)
 	filters += filter(arglist(params))
+	return TRUE
 
-/atom/movable/proc/add_filter(filter_name, priority, list/params)
+/atom/movable/proc/has_filter(filter_name)
+	return (name in filter_data)
+
+/atom/movable/proc/add_filter(filter_name, priority, list/params, force_update = FALSE)
+
+	// Check if we already have a filter and hence don't need to rebuild filters.
+	if((filter_name in filter_data) && !force_update)
+		var/existing_params = filter_data[name]
+		if(length(params) == length(existing_params))
+			var/found_difference = FALSE
+			for(var/param in (existing_params|params))
+				if(params[param] != existing_params[param])
+					found_difference = TRUE
+					break
+			if(!found_difference)
+				return FALSE
+
 	var/list/p = params.Copy()
 	p["priority"] = priority
 	LAZYSET(filter_data, filter_name, p)
 	update_filters()
+	return TRUE
 
 /atom/movable/proc/update_filters()
 	filters = null
-	filter_data = sortTim(filter_data, /proc/cmp_filter_data_priority, TRUE)
+	filter_data = sortTim(filter_data, /proc/cmp_priority_list, TRUE)
 	for(var/f in filter_data)
 		var/list/data = filter_data[f]
 		var/list/arguments = data.Copy()
@@ -40,6 +55,8 @@
 		LAZYREMOVE(filter_data, filter_name)
 		filters -= thing
 		update_filters()
+		return TRUE
+	return FALSE
 
 /// Animate a given filter on this atom. All params after the first are passed to animate().
 /atom/movable/proc/animate_filter(filter_name, list/params)
@@ -49,9 +66,9 @@
 	var/list/monkeypatched_params = params.Copy()
 	monkeypatched_params.Insert(1, null)
 	var/index = filter_data.Find(filter_name)
-	
+
 	// First, animate ourselves.
-	monkeypatched_params[1] = filters[index]   
+	monkeypatched_params[1] = filters[index]
 	animate(arglist(monkeypatched_params))
 
 	// If we're being copied by Z-Mimic, update mimics too.

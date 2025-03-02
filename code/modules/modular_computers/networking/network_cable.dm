@@ -5,13 +5,13 @@
 	icon_state = "dot"
 	layer = WIRE_LAYER
 	anchored = TRUE
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	var/datum/node/physical/network_node
 
 /obj/structure/network_cable/Initialize(ml, _mat, _reinf_mat)
 	..()
 	var/turf/T = get_turf(src)
-	hide(hides_under_flooring() && !T.is_plating())
+	hide(hides_under_flooring() && !T?.is_plating())
 	network_node = new(src)
 	network_node.graph = new(list(network_node))
 	return INITIALIZE_HINT_LATELOAD
@@ -27,7 +27,7 @@
 		for(var/obj/structure/network_cable/cable in T)
 			cable.update_icon()
 	var/turf/T = get_turf(src)
-	if(T.is_open())
+	if(T?.is_open())
 		for(var/obj/structure/network_cable/cable in GetBelow(src))
 			cable.update_icon()
 	var/turf/U = GetAbove(src)
@@ -53,7 +53,7 @@
 				LAZYADD(graphs[G], cable.network_node)
 			cable.update_icon()
 	var/turf/T = get_turf(src)
-	if(T.is_open())
+	if(T?.is_open())
 		for(var/obj/structure/network_cable/cable in GetBelow(src))
 			var/datum/graph/G = cable.network_node.graph
 			if(G)
@@ -83,7 +83,7 @@
 		for(var/obj/structure/network_cable/cable in T)
 			adj_nodes |= cable.network_node
 	var/turf/T = get_turf(src)
-	if(T.is_open())
+	if(T?.is_open())
 		for(var/obj/structure/network_cable/cable in GetBelow(src))
 			adj_nodes |= cable.network_node
 	var/turf/U = GetAbove(src)
@@ -124,7 +124,7 @@
 			if(!QDELETED(cable))
 				add_overlay("cable[dir]")
 	var/turf/T = get_turf(src)
-	if(T.is_open())
+	if(T?.is_open())
 		var/turf/A = GetBelow(src)
 		var/obj/structure/network_cable/cable = locate() in A
 		if(cable)
@@ -157,14 +157,14 @@
 	amount = 20
 	max_amount = 20
 	singular_name = "length"
-	throwforce = 0
 	w_class = ITEM_SIZE_NORMAL
 	throw_speed = 2
 	throw_range = 5
 	material = /decl/material/solid/glass
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT
 	)
+	matter_multiplier = 0.15
 	item_state = "coil"
 
 /obj/item/stack/net_cable_coil/single

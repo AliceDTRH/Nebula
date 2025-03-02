@@ -101,8 +101,8 @@ var/global/list/telecomms_hubs = list()
 
 	var/datum/extension/network_device/network_device = get_extension(src, /datum/extension/network_device)
 	var/datum/computer_network/network = network_device?.get_network()
-	for(var/weakref/R in network?.connected_radios)
-		var/obj/item/radio/radio = R.resolve()
+	for(var/weakref/radio_ref in network?.connected_radios)
+		var/obj/item/radio/radio = radio_ref.resolve()
 		if(istype(radio) && !QDELETED(radio))
 			radio.sync_channels_with_network()
 
@@ -127,7 +127,7 @@ var/global/list/telecomms_hubs = list()
 	if(overloaded_for > 0)
 		overloaded_for--
 
-/// Accepts either a raw frequency (numeric), or or a frequency/key string, and returns the associated channel data.
+/// Accepts either a raw frequency (numeric), or a frequency/key string, and returns the associated channel data.
 /obj/machinery/network/telecomms_hub/proc/get_channel_from_freq_or_key(var/cid)
 	cid = "[cid]"
 	. = LAZYACCESS(channels_by_frequency, cid) || LAZYACCESS(channels_by_key, cid)
@@ -160,41 +160,37 @@ var/global/list/telecomms_hubs = list()
 		encryption |= channel.secured
 
 	var/formatted_msg = "<span style='color:[channel?.color || default_color]'><small><b>\[[channel?.name || format_frequency(frequency)]\]</b></small> <span class='name'>"
-	var/send_name = istype(speaker) ? speaker.real_name : ("[speaker]" || "unknown")
-	var/overmap_send_name = "[send_name] ([send_overmap_object.name])"
-
+	var/send_name = istype(speaker) ? speaker.GetVoice() : ("[speaker]" || "unknown")
 	var/list/listeners = list() // Dictionary of listener -> boolean (include overmap origin)
-
 	// Broadcast to all radio devices in our network.
-	for(var/weakref/W as anything in network.connected_radios)
-		var/obj/item/radio/R = W.resolve()
-		if(!istype(R) || QDELETED(R) || !R.can_receive_message(network))
+	for(var/weakref/radio_ref as anything in network.connected_radios)
+		var/obj/item/radio/radio = radio_ref.resolve()
+		if(!istype(radio) || QDELETED(radio) || !radio.can_receive_message(network))
 			continue
-		var/turf/speaking_from = get_turf(R)
+		var/turf/speaking_from = get_turf(radio)
 		if(!speaking_from)
 			continue
-		if(!R.can_decrypt(encryption))
+		if(!radio.can_decrypt(encryption))
 			continue
 		// TODO: This check seems extraneous, given how headsets find their available channels.
-		var/list/check_channels = R.get_available_channels()
+		var/list/check_channels = radio.get_available_channels()
 		if(!LAZYACCESS(check_channels, channel))
 			continue
 
-		var/listener_overmap_object = istype(speaking_from) && global.overmap_sectors["[speaking_from.z]"]
-		for(var/mob/listener in hearers(R.canhear_range, speaking_from))
-			// If we're sending from an overmap object AND our overmap object transmits its identity AND it's different than the listener's
-			// then append the overmap object name to it, so they know where we're from
-			var/send_overmap = send_overmap_object && send_overmap_object.ident_transmitter && send_overmap_object != listener_overmap_object
-			LAZYSET(listeners, listener, send_overmap)
+		// If we're sending from an overmap object AND our overmap object transmits its identity AND it's different than the listener's
+		// then append the overmap object name to it, so they know where we're from
+		var/listener_overmap_object = istype(speaking_from) && global.overmap_sectors[num2text(speaking_from.z)]
+		var/send_overmap = send_overmap_object && send_overmap_object.ident_transmitter && send_overmap_object != listener_overmap_object
+		for(var/mob/listener as anything in radio.get_radio_listeners())
+			listeners[listener] = send_overmap
 
 	// Ghostship is magic: Ghosts can hear radio chatter from anywhere
 	for(var/mob/observer/ghost/ghost_listener as anything in global.ghost_mob_list)
 		if(ghost_listener.get_preference_value(/datum/client_preference/ghost_radio) == PREF_ALL_CHATTER)
-			LAZYSET(listeners, ghost_listener, TRUE)
+			listeners[ghost_listener] = TRUE
 
 	for(var/mob/listener in listeners)
-		var/per_listener_send_name = listeners[listener] ? overmap_send_name : send_name
-		listener.hear_radio(message, message_verb, speaking, formatted_msg, "</span> <span class='message'>", "</span></span>", speaker, message_compression, per_listener_send_name)
+		listener.hear_radio(message, message_verb, speaking, formatted_msg, "</span> <span class='message'>", "</span></span>", speaker, message_compression, vname = send_name, vsource = (listeners[listener] ? send_overmap_object.name : null))
 
 	if(!chain_transmit)
 		return
@@ -362,7 +358,7 @@ var/global/list/telecomms_hubs = list()
 
 								var/list/all_groups = net_acl.get_all_groups()
 								if(!length(all_groups))
-									to_chat(user, SPAN_WARNING("No groups were found on the network access controller"))
+									to_chat(user, SPAN_WARNING("No groups were found on the network access controller."))
 									return TOPIC_HANDLED
 
 								choice = input(user, "Which group do you wish to add? Adding a parent group will allow all members of its children groups to access the channel.", "Channel Configuration") as null|anything in all_groups

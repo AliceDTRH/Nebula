@@ -45,7 +45,12 @@
 	var/moving = 0
 	var/datum/gas_mixture/air_contents = new()
 
-
+/obj/structure/transit_tube_pod/attack_hand(mob/user)
+	if(!moving && length(contents) && isturf(user.loc))
+		user.visible_message(SPAN_NOTICE("\The [user] empties out \the [src]!"))
+		dump_contents()
+		return TRUE
+	return ..()
 
 /obj/structure/transit_tube_pod/Destroy()
 	dump_contents()
@@ -81,7 +86,7 @@
 		to_chat(AM, SPAN_INFO("You slip under the tube."))
 
 /obj/structure/transit_tube/station/Bumped(mob/AM)
-	if(!pod_moving && icon_state == "open" && istype(AM, /mob))
+	if(!pod_moving && icon_state == "open" && ismob(AM))
 		for(var/obj/structure/transit_tube_pod/pod in loc)
 			if(pod.contents.len)
 				to_chat(AM, SPAN_NOTICE("The pod is already occupied."))
@@ -341,7 +346,7 @@
 //  the station, try to exit. If the direction matches one of the station's
 //  tube directions, launch the pod in that direction.
 /obj/structure/transit_tube_pod/relaymove(mob/mob, direction)
-	if(istype(mob, /mob) && mob.client)
+	if(ismob(mob) && mob.client)
 		// If the pod is not in a tube at all, you can get out at any time.
 		if(!(locate(/obj/structure/transit_tube) in loc))
 			var/turf/T = get_turf(src)
@@ -375,7 +380,7 @@
 
 
 // Parse the icon_state into a list of directions.
-// This means that mappers can use Dream Maker's built in
+// This means that mappers can use Dream Maker's built-in
 //  "Generate Instances from Icon-states" option to get all
 //  variations. Additionally, as a separate proc, sub-types
 //  can handle it more intelligently.

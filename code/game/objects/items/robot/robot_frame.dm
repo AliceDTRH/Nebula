@@ -32,13 +32,13 @@
 	SSstatistics.add_field("cyborg_frames_built",1)
 	return TRUE
 
-/obj/item/robot_parts/robot_suit/attackby(obj/item/W, mob/user)
+/obj/item/robot_parts/robot_suit/attackby(obj/item/used_item, mob/user)
 
 	// Uninstall a robotic part.
-	if(IS_CROWBAR(W))
+	if(IS_CROWBAR(used_item))
 		if(!parts.len)
 			to_chat(user, SPAN_WARNING("\The [src] has no parts to remove."))
-			return
+			return TRUE
 		var/removing = pick(parts)
 		var/obj/item/robot_parts/part = parts[removing]
 		part.forceMove(get_turf(src))
@@ -46,77 +46,73 @@
 		parts -= removing
 		to_chat(user, SPAN_WARNING("You lever \the [part] off \the [src]."))
 		update_icon()
+		return TRUE
 
 	// Install a robotic part.
-	else if (istype(W, /obj/item/robot_parts))
-		var/obj/item/robot_parts/part = W
-		if(!required_parts[part.bp_tag] || !istype(W, required_parts[part.bp_tag]))
-			to_chat(user, SPAN_WARNING("\The [src] is not compatible with \the [W]."))
-			return
-		if(parts[part.bp_tag])
-			to_chat(user, SPAN_WARNING("\The [src] already has \a [W] installed."))
-			return
-		if(part.can_install(user) && user.try_unequip(W, src))
+	else if (istype(used_item, /obj/item/robot_parts))
+		var/obj/item/robot_parts/part = used_item
+		if(!required_parts[part.bp_tag] || !istype(used_item, required_parts[part.bp_tag]))
+			to_chat(user, SPAN_WARNING("\The [src] is not compatible with \the [used_item]."))
+		else if(parts[part.bp_tag])
+			to_chat(user, SPAN_WARNING("\The [src] already has \a [used_item] installed."))
+		else if(part.can_install(user) && user.try_unequip(used_item, src))
 			parts[part.bp_tag] = part
 			update_icon()
+		return TRUE
 
-	// Install an MMI/brain.
-	else if(istype(W, /obj/item/mmi) || istype(W, /obj/item/organ/internal/posibrain))
+	// Install a brain.
+	else if(istype(used_item, /obj/item/organ/internal/brain_interface))
 
 		if(!isturf(loc))
-			to_chat(user, SPAN_WARNING("You can't put \the [W] in without the frame being on the ground."))
-			return
+			to_chat(user, SPAN_WARNING("You can't put \the [used_item] in without the frame being on the ground."))
+			return TRUE
 
 		if(!check_completion())
 			to_chat(user, SPAN_WARNING("The frame is not ready for the central processor to be installed."))
-			return
+			return TRUE
 
-		var/mob/living/carbon/brain/B
-		if(istype(W, /obj/item/mmi))
-			var/obj/item/mmi/M = W
-			B = M.brainmob
-		else
-			var/obj/item/organ/internal/posibrain/P = W
-			B = P.brainmob
+		var/obj/item/organ/internal/brain_interface/M = used_item
+		var/mob/living/brainmob = M?.get_brainmob()
+		if(!brainmob)
+			to_chat(user, SPAN_WARNING("Sticking an empty [used_item.name] into the frame would sort of defeat the purpose."))
+			return TRUE
 
-		if(!B)
-			to_chat(user, SPAN_WARNING("Sticking an empty [W.name] into the frame would sort of defeat the purpose."))
-			return
+		if(jobban_isbanned(brainmob, ASSIGNMENT_ROBOT))
+			to_chat(user, SPAN_WARNING("\The [used_item] does not seem to fit."))
+			return TRUE
 
-		if(jobban_isbanned(B, ASSIGNMENT_ROBOT))
-			to_chat(user, SPAN_WARNING("\The [W] does not seem to fit."))
-			return
-
-		if(B.stat == DEAD)
-			to_chat(user, SPAN_WARNING("Sticking a dead [W.name] into the frame would sort of defeat the purpose."))
-			return
+		if(brainmob.stat == DEAD)
+			to_chat(user, SPAN_WARNING("Sticking a dead [used_item.name] into the frame would sort of defeat the purpose."))
+			return TRUE
 
 		var/ghost_can_reenter = 0
-		if(B.mind)
-			if(!B.key)
+		if(brainmob.mind)
+			if(!brainmob.key)
 				for(var/mob/observer/ghost/G in global.player_list)
-					if(G.can_reenter_corpse && G.mind == B.mind)
+					if(G.can_reenter_corpse && G.mind == brainmob.mind)
 						ghost_can_reenter = 1
 						break
 			else
 				ghost_can_reenter = 1
 		if(!ghost_can_reenter)
-			to_chat(user, SPAN_WARNING("\The [W] is completely unresponsive; there's no point."))
-			return
+			to_chat(user, SPAN_WARNING("\The [used_item] is completely unresponsive; there's no point."))
+			return TRUE
 
-		if(!user.try_unequip(W))
-			return
+		if(!user.try_unequip(used_item))
+			return TRUE
 
 		SSstatistics.add_field("cyborg_frames_built",1)
 		var/mob/living/silicon/robot/O = new product(get_turf(loc))
 		if(!O)
-			return
+			return TRUE
 
-		O.mmi = W
-		O.set_invisibility(0)
+		O.central_processor = used_item
+		O.set_invisibility(INVISIBILITY_NONE)
 		O.custom_name = created_name
 		O.updatename("Default")
-		B.mind.transfer_to(O)
+
+		clear_antag_roles(brainmob.mind, implanted = TRUE) // some antag roles persist
+		brainmob.mind.transfer_to(O)
 		if(O.mind && O.mind.assigned_role)
 			O.job = O.mind.assigned_role
 		else
@@ -124,7 +120,7 @@
 
 		var/obj/item/robot_parts/chest/chest = parts[BP_CHEST]
 		chest.cell.forceMove(O)
-		W.forceMove(O) //Should fix cybros run time erroring when blown up. It got deleted before, along with the frame.
+		used_item.forceMove(O) //Should fix cybros run time erroring when blown up. It got deleted before, along with the frame.
 
 		// Since we "magically" installed a cell, we also have to update the correct component.
 		if(O.cell)
@@ -133,16 +129,18 @@
 			cell_component.installed = 1
 
 		SSstatistics.add_field("cyborg_birth",1)
-		callHook("borgify", list(O))
+		RAISE_EVENT(/decl/observ/cyborg_created, O)
 		O.Namepick()
 		qdel(src)
+		return TRUE
 
-	else if(IS_PEN(W))
+	else if(IS_PEN(used_item))
 		var/t = sanitize_safe(input(user, "Enter new robot name", src.name, src.created_name), MAX_NAME_LEN)
 		if(t && (in_range(src, user) || loc == user))
 			created_name = t
+		return TRUE
 	else
-		..()
+		return ..()
 
 /obj/item/robot_parts/robot_suit/Destroy()
 	parts.Cut()

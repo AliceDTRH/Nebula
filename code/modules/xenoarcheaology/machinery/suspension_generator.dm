@@ -105,11 +105,11 @@
 	density = TRUE
 	var/victim_number  //number of mobs it affected, needed for generator powerdraw calc
 
-/obj/effect/suspension_field/examine(mob/user)
+/obj/effect/suspension_field/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	if(.)
-		to_chat(user, SPAN_NOTICE("You can see something floating inside it:"))
-		to_chat(user, SPAN_NOTICE(english_list(contents)))
+	if(distance <= 1)
+		. += SPAN_NOTICE("You can see something floating inside it:")
+		. += SPAN_NOTICE(english_list(contents))
 
 /obj/effect/suspension_field/Initialize()
 	. = ..()
@@ -130,20 +130,21 @@
 /obj/effect/suspension_field/proc/suspend_things()
 	victim_number = 0
 	var/turf/T = get_turf(src)
-	for(var/mob/living/M in T)
-		SET_STATUS_MAX(M, STAT_WEAK, 3)
-		victim_number++
-		if(prob(5))
-			to_chat(M, SPAN_WARNING("[pick("You feel tingly","You feel like floating","It is hard to speak","You can barely move")]."))
-	for(var/obj/item/I in T)
-		if(!I.anchored && I.simulated)
-			I.forceMove(src)
+	if(T)
+		for(var/mob/living/M in T)
+			SET_STATUS_MAX(M, STAT_WEAK, 3)
+			victim_number++
+			if(prob(5))
+				to_chat(M, SPAN_WARNING("[pick("You feel tingly","You feel like floating","It is hard to speak","You can barely move")]."))
+		for(var/obj/item/I in T)
+			if(!I.anchored && I.simulated)
+				I.forceMove(src)
 	update_icon()
 
 /obj/effect/suspension_field/on_update_icon()
 	overlays.Cut()
 	var/turf/T = get_turf(src)
-	if(T.is_wall())
+	if(T?.is_wall())
 		icon_state = "shieldsparkles"
 	else
 		icon_state = "shield2"

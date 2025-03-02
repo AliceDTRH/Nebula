@@ -13,7 +13,7 @@
 		web.buckle_mob(hit_atom)
 		web.visible_message(SPAN_DANGER("\The [hit_atom] is tangled in \the [web]!"))
 	web.entangle(hit_atom, TRUE)
-	playsound(usr, 'mods/species/ascent/sounds/razorweb_twang.ogg', 50)
+	playsound(src, 'mods/species/ascent/sounds/razorweb_twang.ogg', 50)
 	qdel(src)
 
 // Hey, did you ever see The Cube (1997) directed by Vincenzo Natali?
@@ -57,7 +57,7 @@
 			return INITIALIZE_HINT_QDEL
 
 	if(decays)
-		addtimer(CALLBACK(src, /obj/effect/razorweb/proc/decay), 15 MINUTES)
+		addtimer(CALLBACK(src, TYPE_PROC_REF(/obj/effect/razorweb, decay)), 15 MINUTES)
 
 	web = image(icon = icon, icon_state = "razorweb")
 	gleam = emissive_overlay(icon = icon, icon_state = "razorweb-gleam")
@@ -68,7 +68,7 @@
 	START_PROCESSING(SSobj, src)
 
 /obj/effect/razorweb/proc/decay()
-	playsound(usr, 'mods/species/ascent/sounds/razorweb_break.ogg', 50)
+	playsound(src, 'mods/species/ascent/sounds/razorweb_break.ogg', 50)
 	qdel_self()
 
 /obj/effect/razorweb/attack_hand(mob/user)
@@ -78,19 +78,21 @@
 	qdel_self()
 	return TRUE
 
-/obj/effect/razorweb/attackby(var/obj/item/thing, var/mob/user)
+/obj/effect/razorweb/attackby(var/obj/item/used_item, var/mob/user)
 
 	var/destroy_self
-	if(thing.force)
-		visible_message(SPAN_DANGER("\The [user] breaks \the [src] with \the [thing]!"))
+	if(used_item.expend_attack_force(user))
+		visible_message(SPAN_DANGER("\The [user] breaks \the [src] with \the [used_item]!"))
 		destroy_self = TRUE
 
-	if(prob(15) && user.try_unequip(thing))
-		visible_message(SPAN_DANGER("\The [thing] is sliced apart!"))
-		qdel(thing)
+	if(prob(15) && user.try_unequip(used_item))
+		visible_message(SPAN_DANGER("\The [used_item] is sliced apart!"))
+		qdel(used_item)
 
 	if(destroy_self)
 		qdel(src)
+		return TRUE
+	return FALSE
 
 /obj/effect/razorweb/on_update_icon()
 	overlays.Cut()
@@ -117,16 +119,18 @@
 		add_fingerprint(user)
 	return M
 
-/obj/effect/razorweb/Crossed(var/mob/living/L)
-	. = ..()
-	entangle(L)
+/obj/effect/razorweb/Crossed(var/atom/movable/AM)
+	..()
+	if(!isliving(AM))
+		return
+	entangle(AM)
 
 /obj/effect/razorweb/proc/entangle(var/mob/living/L, var/silent)
 
-	if(!istype(L) || !L.simulated || L.lying || (MOVING_DELIBERATELY(L) && prob(25)) || L.is_floating)
+	if(!istype(L) || !L.simulated || L.current_posture.prone || (MOVING_DELIBERATELY(L) && prob(25)) || L.is_floating)
 		return
 
-	var/mob/living/carbon/human/H
+	var/mob/living/human/H
 	if(ishuman(L))
 		H = L
 		if(species_immunity_list[H.species.name])
@@ -159,8 +163,8 @@
 
 	if(prob(break_chance))
 		visible_message(SPAN_DANGER("\The [src] breaks apart!"))
-		playsound(usr, 'mods/species/ascent/sounds/razorweb_break.ogg', 50)
+		playsound(src, 'mods/species/ascent/sounds/razorweb_break.ogg', 50)
 		qdel(src)
 	else
-		playsound(usr, 'mods/species/ascent/sounds/razorweb_twang.ogg', 50)
+		playsound(src, 'mods/species/ascent/sounds/razorweb_twang.ogg', 50)
 		break_chance = min(break_chance+10, 100)

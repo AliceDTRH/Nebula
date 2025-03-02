@@ -19,16 +19,15 @@ effective or pretty fucking useless.
 	desc = "A strange device with twin antennas."
 	icon = 'icons/obj/items/weapon/batterer.dmi'
 	icon_state = ICON_STATE_WORLD
-	throwforce = 5
-	w_class = ITEM_SIZE_TINY
+	w_class = ITEM_SIZE_SMALL
 	throw_speed = 4
 	throw_range = 10
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	origin_tech = "{'magnets':3,'combat':3,'esoteric':3}"
-	material = /decl/material/solid/plastic
+	origin_tech = @'{"magnets":3,"combat":3,"esoteric":3}'
+	material = /decl/material/solid/organic/plastic
 	matter = list(
-		/decl/material/solid/metal/gold     = MATTER_AMOUNT_REINFORCEMENT, 
-		/decl/material/solid/silicon        = MATTER_AMOUNT_REINFORCEMENT, 
+		/decl/material/solid/metal/gold     = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/silicon        = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/titanium = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/uranium  = MATTER_AMOUNT_TRACE,
 	)
@@ -43,7 +42,7 @@ effective or pretty fucking useless.
 		return
 
 	var/list/stun_victims = list()
-	for(var/mob/living/carbon/human/M in orange(10, user))
+	for(var/mob/living/human/M in orange(10, user))
 		stun_victims += M
 		spawn()
 			if(prob(50))

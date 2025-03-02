@@ -38,7 +38,7 @@
 		deintegrate()
 		return
 
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 	if(istype(H) && H.get_equipped_item(slot_head_str) == src)
 		integrate()
 		return
@@ -76,7 +76,7 @@
 	if(canremove)
 		return
 
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 	if(!istype(H) || H.get_equipped_item(slot_head_str) != src)
 		canremove = TRUE
 		return
@@ -87,8 +87,8 @@
 
 	sleep(80)
 
-	if(H.psi)
-		H.psi.reset()
+	var/datum/ability_handler/psionics/psi = H.get_ability_handler(/datum/ability_handler/psionics)
+	psi?.reset()
 
 	to_chat(H, SPAN_NOTICE("\The [src] chimes quietly as it finishes removing the subpersonas from your brain."))
 
@@ -107,9 +107,10 @@
 	var/lastloc = loc
 	. = ..()
 	if(.)
-		var/mob/living/carbon/human/H = lastloc
-		if(istype(H) && H.psi)
-			H.psi.reset()
+		var/mob/living/human/H = lastloc
+		if(istype(H))
+			var/datum/ability_handler/psionics/psi = H.get_ability_handler(/datum/ability_handler/psionics)
+			psi?.reset()
 		H = loc
 		if(!istype(H) || H.get_equipped_item(slot_head_str) != src)
 			canremove = TRUE
@@ -131,7 +132,7 @@
 		to_chat(usr, SPAN_NOTICE("You still have [max_boosted_faculties - LAZYLEN(boosted_faculties)] facult[LAZYLEN(boosted_faculties) == 1 ? "y" : "ies"] to select. Use \the [src] in-hand to select them."))
 		return
 
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 	if(!istype(H) || H.get_equipped_item(slot_head_str) != src)
 		to_chat(usr, SPAN_WARNING("\The [src] must be worn on your head in order to be activated."))
 		return
@@ -148,10 +149,11 @@
 			H.set_psi_rank(faculty, boosted_rank, take_larger = TRUE, temporary = TRUE)
 		else
 			H.set_psi_rank(faculty, unboosted_rank, take_larger = TRUE, temporary = TRUE)
-	if(H.psi)
-		H.psi.max_stamina = boosted_psipower
-		H.psi.stamina = H.psi.max_stamina
-		H.psi.update(force = TRUE)
+	var/datum/ability_handler/psionics/psi = H.get_ability_handler(/datum/ability_handler/psionics)
+	if(psi)
+		psi.max_stamina = boosted_psipower
+		psi.stamina = psi.max_stamina
+		psi.update(force = TRUE)
 
 	to_chat(H, SPAN_NOTICE("You experience a brief but powerful wave of deja vu as \the [src] finishes modifying your brain."))
 	verbs |= /obj/item/clothing/head/helmet/space/psi_amp/proc/deintegrate

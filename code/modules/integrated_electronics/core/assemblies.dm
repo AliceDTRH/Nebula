@@ -47,7 +47,7 @@
 		COLOR_ASSEMBLY_PURPLE
 		)
 
-/obj/item/electronic_assembly/examine(mob/user)
+/obj/item/electronic_assembly/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(obj_flags & OBJ_FLAG_ANCHORABLE)
 		to_chat(user, "<span class='notice'>The anchoring bolts [anchored ? "are" : "can be"] <b>wrenched</b> in place and the maintenance panel [opened ? "can be" : "is"] <b>screwed</b> in place.</span>")
@@ -57,22 +57,31 @@
 		if(get_percent_health() <= 50)
 			to_chat(user,"<span class='warning'>It looks pretty beat up.</span>")
 		else
-			to_chat(user, "<span class='warning'>Its got a few dents in it.</span>")
+			to_chat(user, "<span class='warning'>It's got a few dents in it.</span>")
 
 	if((isobserver(user) && ckeys_allowed_to_scan[user.ckey]) || check_rights(R_ADMIN, 0, user))
-		to_chat(user, "You can <a href='?src=\ref[src];ghostscan=1'>scan</a> this circuit.");
+		to_chat(user, "You can <a href='byond://?src=\ref[src];ghostscan=1'>scan</a> this circuit.");
+
+/obj/item/electronic_assembly/examined_by(mob/user, distance, infix, suffix)
+	. = ..()
+	for(var/obj/item/integrated_circuit/component as anything in assembly_components)
+		component.external_examine(user)
+		if(opened)
+			component.internal_examine(user)
+	if(opened)
+		interact(user)
 
 /obj/item/electronic_assembly/check_health(lastdamage, lastdamtype, lastdamflags, consumed)
 	if(!can_take_damage())
 		return
-	if(health < 1)
+	if(current_health < 1)
 		visible_message(SPAN_DANGER("\The [src] falls to pieces!"))
 		physically_destroyed()
 	else if((get_percent_health() < 15) && prob(5))
 		visible_message(SPAN_DANGER("\The [src] starts to break apart!"))
 
 /obj/item/electronic_assembly/proc/check_interactivity(mob/user)
-	return (!user.incapacitated() && CanUseTopic(user))
+	return (!user.incapacitated() && CanUseTopic(user) && user_can_attack_with(user))
 
 /obj/item/electronic_assembly/GetAccess()
 	. = list()
@@ -109,17 +118,16 @@
 		P.make_energy()
 
 	var/power_failure = FALSE
-	if(initial(health)/health < 0.5 && prob(5))
-		visible_message("<span class='warning'>\The [src] shudders and sparks</span>")
+	if(get_health_ratio() < 0.5 && prob(5))
+		visible_message(SPAN_WARNING("\The [src] shudders and sparks."))
 		power_failure = TRUE
 	// Now spend it.
-	for(var/I in assembly_components)
-		var/obj/item/integrated_circuit/IC = I
-		if(IC.power_draw_idle)
-			if(power_failure || !draw_power(IC.power_draw_idle))
-				IC.power_fail()
+	for(var/obj/item/integrated_circuit/component as anything in assembly_components)
+		if(component.power_draw_idle)
+			if(power_failure || !draw_power(component.power_draw_idle))
+				component.power_fail()
 
-/obj/item/electronic_assembly/receive_mouse_drop(atom/dropping, mob/user)
+/obj/item/electronic_assembly/receive_mouse_drop(atom/dropping, mob/user, params)
 	. = ..()
 	if(!. && user == dropping)
 		interact(user)
@@ -136,7 +144,7 @@
 /obj/item/electronic_assembly/proc/closed_interact(mob/user)
 	var/HTML = list()
 	HTML += "<html><head><title>[src.name]</title></head><body>"
-	HTML += "<br><a href='?src=\ref[src];refresh=1'>\[Refresh\]</a>"
+	HTML += "<br><a href='byond://?src=\ref[src];refresh=1'>\[Refresh\]</a>"
 	HTML += "<br><br>"
 
 	var/listed_components = FALSE
@@ -150,7 +158,7 @@
 			for(var/entry in topic_data)
 				var/href = topic_data[entry]
 				if(href)
-					HTML += "<a href=?src=\ref[circuit];[href]>[entry]</a>"
+					HTML += "<a href='byond://?src=\ref[circuit];[href]'>[entry]</a>"
 				else
 					HTML += entry
 				HTML += "<br>"
@@ -170,11 +178,11 @@
 
 	HTML += "<html><head><title>[name]</title></head><body>"
 
-	HTML += "<a href='?src=\ref[src]'>\[Refresh\]</a>  |  <a href='?src=\ref[src];rename=1'>\[Rename\]</a><br>"
+	HTML += "<a href='byond://?src=\ref[src]'>\[Refresh\]</a>  |  <a href='byond://?src=\ref[src];rename=1'>\[Rename\]</a><br>"
 	HTML += "[total_part_size]/[max_components] space taken up in the assembly.<br>"
 	HTML += "[total_complexity]/[max_complexity] complexity in the assembly.<br>"
 	if(battery)
-		HTML += "[round(battery.charge, 0.1)]/[battery.maxcharge] ([round(battery.percent(), 0.1)]%) cell charge. <a href='?src=\ref[src];remove_cell=1'>\[Remove\]</a>"
+		HTML += "[round(battery.charge, 0.1)]/[battery.maxcharge] ([round(battery.percent(), 0.1)]%) cell charge. <a href='byond://?src=\ref[src];remove_cell=1'>\[Remove\]</a>"
 	else
 		HTML += "<span class='danger'>No power cell detected!</span>"
 
@@ -185,22 +193,22 @@
 		var/start_index = ((components_per_page * interact_page) + 1)
 		for(var/i = start_index to min(length(assembly_components), start_index + (components_per_page - 1)))
 			var/obj/item/integrated_circuit/circuit = assembly_components[i]
-			HTML += "\[ <a href='?src=\ref[src];component=\ref[circuit];set_slot=1'>[i]</a> \] | "
-			HTML += "<a href='?src=\ref[circuit];component=\ref[circuit];rename=1'>\[R\]</a> | "
+			HTML += "\[ <a href='byond://?src=\ref[src];component=\ref[circuit];set_slot=1'>[i]</a> \] | "
+			HTML += "<a href='byond://?src=\ref[circuit];component=\ref[circuit];rename=1'>\[R\]</a> | "
 			if(circuit.removable)
-				HTML += "<a href='?src=\ref[src];component=\ref[circuit];remove=1'>\[-\]</a> | "
+				HTML += "<a href='byond://?src=\ref[src];component=\ref[circuit];remove=1'>\[-\]</a> | "
 			else
 				HTML += "\[-\] | "
-			HTML += "<a href='?src=\ref[circuit];examine=1'>[circuit.displayed_name]</a>"
+			HTML += "<a href='byond://?src=\ref[circuit];examine=1'>[circuit.displayed_name]</a>"
 			HTML += "<br>"
 
 		if(length(assembly_components) > components_per_page)
 			HTML += "<br>\["
-			for(var/i = 1 to CEILING(length(assembly_components)/components_per_page))
+			for(var/i = 1 to ceil(length(assembly_components)/components_per_page))
 				if((i-1) == interact_page)
 					HTML += " [i]"
 				else
-					HTML += " <a href='?src=\ref[src];select_page=[i-1]'>[i]</a>"
+					HTML += " <a href='byond://?src=\ref[src];select_page=[i-1]'>[i]</a>"
 			HTML += " \]"
 
 	HTML += "</body></html>"
@@ -294,21 +302,10 @@
 		return
 	add_overlay(overlay_image('icons/obj/assemblies/electronic_setups.dmi', "[icon_state]-color", detail_color))
 
-/obj/item/electronic_assembly/examine(mob/user)
-	. = ..()
-	for(var/I in assembly_components)
-		var/obj/item/integrated_circuit/IC = I
-		IC.external_examine(user)
-		if(opened)
-			IC.internal_examine(user)
-	if(opened)
-		interact(user)
-
 //This only happens when this EA is loaded via the printer
 /obj/item/electronic_assembly/proc/post_load()
-	for(var/I in assembly_components)
-		var/obj/item/integrated_circuit/IC = I
-		IC.on_data_written()
+	for(var/obj/item/integrated_circuit/component as anything in assembly_components)
+		component.on_data_written()
 
 /obj/item/electronic_assembly/proc/return_total_complexity()
 	. = 0
@@ -325,36 +322,36 @@
 		. += part.size
 
 // Returns true if the circuit made it inside.
-/obj/item/electronic_assembly/proc/try_add_component(obj/item/integrated_circuit/IC, mob/user)
+/obj/item/electronic_assembly/proc/try_add_component(obj/item/integrated_circuit/component, mob/user)
 	if(!opened)
 		to_chat(user, "<span class='warning'>\The [src]'s hatch is closed, you can't put anything inside.</span>")
 		return FALSE
 
-	if(IC.w_class > w_class)
-		to_chat(user, "<span class='warning'>\The [IC] is way too big to fit into \the [src].</span>")
+	if(component.w_class > w_class)
+		to_chat(user, "<span class='warning'>\The [component] is way too big to fit into \the [src].</span>")
 		return FALSE
 
 	var/total_part_size = return_total_size()
 	var/total_complexity = return_total_complexity()
 
-	if((total_part_size + IC.size) > max_components)
-		to_chat(user, "<span class='warning'>You can't seem to add the '[IC]', as there's insufficient space.</span>")
+	if((total_part_size + component.size) > max_components)
+		to_chat(user, "<span class='warning'>You can't seem to add the '[component]', as there's insufficient space.</span>")
 		return FALSE
-	if((total_complexity + IC.complexity) > max_complexity)
-		to_chat(user, "<span class='warning'>You can't seem to add the '[IC]', since this setup's too complicated for the case.</span>")
+	if((total_complexity + component.complexity) > max_complexity)
+		to_chat(user, "<span class='warning'>You can't seem to add the '[component]', since this setup's too complicated for the case.</span>")
 		return FALSE
-	if((allowed_circuit_action_flags & IC.action_flags) != IC.action_flags)
-		to_chat(user, "<span class='warning'>You can't seem to add the '[IC]', since the case doesn't support the circuit type.</span>")
-		return FALSE
-
-	if(!user.try_unequip(IC,src))
+	if((allowed_circuit_action_flags & component.action_flags) != component.action_flags)
+		to_chat(user, "<span class='warning'>You can't seem to add the '[component]', since the case doesn't support the circuit type.</span>")
 		return FALSE
 
-	to_chat(user, "<span class='notice'>You slide [IC] inside [src].</span>")
+	if(!user.try_unequip(component,src))
+		return FALSE
+
+	to_chat(user, "<span class='notice'>You slide [component] inside [src].</span>")
 	playsound(src, 'sound/items/Deconstruct.ogg', 50, 1)
 	add_allowed_scanner(user.ckey)
 
-	add_component(IC)
+	add_component(component)
 	return TRUE
 
 
@@ -365,26 +362,26 @@
 	assembly_components |= component
 
 
-/obj/item/electronic_assembly/proc/try_remove_component(obj/item/integrated_circuit/IC, mob/user, silent)
+/obj/item/electronic_assembly/proc/try_remove_component(obj/item/integrated_circuit/component, mob/user, silent)
 	if(!opened)
 		if(!silent)
 			to_chat(user, "<span class='warning'>[src]'s hatch is closed, so you can't fiddle with the internal components.</span>")
 		return FALSE
 
-	if(!IC.removable)
+	if(!component.removable)
 		if(!silent)
 			to_chat(user, "<span class='warning'>[src] is permanently attached to the case.</span>")
 		return FALSE
 
-	remove_component(IC)
+	remove_component(component)
 	if(!silent)
-		to_chat(user, "<span class='notice'>You pop \the [IC] out of the case, and slide it out.</span>")
+		to_chat(user, "<span class='notice'>You pop \the [component] out of the case, and slide it out.</span>")
 		playsound(src, 'sound/items/crowbar.ogg', 50, 1)
-		user.put_in_hands(IC)
+		user.put_in_hands(component)
 	add_allowed_scanner(user.ckey)
 
 	// Make sure we're not on an invalid page
-	interact_page = clamp(interact_page, 0, CEILING(length(assembly_components)/components_per_page)-1)
+	interact_page = clamp(interact_page, 0, ceil(length(assembly_components)/components_per_page)-1)
 
 	return TRUE
 
@@ -406,50 +403,50 @@
 				visible_message("<span class='notice'>\The [user] points \the [src] towards \the [target].</span>")
 
 
-/obj/item/electronic_assembly/attackby(obj/item/I, mob/user)
-	if(istype(I, /obj/item/integrated_circuit))
-		if(!user.canUnEquip(I))
+/obj/item/electronic_assembly/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/integrated_circuit))
+		if(!user.can_unequip_item(used_item))
 			return FALSE
-		if(try_add_component(I, user))
+		if(try_add_component(used_item, user))
 			return TRUE
 		else
 			for(var/obj/item/integrated_circuit/input/S in assembly_components)
-				S.attackby_react(I,user,user.a_intent)
+				S.attackby_react(used_item, user, user.get_intent())
 			return ..()
-	else if(IS_MULTITOOL(I) || istype(I, /obj/item/integrated_electronics/wirer) || istype(I, /obj/item/integrated_electronics/debugger))
+	else if(IS_MULTITOOL(used_item) || istype(used_item, /obj/item/integrated_electronics/wirer) || istype(used_item, /obj/item/integrated_electronics/debugger))
 		if(opened)
 			interact(user)
 			return TRUE
 		else
 			to_chat(user, "<span class='warning'>[src]'s hatch is closed, so you can't fiddle with the internal components.</span>")
 			for(var/obj/item/integrated_circuit/input/S in assembly_components)
-				S.attackby_react(I,user,user.a_intent)
+				S.attackby_react(used_item, user, user.get_intent())
 			return ..()
-	else if(istype(I, /obj/item/cell))
+	else if(istype(used_item, /obj/item/cell))
 		if(!opened)
 			to_chat(user, "<span class='warning'>[src]'s hatch is closed, so you can't access \the [src]'s power supplier.</span>")
 			for(var/obj/item/integrated_circuit/input/S in assembly_components)
-				S.attackby_react(I,user,user.a_intent)
+				S.attackby_react(used_item, user, user.get_intent())
 			return ..()
 		if(battery)
 			to_chat(user, "<span class='warning'>[src] already has \a [battery] installed. Remove it first if you want to replace it.</span>")
 			for(var/obj/item/integrated_circuit/input/S in assembly_components)
-				S.attackby_react(I,user,user.a_intent)
+				S.attackby_react(used_item, user, user.get_intent())
 			return ..()
-		var/obj/item/cell/cell = I
-		if(user.try_unequip(I,loc))
-			user.drop_from_inventory(I, loc)
+		var/obj/item/cell/cell = used_item
+		if(user.try_unequip(used_item,loc))
+			user.drop_from_inventory(used_item, loc)
 			cell.forceMove(src)
 			battery = cell
 			playsound(get_turf(src), 'sound/items/Deconstruct.ogg', 50, 1)
 			to_chat(user, "<span class='notice'>You slot \the [cell] inside \the [src]'s power supplier.</span>")
 			return TRUE
 		return FALSE
-	else if(istype(I, /obj/item/integrated_electronics/detailer))
-		var/obj/item/integrated_electronics/detailer/D = I
+	else if(istype(used_item, /obj/item/integrated_electronics/detailer))
+		var/obj/item/integrated_electronics/detailer/D = used_item
 		detail_color = D.detail_color
 		update_icon()
-	else if(IS_SCREWDRIVER(I))
+	else if(IS_SCREWDRIVER(used_item))
 		var/hatch_locked = FALSE
 		for(var/obj/item/integrated_circuit/manipulation/hatchlock/H in assembly_components)
 			// If there's more than one hatch lock, only one needs to be enabled for the assembly to be locked
@@ -467,16 +464,16 @@
 		update_icon()
 		return TRUE
 
-	else if(IS_COIL(I))
-		var/obj/item/stack/cable_coil/C = I
+	else if(IS_COIL(used_item))
+		var/obj/item/stack/cable_coil/C = used_item
 		if(is_damaged() && do_after(user, 10, src) && C.use(1))
 			user.visible_message("\The [user] patches up \the [src].")
-			health = min(max_health, health + 5)
+			current_health = min(get_max_health(), current_health + 5)
 		return TRUE
 
-	else if(user.a_intent != I_HURT)
+	else if(!user.check_intent(I_FLAG_HARM))
 		for(var/obj/item/integrated_circuit/input/S in assembly_components)
-			S.attackby_react(I,user,user.a_intent)
+			S.attackby_react(used_item, user, user.get_intent())
 		return TRUE
 
 	return ..() //Handle weapon attacks and etc
@@ -485,13 +482,12 @@
 	interact(user)
 
 /obj/item/electronic_assembly/bullet_act(var/obj/item/projectile/P)
-	take_damage(P.damage)
+	take_damage(P.damage, P.atom_damage_type)
 
 /obj/item/electronic_assembly/emp_act(severity)
 	. = ..()
-	for(var/I in src)
-		var/atom/movable/AM = I
-		AM.emp_act(severity)
+	for(var/atom/movable/thing as anything in get_contained_external_atoms())
+		thing.emp_act(severity)
 
 // Returns true if power was successfully drawn.
 /obj/item/electronic_assembly/proc/draw_power(amount)

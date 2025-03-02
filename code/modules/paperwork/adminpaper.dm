@@ -30,14 +30,14 @@
 
 	//Snapshot is crazy and likes putting each topic hyperlink on a seperate line from any other tags so it's nice and clean.
 	interactions += "<HR><center><font size= \"1\">The fax will transmit everything above this line</font><br>"
-	interactions += "<A href='?src=\ref[src];confirm=1'>Send fax</A> "
-	interactions += "<A href='?src=\ref[src];penmode=1'>Pen mode: [isCrayon ? "Crayon" : "Pen"]</A> "
-	interactions += "<A href='?src=\ref[src];cancel=1'>Cancel fax</A> "
+	interactions += "<A href='byond://?src=\ref[src];confirm=1'>Send fax</A> "
+	interactions += "<A href='byond://?src=\ref[src];penmode=1'>Pen mode: [isCrayon ? "Crayon" : "Pen"]</A> "
+	interactions += "<A href='byond://?src=\ref[src];cancel=1'>Cancel fax</A> "
 	interactions += "<BR>"
-	interactions += "<A href='?src=\ref[src];changelogo=1'>Change logo</A> "
-	interactions += "<A href='?src=\ref[src];toggleheader=1'>Toggle Header</A> "
-	interactions += "<A href='?src=\ref[src];togglefooter=1'>Toggle Footer</A> "
-	interactions += "<A href='?src=\ref[src];clear=1'>Clear page</A> "
+	interactions += "<A href='byond://?src=\ref[src];changelogo=1'>Change logo</A> "
+	interactions += "<A href='byond://?src=\ref[src];toggleheader=1'>Toggle Header</A> "
+	interactions += "<A href='byond://?src=\ref[src];togglefooter=1'>Toggle Footer</A> "
+	interactions += "<A href='byond://?src=\ref[src];clear=1'>Clear page</A> "
 	interactions += "</center>"
 
 /obj/item/paper/admin/proc/generateHeader()
@@ -57,7 +57,7 @@
 
 	text = "<hr><font size= \"1\">"
 	text += "This transmission is intended only for the addressee and may contain confidential information. Any unauthorized disclosure is strictly prohibited. <br><br>"
-	text += "If this transmission is recieved in error, please notify both the sender and the office of [global.using_map.boss_name] Internal Affairs immediately so that corrective action may be taken."
+	text += "If this transmission is received in error, please notify both the sender and the office of [global.using_map.boss_name] Internal Affairs immediately so that corrective action may be taken."
 	text += "Failure to comply is a breach of regulation and may be prosecuted to the fullest extent of the law, where applicable."
 	text += "</font>"
 
@@ -112,7 +112,7 @@
 	if(href_list["confirm"])
 		var/obj/machinery/faxmachine/F = destination_ref.resolve()
 		if(!istype(F))
-			to_chat(usr, "The destination machines doesn't exist anymore..")
+			to_chat(usr, "The destination machine doesn't exist anymore.")
 			return
 		switch(alert("Are you sure you want to send the fax as is?",, "Yes", "No"))
 			if("Yes")

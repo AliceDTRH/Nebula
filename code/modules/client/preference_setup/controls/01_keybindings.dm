@@ -38,7 +38,7 @@
 			notadded += kb
 
 	if(length(notadded))
-		addtimer(CALLBACK(src, .proc/announce_conflict, notadded), 5 SECONDS)
+		addtimer(CALLBACK(src, PROC_REF(announce_conflict), notadded), 5 SECONDS)
 
 /datum/preferences/proc/announce_conflict(list/notadded)
 	to_chat(client, SPAN_DANGER("There are new keybindings that have defaults that are already bound - the new keybindings will be unbound until updated. You can rebind them in Setup Character or Game Preferences."))
@@ -46,6 +46,9 @@
 		var/datum/keybinding/conflicted = item
 		to_chat(client, SPAN_DANGER("[conflicted.category]: [conflicted.full_name] needs updating."))
 		LAZYADD(key_bindings["Unbound"], conflicted.name) // set it to unbound to prevent this from opening up again in the future
+
+/datum/category_item/player_setup_item/controls
+	abstract_type = /datum/category_item/player_setup_item/controls
 
 /datum/category_item/player_setup_item/controls/keybindings
 	name = "Keybindings"
@@ -58,8 +61,8 @@
 	pref.key_bindings = sanitize_keybindings(pref.key_bindings)
 	pref.check_keybindings()
 
-/datum/category_item/player_setup_item/controls/keybindings/save_preferences(datum/pref_record_writer/W)
-	W.write("key_bindings", pref.key_bindings)
+/datum/category_item/player_setup_item/controls/keybindings/save_preferences(datum/pref_record_writer/writer)
+	writer.write("key_bindings", pref.key_bindings)
 
 /datum/category_item/player_setup_item/controls/keybindings/content(mob/user)
 	. = list()
@@ -78,7 +81,7 @@
 	. += "<center>"
 
 	. += "<br>"
-	. += "<a href ='?src=\ref[src];preference=keybindings_reset'>Reset to default</a>"
+	. += "<a href='byond://?src=\ref[src];preference=keybindings_reset'>Reset to default</a>"
 	. += "<br><br>"
 
 	. += "<div class='statusDisplay'>"
@@ -89,30 +92,30 @@
 		for (var/i in kb_categories[category])
 			var/datum/keybinding/kb = i
 			if(!length(user_binds[kb.name]) || (user_binds[kb.name][1] == "Unbound" && length(user_binds[kb.name]) == 1))
-				. += "<tr><td width='40%'>[kb.full_name]</td><td width='15%'><a class='fluid' href ='?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=["Unbound"]'>Unbound</a></td>"
+				. += "<tr><td width='40%'>[kb.full_name]</td><td width='15%'><a class='fluid' href='byond://?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=["Unbound"]'>Unbound</a></td>"
 				var/list/default_keys = pref.hotkeys ? kb.hotkey_keys : kb.classic_keys
 				var/class
 				if(user_binds[kb.name] ~= default_keys)
 					class = "class='linkOff fluid'"
 				else
-					class = "class='fluid' href ='?src=\ref[src];preference=keybinding_reset;keybinding=[kb.name];old_keys=[jointext(user_binds[kb.name], ",")]"
+					class = "class='fluid' href='byond://?src=\ref[src];preference=keybinding_reset;keybinding=[kb.name];old_keys=[jointext(user_binds[kb.name], ",")]"
 
 				. += {"<td width='15%'></td><td width='15%'></td><td width='15%'><a [class]'>Reset</a></td>"}
 				. += "</tr>"
 			else
 				var/bound_key = user_binds[kb.name][1]
 				var/normal_name = _kbMap_reverse[bound_key] ? _kbMap_reverse[bound_key] : bound_key
-				. += "<tr><td width='40%'>[kb.full_name]</td><td width='15%'><a class='fluid' href ='?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=[bound_key]'>[normal_name]</a></td>"
+				. += "<tr><td width='40%'>[kb.full_name]</td><td width='15%'><a class='fluid' href='byond://?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=[bound_key]'>[normal_name]</a></td>"
 				for(var/bound_key_index in 2 to length(user_binds[kb.name]))
 					bound_key = user_binds[kb.name][bound_key_index]
 					normal_name = _kbMap_reverse[bound_key] ? _kbMap_reverse[bound_key] : bound_key
-					. += "<td width='15%'><a class='fluid' href ='?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=[bound_key]'>[normal_name]</a></td>"
+					. += "<td width='15%'><a class='fluid' href='byond://?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name];old_key=[bound_key]'>[normal_name]</a></td>"
 				if(length(user_binds[kb.name]) < MAX_KEYS_PER_KEYBIND)
-					. += "<td width='15%'><a class='fluid' href ='?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name]'>Unbound</a></td>"
+					. += "<td width='15%'><a class='fluid' href='byond://?src=\ref[src];preference=keybindings_capture;keybinding=[kb.name]'>Unbound</a></td>"
 				for(var/j in 1 to MAX_KEYS_PER_KEYBIND - (length(user_binds[kb.name]) + 1))
 					. += "<td width='15%'></td>"
 				var/list/default_keys = pref.hotkeys ? kb.hotkey_keys : kb.classic_keys
-				. += {"<td width='15%'><a [user_binds[kb.name] ~= default_keys ? "class='linkOff fluid'" : "class='fluid' href ='?src=\ref[src];preference=keybinding_reset;keybinding=[kb.name];old_keys=[jointext(user_binds[kb.name], ",")]"]'>Reset</a></td>"}
+				. += {"<td width='15%'><a [user_binds[kb.name] ~= default_keys ? "class='linkOff fluid'" : "class='fluid' href='byond://?src=\ref[src];preference=keybinding_reset;keybinding=[kb.name];old_keys=[jointext(user_binds[kb.name], ",")]"]'>Reset</a></td>"}
 				. += "</tr>"
 		. += "</table>"
 

@@ -1,4 +1,5 @@
 /datum/map_template
+	abstract_type = /datum/map_template
 	///Name for differentiating templates
 	var/name = "Default Template Name"
 	///The width of the template's levels. Size is preloaded from template during template registration.
@@ -14,7 +15,7 @@
 	///Shuttles in this template's levels that need to be initialized with SSshuttle.
 	var/list/shuttles_to_initialise = list()
 	///Sub-templates to spawn on this template if any. Ruins and sites and etc..
-	var/list/subtemplates_to_spawn
+	var/list/subtemplates_to_spawn = list()
 	///Percent of chances to end up onto a level from this template by spacewalking between space z-levels.
 	var/accessibility_weight = 0
 	///Flags for defining special properties of this template.
@@ -23,10 +24,10 @@
 	var/modify_tag_vars = TRUE
 	///List of strings to store the templates under for mass retrieval.
 	var/list/template_categories
-	///If this is equal to current type, the datum is abstract and should not be created.
-	var/template_parent_type = /datum/map_template
 	///The initial type of level_data to instantiate new z-level with initially. (Is replaced by whatever is in the map file.) If null, will use default.
 	var/level_data_type
+	/// Various tags used for selecting templates for placement on a map.
+	var/template_tags = 0
 
 /datum/map_template/New(var/created_ad_hoc)
 	if(created_ad_hoc != SSmapping.type)
@@ -43,8 +44,8 @@
 /datum/map_template/proc/get_template_cost()
 	return 0
 
-/datum/map_template/proc/get_ruin_tags()
-	return 0
+/datum/map_template/proc/get_template_tags()
+	return template_tags
 
 /datum/map_template/proc/preload_size()
 	var/list/bounds = list(1.#INF, 1.#INF, 1.#INF, -1.#INF, -1.#INF, -1.#INF)
@@ -65,46 +66,22 @@
 	if (SSatoms.atom_init_stage == INITIALIZATION_INSSATOMS)
 		return // let proper initialisation handle it later
 
-	var/list/turf/turfs = list()
-	var/list/obj/machinery/atmospherics/atmos_machines = list()
-	var/list/obj/machinery/machines = list()
-	var/list/obj/structure/cable/cables = list()
-
-	for(var/atom/A in atoms)
-		if(isturf(A))
-			turfs += A
-		if(istype(A, /obj/structure/cable))
-			cables += A
-		if(istype(A, /obj/machinery/atmospherics))
-			atmos_machines += A
-		if(istype(A, /obj/machinery))
-			machines += A
-		if(istype(A, /obj/abstract/landmark/map_load_mark))
-			LAZYADD(subtemplates_to_spawn, A)
-
-	var/notsuspended
-	if(!SSmachines.suspended)
-		SSmachines.suspend()
-		notsuspended = TRUE
-
 	SSatoms.InitializeAtoms() // The atoms should have been getting queued there. This flushes the queue.
 
-	SSmachines.setup_powernets_for_cables(cables)
-	SSmachines.setup_atmos_machinery(atmos_machines)
-	if(notsuspended)
-		SSmachines.wake()
+	for(var/obj/abstract/landmark/map_load_mark/landmark in atoms)
+		subtemplates_to_spawn += landmark
 
-	for (var/obj/machinery/machine as anything in machines)
-		machine.power_change()
+	// fun fact: these already filter for us, so it's pointless to sort
+	SSmachines.setup_powernets_for_cables(atoms)
+	SSmachines.setup_atmos_machinery(atoms)
 
-	for (var/turf/T as anything in turfs)
+	for (var/turf/T in atoms)
 		if(template_flags & TEMPLATE_FLAG_NO_RUINS)
-			T.turf_flags |= TURF_FLAG_NORUINS
+			T.turf_flags |= TURF_FLAG_NO_POINTS_OF_INTEREST
 		if(template_flags & TEMPLATE_FLAG_NO_RADS)
 			qdel(SSradiation.sources_assoc[T])
-		if(istype(T,/turf/simulated))
-			var/turf/simulated/sim = T
-			sim.update_air_properties()
+		if(T.simulated)
+			SSair.mark_for_update(T)
 
 /datum/map_template/proc/pre_init_shuttles()
 	. = SSshuttle.block_queue
@@ -117,12 +94,12 @@
 		SSshuttle.map_hash_to_areas[map_hash] = initialized_areas_by_type
 		for(var/area/A in initialized_areas_by_type)
 			A.saved_map_hash = map_hash
-			events_repository.register(/decl/observ/destroyed, A, src, .proc/cleanup_lateloaded_area)
+			events_repository.register(/decl/observ/destroyed, A, src, PROC_REF(cleanup_lateloaded_area))
 	SSshuttle.block_queue = pre_init_state
 	SSshuttle.clear_init_queue() // We will flush the queue unless there were other blockers, in which case they will do it.
 
 /datum/map_template/proc/cleanup_lateloaded_area(area/destroyed_area)
-	events_repository.unregister(/decl/observ/destroyed, destroyed_area, src, .proc/cleanup_lateloaded_area)
+	events_repository.unregister(/decl/observ/destroyed, destroyed_area, src, PROC_REF(cleanup_lateloaded_area))
 	if(destroyed_area.saved_map_hash)
 		SSshuttle.map_hash_to_areas[destroyed_area.saved_map_hash] -= destroyed_area
 
@@ -151,8 +128,8 @@
 /// * If centered is TRUE, the template's center will be aligned to the world's center. Otherwise, the template will load at pos 1,1.
 /datum/map_template/proc/load_new_z(no_changeturf = TRUE, centered = TRUE)
 	//When we're set to centered we're aligning the center of the template to the center of the map
-	var/x = max(round((world.maxx - width)  / 2), 1)
-	var/y = max(round((world.maxy - height) / 2), 1)
+	var/x = max(ceil((WORLD_CENTER_X - width/2)), 1)
+	var/y = max(ceil((WORLD_CENTER_Y - height/2)), 1)
 	if(!centered)
 		x = 1
 		y = 1
@@ -177,14 +154,14 @@
 	global._preloader.current_map_hash = null
 
 	//initialize things that are normally initialized after map load
+	Master.StartLoadingMap()
 	init_atoms(atoms_to_initialise)
 	init_shuttles(shuttle_state, map_hash, initialized_areas_by_type)
 	after_load()
 	for(var/z_index = bounds[MAP_MINZ] to bounds[MAP_MAXZ])
 		var/datum/level_data/level = SSmapping.levels_by_z[z_index]
 		level.after_template_load(src)
-		if(SSlighting.initialized)
-			SSlighting.InitializeZlev(z_index)
+	Master.StopLoadingMap()
 	log_game("Z-level [name] loaded at [x],[y],[world.maxz]")
 	loaded++
 
@@ -192,10 +169,10 @@
 
 /datum/map_template/proc/load(turf/T, centered=FALSE)
 	if(centered)
-		T = locate(T.x - (round(width/2) - 1), T.y - (round(height/2) - 1), T.z)
+		T = locate(ceil(T.x - width/2), ceil(T.y - height/2), T.z)
 	if(!T)
 		CRASH("Can't load '[src]' (size: [width]x[height]) onto a null turf! Current world size ([WORLD_SIZE_TO_STRING]).")
-	if(!IS_WITHIN_WORLD((T.x + (width - 1)), (T.y + (height - 1))))
+	if(!IS_WITHIN_WORLD((T.x + width - 1), (T.y + height - 1))) // the first row/column begins with T, so subtract 1
 		CRASH("Couldn't fit the entire template '[src]' (size: [width]x[height]) between lower left corner ([T.x], [T.y])[centered?"(WORLD CENTER)":""] and upper right corner ([T.x + width], [T.y + height]) in current world size ([WORLD_SIZE_TO_STRING]).")
 
 	var/list/atoms_to_initialise = list()
@@ -218,13 +195,13 @@
 	global._preloader.current_map_hash = null
 
 	//initialize things that are normally initialized after map load
+	Master.StartLoadingMap()
 	init_atoms(atoms_to_initialise)
 	init_shuttles(shuttle_state, map_hash, initialized_areas_by_type)
 	after_load()
-	if (SSlighting.initialized)
-		SSlighting.InitializeTurfs(atoms_to_initialise)	// Hopefully no turfs get placed on new coords by SSatoms.
+	Master.StopLoadingMap()
 
-	log_game("[name] loaded at at [T.x],[T.y],[T.z]")
+	log_game("[name] loaded at [T.x],[T.y],[T.z]")
 	loaded++
 
 	return TRUE
@@ -233,9 +210,10 @@
 	for(var/obj/abstract/landmark/map_load_mark/mark as anything in subtemplates_to_spawn)
 		subtemplates_to_spawn -= mark
 		mark.load_subtemplate()
-		if(!QDELETED(mark))
+		if(!QDELETED(mark)) // for if the tile that lands on the landmark is a no-op tile
 			qdel(mark)
 	subtemplates_to_spawn = null
+	generate_multi_spawn_items()
 
 /datum/map_template/proc/extend_bounds_if_needed(var/list/existing_bounds, var/list/new_bounds)
 	var/list/bounds_to_combine = existing_bounds
@@ -256,9 +234,3 @@
 ///Returns whether a given map template is generated at runtime. Mainly used by unit tests.
 /datum/map_template/proc/is_runtime_generated()
 	return FALSE
-
-//for your ever biggening badminnery kevinz000
-//? - Cyberboss
-/proc/load_new_z_level(var/file, var/name)
-	var/datum/map_template/template = new(file, name)
-	template.load_new_z()

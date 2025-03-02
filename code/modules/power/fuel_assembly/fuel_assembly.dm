@@ -12,6 +12,11 @@
 	var/luminescence = 0
 	var/initial_amount
 
+// Unmeltable for the time being; TODO proper fix on dev.
+/obj/item/fuel_assembly/handle_melting(list/meltable_materials)
+	SHOULD_CALL_PARENT(FALSE)
+	return
+
 /obj/item/fuel_assembly/Initialize(mapload, var/_material, var/list/makeup, var/_colour)
 	. = ..(mapload, _material)
 	LAZYINITLIST(matter)
@@ -69,7 +74,7 @@
 		return PROCESS_KILL
 
 	if(istype(loc, /turf))
-		SSradiation.radiate(src, max(1,CEILING(radioactivity/15)))
+		SSradiation.radiate(src, max(1,ceil(radioactivity/15)))
 
 /obj/item/fuel_assembly/Destroy()
 	STOP_PROCESSING(SSobj, src)
@@ -82,7 +87,7 @@
 /obj/item/fuel_assembly/tritium
 	material = /decl/material/gas/hydrogen/tritium
 
-/obj/item/fuel_assembly/supermatter
+/obj/item/fuel_assembly/exotic_matter
 	material = /decl/material/solid/exotic_matter
 
 /obj/item/fuel_assembly/hydrogen

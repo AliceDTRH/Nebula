@@ -105,8 +105,8 @@ var/global/list/known_overmap_sectors
 		location = locate(start_x, start_y, overmap.assigned_z)
 	else
 		var/list/candidate_turfs = block(
-		locate(OVERMAP_EDGE, OVERMAP_EDGE, overmap.assigned_z),
-		locate(overmap.map_size_x - OVERMAP_EDGE, overmap.map_size_y - OVERMAP_EDGE, overmap.assigned_z)
+			OVERMAP_EDGE,                      OVERMAP_EDGE,                      overmap.assigned_z,
+			overmap.map_size_x - OVERMAP_EDGE, overmap.map_size_y - OVERMAP_EDGE, overmap.assigned_z
 		)
 
 		candidate_turfs = where(candidate_turfs, /proc/can_not_locate, /obj/effect/overmap)
@@ -244,8 +244,8 @@ var/global/list/known_overmap_sectors
 	for(var/thing in get_linked_machines_of_type(/obj/machinery/computer/ship))
 		var/obj/machinery/computer/ship/machine = thing
 		if(machine.z in map_z)
-			for(var/weakref/W in machine.viewers)
-				var/mob/M = W.resolve()
+			for(var/weakref/viewer_ref in machine.viewers)
+				var/mob/M = viewer_ref.resolve()
 				if(istype(M) && M.client)
 					M.client.default_pixel_x = pixel_x
 					M.client.default_pixel_y = pixel_y

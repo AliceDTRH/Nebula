@@ -1,4 +1,4 @@
-/datum/psi_complexus/proc/update(var/force)
+/datum/ability_handler/psionics/proc/update(var/force)
 
 	set waitfor = FALSE
 
@@ -21,7 +21,7 @@
 
 	UNSETEMPTY(latencies)
 	var/rank_count = max(1, LAZYLEN(ranks))
-	if(force || last_rating != CEILING(combined_rank/rank_count))
+	if(force || last_rating != ceil(combined_rank/rank_count))
 		if(highest_rank <= 1)
 			if(highest_rank == 0)
 				qdel(src)
@@ -29,7 +29,7 @@
 		else
 			rebuild_power_cache = TRUE
 			sound_to(owner, 'sound/effects/psi/power_unlock.ogg')
-			rating = CEILING(combined_rank/rank_count)
+			rating = ceil(combined_rank/rank_count)
 			cost_modifier = 1
 			if(rating > 1)
 				cost_modifier -= min(1, max(0.1, (rating-1) / 10))
@@ -70,11 +70,11 @@
 		to_chat(owner, SPAN_NOTICE("<b>Shift-left-click your Psi icon</b> on the bottom right to <b>view a summary of how to use them</b>, or <b>left click</b> it to <b>suppress or unsuppress</b> your psionics. Beware: overusing your gifts can have <b>deadly consequences</b>."))
 		to_chat(owner, "<hr>")
 
-/datum/psi_complexus/Process()
+/datum/ability_handler/psionics/Process()
 
 	var/update_hud
 	if(armor_cost)
-		var/value = max(1, CEILING(armor_cost * cost_modifier))
+		var/value = max(1, ceil(armor_cost * cost_modifier))
 		if(value <= stamina)
 			stamina -= value
 		else
@@ -106,7 +106,7 @@
 			else if(owner.stat == UNCONSCIOUS)
 				stamina = min(max_stamina, stamina + rand(3,5))
 
-		if(!owner.nervous_system_failure() && owner.stat == CONSCIOUS && stamina && !suppressed && get_rank(PSI_REDACTION) >= PSI_RANK_OPERANT)
+		if(!owner.nervous_system_failure() && owner.stat != DEAD && stamina && !suppressed && get_rank(PSI_REDACTION) >= PSI_RANK_OPERANT)
 			attempt_regeneration()
 
 	var/next_aura_size = max(0.1,((stamina/max_stamina)*min(3,rating))/5)
@@ -124,7 +124,7 @@
 	if(update_hud)
 		ui.update_icon()
 
-/datum/psi_complexus/proc/attempt_regeneration()
+/datum/ability_handler/psionics/proc/attempt_regeneration()
 
 	var/heal_general =  FALSE
 	var/heal_poison =   FALSE
@@ -159,12 +159,16 @@
 	else
 		return
 
+	if(owner.stat != CONSCIOUS)
+		mend_prob = round(mend_prob * 0.65)
+		heal_rate = round(heal_rate * 0.65)
+
 	if(!heal_rate || stamina < heal_rate)
 		return // Don't backblast from trying to heal ourselves thanks.
 
 	if(ishuman(owner))
 
-		var/mob/living/carbon/human/H = owner
+		var/mob/living/human/H = owner
 
 		// Fix some pain.
 		if(heal_rate > 0)
@@ -179,15 +183,20 @@
 
 			// Heal organ damage.
 			if(heal_internal)
-				for(var/obj/item/organ/I in H.get_internal_organs())
+				for(var/obj/item/organ/internal/organ in H.get_internal_organs())
 
-					if(BP_IS_PROSTHETIC(I) || BP_IS_CRYSTAL(I))
+					if(BP_IS_PROSTHETIC(organ) || BP_IS_CRYSTAL(organ))
 						continue
 
-					if(I.damage > 0 && spend_power(heal_rate))
-						I.damage = max(I.damage - heal_rate, 0)
+					// Autoredaction doesn't heal brain damage directly.
+					if(organ.organ_tag == BP_BRAIN)
+						continue
+
+					var/organ_damage = organ.get_organ_damage()
+					if(organ_damage > 0 && spend_power(heal_rate))
+						organ.adjust_organ_damage(-(heal_rate))
 						if(prob(25))
-							to_chat(H, SPAN_NOTICE("Your innards itch as your autoredactive faculty mends your [I.name]."))
+							to_chat(H, SPAN_NOTICE("Your innards itch as your autoredactive faculty mends your [organ.name]."))
 						return
 
 			// Heal broken bones.
@@ -195,12 +204,6 @@
 
 				if(BP_IS_PROSTHETIC(E))
 					continue
-
-				if(heal_internal && (E.status & ORGAN_BROKEN) && E.damage < (E.min_broken_damage * config.organ_health_multiplier)) // So we don't mend and autobreak.
-					if(spend_power(heal_rate))
-						if(E.mend_fracture())
-							to_chat(H, SPAN_NOTICE("Your autoredactive faculty coaxes together the shattered bones in your [E.name]."))
-							return
 
 				if(heal_bleeding)
 
@@ -214,12 +217,11 @@
 						E.status &= ~ORGAN_TENDON_CUT
 						return TRUE
 
-					for(var/datum/wound/W in E.wounds)
-
-						if(W.bleeding() && spend_power(heal_rate))
-							to_chat(H, SPAN_NOTICE("Your autoredactive faculty knits together severed veins, stemming the bleeding from \a [W.desc] on your [E.name]."))
-							W.bleed_timer = 0
-							W.clamped = TRUE
+					for(var/datum/wound/wound in E.wounds)
+						if(wound.bleeding() && spend_power(heal_rate))
+							to_chat(H, SPAN_NOTICE("Your autoredactive faculty knits together severed veins, stemming the bleeding from \a [wound.desc] on your [E.name]."))
+							wound.bleed_timer = 0
+							wound.clamped = TRUE
 							E.status &= ~ORGAN_BLEEDING
 							return
 
@@ -232,16 +234,16 @@
 			owner.radiation = max(0, owner.radiation - heal_rate)
 			return
 
-		if(owner.getCloneLoss() && spend_power(heal_rate))
+		if(owner.get_damage(CLONE) && spend_power(heal_rate))
 			if(prob(25))
 				to_chat(owner, SPAN_NOTICE("Your autoredactive faculty stitches together some of your mangled DNA."))
-			owner.adjustCloneLoss(-heal_rate)
+			owner.heal_damage(CLONE, heal_rate)
 			return
 
 	// Heal everything left.
-	if(heal_general && prob(mend_prob) && (owner.getBruteLoss() || owner.getFireLoss() || owner.getOxyLoss()) && spend_power(heal_rate))
-		owner.adjustBruteLoss(-(heal_rate))
-		owner.adjustFireLoss(-(heal_rate))
-		owner.adjustOxyLoss(-(heal_rate))
+	if(heal_general && prob(mend_prob) && (owner.get_damage(BRUTE) || owner.get_damage(BURN) || owner.get_damage(OXY)) && spend_power(heal_rate))
+		owner.heal_damage(BRUTE, heal_rate, do_update_health = FALSE)
+		owner.heal_damage(BURN, heal_rate, do_update_health = FALSE)
+		owner.heal_damage(OXY, heal_rate)
 		if(prob(25))
 			to_chat(owner, SPAN_NOTICE("Your skin crawls as your autoredactive faculty heals your body."))

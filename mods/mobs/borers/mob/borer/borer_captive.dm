@@ -2,13 +2,7 @@
 	name = "host brain"
 	real_name = "host brain"
 	universal_understand = TRUE
-
-	meat_type = null
-	meat_amount = 0
-	skin_material = null
-	skin_amount = 0
-	bone_material = null
-	bone_amount = 0
+	butchery_data = null
 
 /mob/living/captive_brain/say(var/message)
 
@@ -17,7 +11,7 @@
 			to_chat(src, SPAN_WARNING("You cannot speak in IC (muted)."))
 			return
 
-	if(istype(src.loc,/mob/living/simple_animal/borer))
+	if(isborer(src.loc))
 
 		message = sanitize(message)
 		if (!message)
@@ -31,31 +25,27 @@
 		to_chat(B.host, "The captive mind of [src] whispers, \"[message]\"")
 
 		for (var/mob/M in global.player_list)
-			if (istype(M, /mob/new_player))
+			if (isnewplayer(M))
 				continue
 			else if(M.stat == DEAD && M.get_preference_value(/datum/client_preference/ghost_ears) == PREF_ALL_SPEECH)
 				to_chat(M, "The captive mind of [src] whispers, \"[message]\"")
 
 /mob/living/captive_brain/process_resist()
+	SHOULD_CALL_PARENT(FALSE)
 	//Resisting control by an alien mind.
-	if(istype(src.loc,/mob/living/simple_animal/borer))
+	if(isborer(src.loc))
 		var/mob/living/simple_animal/borer/B = src.loc
 		var/mob/living/captive_brain/H = src
-
 		to_chat(H, "<span class='danger'>You begin doggedly resisting the parasite's control (this will take approximately sixty seconds).</span>")
 		to_chat(B.host, "<span class='danger'>You feel the captive mind of [src] begin to resist your control.</span>")
-
-		spawn(rand(200,250)+B.host.getBrainLoss())
+		spawn(rand(200,250)+B.host.get_damage(BRAIN))
 			if(!B || !B.controlling) return
-
-			B.host.adjustBrainLoss(rand(0.1,0.5))
+			B.host.take_damage(rand(0.1,0.5), BRAIN)
 			to_chat(H, "<span class='danger'>With an immense exertion of will, you regain control of your body!</span>")
 			to_chat(B.host, "<span class='danger'>You feel control of the host brain ripped from your grasp, and retract your probosci before the wild neural impulses can damage you.</span>")
 			B.detach_from_host()
-			verbs -= /mob/living/carbon/proc/release_control
-			verbs -= /mob/living/carbon/proc/punish_host
-			verbs -= /mob/living/carbon/proc/spawn_larvae
-
-		return
-
-	..()
+			verbs -= /mob/living/proc/release_control
+			verbs -= /mob/living/proc/punish_host
+			verbs -= /mob/living/proc/spawn_larvae
+		return TRUE
+	return FALSE

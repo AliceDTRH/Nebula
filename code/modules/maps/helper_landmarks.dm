@@ -1,18 +1,29 @@
 //Load a random map template from the list. Maploader handles it to avoid order of init madness
 /obj/abstract/landmark/map_load_mark
 	name = "map loader landmark"
+	is_spawnable_type = FALSE
+	var/centered = TRUE
 	var/list/map_template_names	//list of template names to pick from
 
-/obj/abstract/landmark/map_load_mark/Initialize(var/mapload)
+INITIALIZE_IMMEDIATE(/obj/abstract/landmark/map_load_mark)
+/obj/abstract/landmark/map_load_mark/Initialize()
 	. = ..()
-	if(!mapload)
-		return INITIALIZE_HINT_LATELOAD
-
-/obj/abstract/landmark/map_load_mark/LateInitialize()
-	load_subtemplate()
+	if(Master.map_loading) // If we're created while a map is being loaded
+		return // Let after_load() handle us
+	if(!SSmapping.initialized) // If we're being created prior to SSmapping
+		SSmapping.queued_markers += src // Then run after SSmapping
+	else
+		// How did we get here?
+		// These should only be loaded from compiled maps or map templates.
+		PRINT_STACK_TRACE("map_load_mark created outside of maploading")
+		init_load_subtemplate()
 
 /obj/abstract/landmark/map_load_mark/proc/get_subtemplate()
 	. = LAZYLEN(map_template_names) && pick(map_template_names)
+
+/obj/abstract/landmark/map_load_mark/proc/init_load_subtemplate()
+	set waitfor = FALSE
+	load_subtemplate()
 
 /obj/abstract/landmark/map_load_mark/proc/load_subtemplate()
 	// Commenting this out temporarily as DMMS breaks when asychronously
@@ -29,7 +40,7 @@
 		if(istext(template))
 			template = SSmapping.get_template(template)
 		if(istype(template))
-			template.load(spawn_loc, TRUE)
+			template.load(spawn_loc, centered = centered)
 
 //Throw things in the area around randomly
 /obj/abstract/landmark/carnage_mark
@@ -57,7 +68,7 @@
 /obj/abstract/landmark/clear
 	name = "clear turf"
 	icon_state = "clear"
-	//Don't set deleteme to true, since we work inside lateinitialize
+	//Don't set delete_me to true, since we work inside lateinitialize
 
 /obj/abstract/landmark/clear/Initialize()
 	..()
@@ -65,12 +76,9 @@
 
 /obj/abstract/landmark/clear/LateInitialize()
 	. = ..()
-	var/turf/simulated/wall/simulated_wall = get_turf(src)
-	if(istype(simulated_wall))
-		simulated_wall.dismantle_wall(TRUE, TRUE, TRUE)
-	else if(istype(simulated_wall, /turf/exterior/wall))
-		var/turf/exterior/wall/exterior_wall = simulated_wall
-		exterior_wall.dismantle_wall(TRUE)
+	var/turf/wall/wall = get_turf(src)
+	if(istype(wall))
+		wall.dismantle_turf(TRUE, TRUE, TRUE)
 	qdel(src)
 
 //Applies fire act to the turf
@@ -93,11 +101,11 @@
 
 /obj/abstract/landmark/delete_on_shuttle/Initialize()
 	. = ..()
-	events_repository.register_global(/decl/observ/shuttle_added, src, .proc/check_shuttle)
+	events_repository.register_global(/decl/observ/shuttle_added, src, PROC_REF(check_shuttle))
 
 /obj/abstract/landmark/delete_on_shuttle/proc/check_shuttle(var/shuttle)
 	if(SSshuttle.shuttles[shuttle_name] == shuttle)
-		events_repository.register(/decl/observ/shuttle_moved, shuttle, src, .proc/delete_everything)
+		events_repository.register(/decl/observ/shuttle_moved, shuttle, src, PROC_REF(delete_everything))
 		shuttle_datum = shuttle
 
 /obj/abstract/landmark/delete_on_shuttle/proc/delete_everything()
@@ -107,9 +115,9 @@
 	qdel(src)
 
 /obj/abstract/landmark/delete_on_shuttle/Destroy()
-	events_repository.unregister_global(/decl/observ/shuttle_added, src, .proc/check_shuttle)
+	events_repository.unregister_global(/decl/observ/shuttle_added, src, PROC_REF(check_shuttle))
 	if(shuttle_datum)
-		events_repository.unregister(/decl/observ/shuttle_moved, shuttle_datum, src, .proc/delete_everything)
+		events_repository.unregister(/decl/observ/shuttle_moved, shuttle_datum, src, PROC_REF(delete_everything))
 	. = ..()
 
 // Has a percent chance on spawn to set the specified variable on the specified type to the specified value.
@@ -125,6 +133,9 @@
 	. = ..()
 	if(!prob(probability))
 		return // Do nothing.
+	var/turf/our_turf = get_turf(src)
+	if(ispath(type_to_find, /turf) && istype(our_turf, type_to_find) && try_set_variable(our_turf))
+		return INITIALIZE_HINT_QDEL
 	for(var/atom/candidate_atom in get_turf(src))
 		if(!istype(candidate_atom, type_to_find))
 			continue
@@ -159,6 +170,10 @@
 	. = ..()
 	if(!prob(probability))
 		return // Do nothing.
+	// turf is not in turf contents, oops
+	var/turf/our_turf = get_turf(src)
+	if(ispath(type_to_find, /turf) && istype(our_turf, type_to_find) && try_call_proc(our_turf))
+		return INITIALIZE_HINT_QDEL
 	// we don't use locate in case try_call_proc returns false on our first attempt
 	for(var/atom/candidate_atom in get_turf(src))
 		if(!istype(candidate_atom, type_to_find))
@@ -178,8 +193,13 @@
 	return TRUE
 
 /obj/abstract/landmark/proc_caller/floor_burner
-	type_to_find = /turf/simulated/floor
-	proc_to_call = /turf/simulated/floor/proc/burn_tile
+	type_to_find = /turf/floor
+	proc_to_call = TYPE_PROC_REF(/turf/floor, burn_tile)
+	arguments_to_pass = null
+
+/obj/abstract/landmark/proc_caller/floor_breaker
+	type_to_find = /turf/floor
+	proc_to_call = TYPE_PROC_REF(/turf/floor, break_tile)
 	arguments_to_pass = null
 
 /// Used to tell pipe leak unit tests that a leak is intentional. Placed over the pipe that leaks, not the tile missing a pipe.
@@ -187,3 +207,40 @@
 #ifndef UNIT_TEST
 	delete_me = TRUE
 #endif
+
+/obj/abstract/landmark/organize
+	abstract_type = /obj/abstract/landmark/organize
+	var/list/sort_types = list(/obj/item)
+
+/obj/abstract/landmark/organize/Initialize()
+	..()
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/abstract/landmark/organize/LateInitialize()
+	..()
+	var/list/sorting_atoms = list()
+	for(var/atom/movable/AM in loc)
+		if(AM.simulated && !AM.anchored && is_type_in_list(AM, sort_types))
+			sorting_atoms += AM
+	if(length(sorting_atoms))
+		organize(shuffle(sorting_atoms))
+	qdel(src)
+
+/obj/abstract/landmark/organize/proc/organize(list/organize)
+	return
+
+/obj/abstract/landmark/organize/horizontal/organize(list/organize)
+	var/offset = round(world.icon_size / length(organize))
+	var/initial_x = -((offset * length(organize)) / 2)
+	var/sorted_atoms = 0
+	for(var/atom/movable/AM as anything in organize)
+		AM.pixel_x = initial_x + (offset * sorted_atoms)
+		sorted_atoms++
+
+/obj/abstract/landmark/organize/vertical/organize(list/organize)
+	var/offset = round(world.icon_size / length(organize))
+	var/initial_y = -((offset * length(organize)) / 2)
+	var/sorted_atoms = 0
+	for(var/atom/movable/AM as anything in organize)
+		AM.pixel_y = initial_y + (offset * sorted_atoms)
+		sorted_atoms++

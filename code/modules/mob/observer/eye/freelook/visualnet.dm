@@ -1,7 +1,7 @@
 // VISUAL NET
 //
 // The datum containing all the chunks.
-
+var/global/list/datum/visualnet/all_visual_nets = list()
 /datum/visualnet
 	// The chunks of the map, mapping the areas that an object can see.
 	var/list/chunks = list()
@@ -11,12 +11,12 @@
 
 /datum/visualnet/New()
 	..()
-	visual_nets += src
+	all_visual_nets += src
 	if(!valid_source_types)
 		valid_source_types = list()
 
 /datum/visualnet/Destroy()
-	visual_nets -= src
+	all_visual_nets -= src
 	for(var/source in sources)
 		remove_source(source, FALSE)
 	sources.Cut()
@@ -86,9 +86,6 @@
 		return
 	major_chunk_change(A)
 
-/datum/visualnet/proc/update_visibility_nocheck(atom/A)
-	update_visibility(A, FALSE)
-
 // Will check if an atom is on a viewable turf. Returns 1 if it is, otherwise returns 0.
 /datum/visualnet/proc/is_visible(var/atom/target)
 	// 0xf = 15
@@ -109,7 +106,7 @@
 // Never access this proc directly!!!!
 // This will update the chunk and all the surrounding chunks.
 /datum/visualnet/proc/major_chunk_change(var/atom/source)
-	for_all_chunks_in_range(source, /datum/chunk/proc/visibility_changed, list())
+	for_all_chunks_in_range(source, TYPE_PROC_REF(/datum/chunk, visibility_changed), list())
 
 /datum/visualnet/proc/add_source(var/atom/source, var/update_visibility = TRUE, var/opacity_check = FALSE)
 	if(!(source && is_valid_source(source)))
@@ -118,9 +115,9 @@
 	if(source in sources)
 		return FALSE
 	sources += source
-	events_repository.register(/decl/observ/moved, source, src, /datum/visualnet/proc/source_moved)
-	events_repository.register(/decl/observ/destroyed, source, src, /datum/visualnet/proc/remove_source)
-	for_all_chunks_in_range(source, /datum/chunk/proc/add_source, list(source))
+	events_repository.register(/decl/observ/moved, source, src, TYPE_PROC_REF(/datum/visualnet, source_moved))
+	events_repository.register(/decl/observ/destroyed, source, src, TYPE_PROC_REF(/datum/visualnet, remove_source))
+	for_all_chunks_in_range(source, TYPE_PROC_REF(/datum/chunk, add_source), list(source))
 	if(update_visibility)
 		update_visibility(source, opacity_check)
 	return TRUE
@@ -129,9 +126,9 @@
 	if(!sources.Remove(source))
 		return FALSE
 
-	events_repository.unregister(/decl/observ/moved, source, src, /datum/visualnet/proc/source_moved)
-	events_repository.unregister(/decl/observ/destroyed, source, src, /datum/visualnet/proc/remove_source)
-	for_all_chunks_in_range(source, /datum/chunk/proc/remove_source, list(source))
+	events_repository.unregister(/decl/observ/moved, source, src, TYPE_PROC_REF(/datum/visualnet, source_moved))
+	events_repository.unregister(/decl/observ/destroyed, source, src, TYPE_PROC_REF(/datum/visualnet, remove_source))
+	for_all_chunks_in_range(source, TYPE_PROC_REF(/datum/chunk, remove_source), list(source))
 	if(update_visibility)
 		update_visibility(source, opacity_check)
 	return TRUE
@@ -150,9 +147,9 @@
 	// A more proper way would be to figure out which chunks have gone out of range, and which have come into range
 	//  and only remove/add to those.
 	if(old_turf)
-		for_all_chunks_in_range(source, /datum/chunk/proc/remove_source, list(source), old_turf)
+		for_all_chunks_in_range(source, TYPE_PROC_REF(/datum/chunk, remove_source), list(source), old_turf)
 	if(new_turf)
-		for_all_chunks_in_range(source, /datum/chunk/proc/add_source, list(source), new_turf)
+		for_all_chunks_in_range(source, TYPE_PROC_REF(/datum/chunk, add_source), list(source), new_turf)
 
 /datum/visualnet/proc/for_all_chunks_in_range(var/atom/source, var/proc_call, var/list/proc_args, var/turf/T)
 	T = T ? T : get_turf(source)

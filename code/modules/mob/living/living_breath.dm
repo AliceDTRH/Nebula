@@ -5,7 +5,7 @@
 	return FALSE
 
 /mob/living/proc/need_breathe()
-	if(mNobreath in mutations)
+	if(has_genetic_condition(GENE_COND_NO_BREATH))
 		return FALSE
 	var/decl/bodytype/root_bodytype = get_bodytype()
 	if(!root_bodytype || !root_bodytype.breathing_organ || !should_have_organ(root_bodytype.breathing_organ))
@@ -13,7 +13,7 @@
 	return TRUE
 
 /mob/living/proc/should_breathe()
-	return FALSE
+	return ((life_tick % 2) == 0 || failed_last_breath || is_asystole())
 
 /mob/living/proc/try_breathe()
 
@@ -34,7 +34,7 @@
 	if(ticks_since_last_successful_breath>0) //Suffocating so do not take a breath
 		ticks_since_last_successful_breath--
 		if (prob(10) && !is_asystole() && active_breathe) //Gasp per 10 ticks? Sounds about right.
-			INVOKE_ASYNC(src, .proc/emote, "gasp")
+			INVOKE_ASYNC(src, PROC_REF(emote), "gasp")
 	else
 		//Okay, we can breathe, now check if we can get air
 		var/volume_needed = get_breath_volume()
@@ -57,13 +57,13 @@
 
 	// First handle being in a submerged environment.
 	var/datum/gas_mixture/breath
-	var/turf/my_turf = get_turf(src)
-	if(istype(my_turf) && my_turf.is_flooded(lying))
+	if(is_flooded(current_posture.prone))
+		var/turf/my_turf = get_turf(src)
 
 		//Can we get air from the turf above us?
 		var/can_breathe_air_above = FALSE
 		if(my_turf == location)
-			if(!lying && my_turf.above && !my_turf.above.is_flooded() && my_turf.above.is_open() && can_overcome_gravity())
+			if(!current_posture.prone && my_turf.above && !my_turf.above.is_flooded() && my_turf.above.is_open() && can_overcome_gravity())
 				location = my_turf.above
 				can_breathe_air_above = TRUE
 
@@ -104,17 +104,9 @@
 			if(!(old_internals in contents))
 				set_internals(null)
 			else
-				var/found_mask = FALSE
-				for(var/slot in global.airtight_slots)
-					var/obj/item/gear = get_equipped_item(slot)
-					if(gear && (gear.item_flags & ITEM_FLAG_AIRTIGHT))
-						found_mask = TRUE
-						break
-				if(!found_mask)
-					set_internals(null)
+				check_for_airtight_internals()
 	var/obj/item/tank/new_internals = get_internals()
-	if(internals && old_internals != new_internals)
-		internals.icon_state = "internal[!!new_internals]"
+	refresh_hud_element(HUD_INTERNALS)
 	if(istype(new_internals))
 		return new_internals.remove_air_volume(volume_needed)
 
@@ -158,4 +150,5 @@
 		if(internals_air && (internals_air.return_pressure() < loc_air.return_pressure())) // based on the assumption it has a one-way valve for gas release
 			internals_air.merge(breath)
 			return
-	loc_air.merge(breath)
+	if(loc)
+		loc.merge_exhaled_volume(breath)

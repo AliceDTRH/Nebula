@@ -41,14 +41,14 @@ SUBSYSTEM_DEF(customitems)
 	. = ..()
 
 // Places the item on the target mob.
-/datum/controller/subsystem/customitems/proc/place_custom_item(mob/living/carbon/human/M, var/datum/custom_item/citem)
+/datum/controller/subsystem/customitems/proc/place_custom_item(mob/living/human/M, var/datum/custom_item/citem)
 	. = M && citem && citem.spawn_item(get_turf(M))
 	if(. && !M.equip_to_appropriate_slot(.) && !M.equip_to_storage(.))
 		to_chat(M, SPAN_WARNING("Your custom item, \the [.], could not be placed on your character."))
 		QDEL_NULL(.)
 
 //gets the relevant list for the key from the listlist if it exists, check to make sure they are meant to have it and then calls the giving function
-/datum/controller/subsystem/customitems/proc/equip_custom_items(mob/living/carbon/human/M)
+/datum/controller/subsystem/customitems/proc/equip_custom_items(mob/living/human/M)
 	var/list/key_list = custom_items_by_ckey[M.ckey]
 	if(!length(key_list))
 		return
@@ -68,7 +68,7 @@ SUBSYSTEM_DEF(customitems)
 
 		// Spawn and equip the item.
 		if(ispath(citem.apply_to_target_type))
-			var/obj/item/existing_item = (locate(citem.apply_to_target_type) in M.get_contents())
+			var/obj/item/existing_item = (locate(citem.apply_to_target_type) in M.get_mob_contents())
 			if(existing_item)
 				citem.apply_to_item(existing_item)
 				return
@@ -91,8 +91,9 @@ SUBSYSTEM_DEF(customitems)
 	character_name =       lowertext(character_name)
 	for(var/icon_id in ids_to_icons)
 		var/icon_loc = ids_to_icons[icon_id]
-		if(config.custom_icon_icon_location)
-			icon_loc = "[config.custom_icon_icon_location]/[icon_loc]"
+		var/config_icon_loc = get_config_value(/decl/config/text/custom_icon_icon_location)
+		if(config_icon_loc)
+			icon_loc = "[config_icon_loc]/[icon_loc]"
 		ids_to_icons[icon_id] = file(icon_loc)
 
 /datum/custom_icon/proc/validate()
@@ -134,8 +135,9 @@ SUBSYSTEM_DEF(customitems)
 	item_path =            item_path && text2path(item_path)
 	apply_to_target_type = apply_to_target_type && text2path(apply_to_target_type)
 	if(item_icon)
-		if(config.custom_item_icon_location)
-			item_icon = "[config.custom_item_icon_location]/[item_path]"
+		var/config_item_loc = get_config_value(/decl/config/text/custom_item_icon_location)
+		if(config_item_loc)
+			item_icon = "[config_item_loc]/[item_path]"
 		if(fexists(item_icon))
 			item_icon = file(item_icon)
 

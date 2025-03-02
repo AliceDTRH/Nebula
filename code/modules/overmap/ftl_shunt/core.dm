@@ -98,23 +98,23 @@
 		animate(S, alpha = 255, time = 5.9 SECONDS)
 		add_overlay(S)
 
-/obj/machinery/ftl_shunt/core/examine(mob/user)
+/obj/machinery/ftl_shunt/core/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(sabotaged)
 		if(user.skill_check(SKILL_ENGINES, SKILL_ADEPT))
 			switch(sabotaged)
 				if(SHUNT_SABOTAGE_MINOR)
-					to_chat(user, SPAN_WARNING("It looks like it's been tampered with in some way, and the accelerator vanes seem out of place."))
+					. += SPAN_WARNING("It looks like it's been tampered with in some way, and the accelerator vanes seem out of place.")
 				if(SHUNT_SABOTAGE_MAJOR)
-					to_chat(user, SPAN_WARNING("Light behaves oddly around the core of [src], and it looks to have been tampered with! The vanes are definitely out of place."))
+					. += SPAN_WARNING("Light behaves oddly around the core of [src], and it looks to have been tampered with! The vanes are definitely out of place.")
 				if(SHUNT_SABOTAGE_CRITICAL)
-					to_chat(user, SPAN_DANGER("Light bends around the core of [src] in a manner that eerily reminds you of a singularity... the vanes look completely misaligned!"))
+					. += SPAN_DANGER("Light bends around the core of [src] in a manner that eerily reminds you of a singularity... the vanes look completely misaligned!")
 		else
-			to_chat(user, SPAN_WARNING("It looks like it's been tampered with, but you're not sure to what extent."))
+			. += SPAN_WARNING("It looks like it's been tampered with, but you're not sure to what extent.")
 
-/obj/machinery/ftl_shunt/core/attackby(var/obj/item/O, var/mob/user)
-	if(istype(O, /obj/item/stack/telecrystal))
-		var/obj/item/stack/telecrystal/TC = O
+/obj/machinery/ftl_shunt/core/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, /obj/item/stack/telecrystal))
+		var/obj/item/stack/telecrystal/TC = used_item
 
 		if(TC.amount < 10)
 			to_chat(user, SPAN_WARNING("You don't have enough telecrystals to sabotage [src]."))
@@ -154,7 +154,7 @@
 
 /obj/machinery/ftl_shunt/core/physical_attack_hand(var/mob/user)
 	if(sabotaged)
-		var/mob/living/carbon/human/h_user = user
+		var/mob/living/human/h_user = user
 		if(!istype(h_user))
 			return TRUE
 		var/skill_delay = user.skill_delay_mult(SKILL_ENGINES, 0.3)
@@ -222,7 +222,7 @@
 		return FTL_START_FAILURE_FUEL
 
 	if(sabotaged)
-		for(var/mob/living/carbon/human/H in global.living_mob_list_) //Give engineers a hint that something might be very, very wrong.
+		for(var/mob/living/human/H in global.living_mob_list_) //Give engineers a hint that something might be very, very wrong.
 			if(!(H.z in ftl_computer.linked.map_z))
 				continue
 			if(H.skill_check(SKILL_ENGINES, SKILL_EXPERT))
@@ -234,15 +234,15 @@
 	update_icon()
 
 	if(check_charge())
-		jump_timer = addtimer(CALLBACK(src, .proc/execute_shunt), jump_delay, TIMER_STOPPABLE)
+		jump_timer = addtimer(CALLBACK(src, PROC_REF(execute_shunt)), jump_delay, TIMER_STOPPABLE)
 	return FTL_START_CONFIRMED
 
 /obj/machinery/ftl_shunt/core/proc/calculate_jump_requirements()
-	var/obj/effect/overmap/visitable/O = global.overmap_sectors[num2text(z)]
-	if(O)
+	var/obj/effect/overmap/visitable/site = global.overmap_sectors[num2text(z)]
+	if(site)
 		var/shunt_distance
 		var/vessel_mass = ftl_computer.linked.get_vessel_mass()
-		var/shunt_turf = locate(shunt_x, shunt_y, O.z)
+		var/shunt_turf = locate(shunt_x, shunt_y, site.z)
 		shunt_distance = get_dist(get_turf(ftl_computer.linked), shunt_turf)
 		required_fuel_joules = (vessel_mass * JOULES_PER_TON) * shunt_distance
 		required_charge = required_fuel_joules * REQUIRED_CHARGE_MULTIPLIER
@@ -270,21 +270,21 @@
 		return
 
 	if(use_fuel(required_fuel_joules))
-		jump_timer = addtimer(CALLBACK(src, .proc/execute_shunt), jump_delay, TIMER_STOPPABLE)
+		jump_timer = addtimer(CALLBACK(src, PROC_REF(execute_shunt)), jump_delay, TIMER_STOPPABLE)
 	else
 		cancel_shunt()
 		return //If for some reason we don't have fuel now, just return.
 
-	var/obj/effect/overmap/visitable/O = global.overmap_sectors[num2text(z)]
-	if(O)
-		var/destination = locate(shunt_x, shunt_y, O.z)
+	var/obj/effect/overmap/visitable/site = global.overmap_sectors[num2text(z)]
+	if(site)
+		var/destination = locate(shunt_x, shunt_y, site.z)
 		var/jumpdist = get_dist(get_turf(ftl_computer.linked), destination)
-		var/obj/effect/portal/wormhole/W = new(destination) //Generate a wormhole effect on overmap to give some indication that something is about to happen.
-		QDEL_IN(W, 6 SECONDS)
-		addtimer(CALLBACK(src, .proc/do_shunt, shunt_x, shunt_y, jumpdist, destination), 6 SECONDS)
+		var/obj/effect/portal/wormhole/wormhole = new(destination) //Generate a wormhole effect on overmap to give some indication that something is about to happen.
+		QDEL_IN(wormhole, 6 SECONDS)
+		addtimer(CALLBACK(src, PROC_REF(do_shunt), shunt_x, shunt_y, jumpdist, destination), 6 SECONDS)
 		jumping = TRUE
 		update_icon()
-		for(var/mob/living/carbon/M in global.living_mob_list_)
+		for(var/mob/living/M in global.living_mob_list_)
 			if(!(M.z in ftl_computer.linked.map_z))
 				continue
 			sound_to(M, 'sound/machines/hyperspace_begin.ogg')
@@ -311,7 +311,7 @@
 	else
 		shunt_sev = SHUNT_SEVERITY_CRITICAL
 
-	for(var/mob/living/carbon/human/H in global.living_mob_list_) //Affect mobs, skip synthetics.
+	for(var/mob/living/human/H in global.living_mob_list_) //Affect mobs, skip synthetics.
 		sound_to(H, 'sound/machines/hyperspace_end.ogg')
 
 		if(!(H.z in ftl_computer.linked.map_z))
@@ -373,8 +373,8 @@
 				if(prob(50))
 					A.overload_lighting(50)
 
-/obj/machinery/ftl_shunt/core/proc/handle_spacefloat(var/mob/living/carbon/human/H)
-	if(!H.check_space_footing())
+/obj/machinery/ftl_shunt/core/proc/handle_spacefloat(var/mob/living/human/H)
+	if(H.can_slip(magboots_only = TRUE))
 		 //Flip a coin ...
 		to_chat(H, SPAN_WARNING("Being untethered from a ship entering FTL is a bad idea, but you roll the dice..."))
 		if(prob(50))
@@ -391,7 +391,7 @@
 	switch(sabotaged)
 		if(SHUNT_SABOTAGE_MINOR)
 			announcetxt = shunt_sabotage_text_minor
-			for(var/mob/living/carbon/human/H in view(7))
+			for(var/mob/living/human/H in view(7))
 				H.show_message(SPAN_DANGER("\The [src] emits a flash of incredibly bright, searing light!"), VISIBLE_MESSAGE)
 				H.flash_eyes(FLASH_PROTECTION_NONE)
 			empulse(src, 8, 10)
@@ -416,7 +416,7 @@
 					continue
 				A.energy_fail(rand(100,120))
 
-			for(var/mob/living/carbon/human/H in view(7)) //scary text if you're in view, because you're fucked now boy.
+			for(var/mob/living/human/H in view(7)) //scary text if you're in view, because you're fucked now boy.
 				H.show_message(SPAN_DANGER("The light around \the [src] warps before it emits a flash of incredibly bright, searing light!"), VISIBLE_MESSAGE)
 				H.flash_eyes(FLASH_PROTECTION_NONE)
 
@@ -584,17 +584,16 @@
 	master = null
 	QDEL_NULL(fuel)
 
-/obj/machinery/ftl_shunt/fuel_port/attackby(var/obj/item/O, var/mob/user)
-	if(istype(O, /obj/item/fuel_assembly))
-		if(!fuel)
-			if(!do_after(user, 2 SECONDS, src) || fuel)
-				return
-			if(!user || !user.try_unequip(O, src))
-				return
-			fuel = O
-			max_fuel = get_fuel_joules(TRUE)
-			update_icon()
+/obj/machinery/ftl_shunt/fuel_port/attackby(var/obj/item/used_item, var/mob/user)
+	if(istype(used_item, /obj/item/fuel_assembly) && !fuel)
+		if(!do_after(user, 2 SECONDS, src) || fuel)
 			return TRUE
+		if(!user || !user.try_unequip(used_item, src))
+			return TRUE
+		fuel = used_item
+		max_fuel = get_fuel_joules(TRUE)
+		update_icon()
+		return TRUE
 
 	. = ..()
 
@@ -646,13 +645,13 @@
 	name = "circuit board (superluminal shunt)"
 	board_type = "machine"
 	build_path = /obj/machinery/ftl_shunt/core
-	origin_tech = "{'programming':3,'magnets':5,'materials':5,'wormholes':5}"
+	origin_tech = @'{"programming":3,"magnets":5,"materials":5,"wormholes":5}'
 	additional_spawn_components = list(/obj/item/stock_parts/power/terminal = 1)
 
 /obj/item/stock_parts/ftl_core
 	name = "exotic matter bridge"
 	desc = "The beating heart of a superluminal shunt - without this, the power to manipulate space-time is out of reach."
-	origin_tech = "{'programming':3,'magnets':5,'materials':5,'wormholes':5}"
+	origin_tech = @'{"programming":3,"magnets":5,"materials":5,"wormholes":5}'
 	icon = 'icons/obj/items/stock_parts/stock_parts.dmi'
 	icon_state = "smes_coil"
 	color = COLOR_YELLOW

@@ -2,7 +2,7 @@
 	name = "bolt of change"
 	icon_state = "ice_1"
 	damage = 0
-	damage_type = BURN
+	atom_damage_type = BURN
 	damage_flags = 0
 	nodamage = 1
 
@@ -16,21 +16,21 @@
 	for(var/t in get_all_species())
 		. += t
 	if(ishuman(M))
-		var/mob/living/carbon/human/H = M
+		var/mob/living/human/H = M
 		. -= H.species.name
 
 /obj/item/projectile/change/proc/apply_transformation(var/mob/M, var/choice)
 
 	if(choice == "robot")
-		var/mob/living/silicon/robot/R = new(get_turf(M))
-		R.set_gender(M.get_gender())
-		R.job = ASSIGNMENT_ROBOT
-		R.mmi = new /obj/item/mmi(R)
-		R.mmi.transfer_identity(M)
-		return R
+		var/mob/living/silicon/robot/robot = new(get_turf(M))
+		robot.set_gender(M.get_gender())
+		robot.job = ASSIGNMENT_ROBOT
+		robot.central_processor = new /obj/item/organ/internal/brain_interface(robot)
+		transfer_key_from_mob_to_mob(M, robot)
+		return robot
 
 	if(get_species_by_key(choice))
-		var/mob/living/carbon/human/H = M
+		var/mob/living/human/H = M
 		if(!istype(H))
 			H = new(get_turf(M))
 			H.set_gender(M.get_gender())
@@ -43,22 +43,25 @@
 		return H
 
 /obj/item/projectile/change/proc/wabbajack(var/mob/M)
-	if(istype(M, /mob/living) && M.stat != DEAD)
-		if(HAS_TRANSFORMATION_MOVEMENT_HANDLER(M))
-			return
-		M.handle_pre_transformation()
-		var/choice = pick(get_random_transformation_options(M))
-		var/mob/living/new_mob = apply_transformation(M, choice)
-		if(new_mob)
-			for (var/spell/S in M.mind.learned_spells)
-				new_mob.add_spell(new S.type)
-			new_mob.a_intent = "hurt"
-			if(M.mind)
-				M.mind.transfer_to(new_mob)
-			else
-				new_mob.key = M.key
-			to_chat(new_mob, "<span class='warning'>Your form morphs into that of \a [choice].</span>")
 
-			qdel(M)
-		else
-			to_chat(M, "<span class='warning'>Your form morphs into that of \a [choice].</span>")
+	if(!isliving(M) || M.stat == DEAD)
+		return
+
+	if(HAS_TRANSFORMATION_MOVEMENT_HANDLER(M))
+		return
+
+	M.handle_pre_transformation()
+	var/choice = pick(get_random_transformation_options(M))
+	var/mob/living/new_mob = apply_transformation(M, choice)
+	if(new_mob)
+		new_mob.set_intent(I_FLAG_HARM)
+		new_mob.copy_abilities_from(M)
+		transfer_key_from_mob_to_mob(M, new_mob)
+		to_chat(new_mob, "<span class='warning'>Your form morphs into that of \a [choice].</span>")
+	else
+		new_mob = M
+	if(new_mob)
+		to_chat(new_mob, SPAN_WARNING("Your form morphs into that of \a [choice]."))
+
+	if(new_mob != M && !QDELETED(M))
+		qdel(M)

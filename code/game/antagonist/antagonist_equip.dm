@@ -1,4 +1,4 @@
-/decl/special_role/proc/equip(var/mob/living/carbon/human/player)
+/decl/special_role/proc/equip_role(var/mob/living/human/player)
 
 	SHOULD_CALL_PARENT(TRUE)
 
@@ -12,14 +12,14 @@
 	// This could use work.
 	if(flags & ANTAG_CLEAR_EQUIPMENT)
 		for(var/obj/item/thing in player.contents)
-			if(player.canUnEquip(thing))
+			if(player.can_unequip_item(thing))
 				qdel(thing)
 		//mainly for nonhuman antag compatibility. Should not effect item spawning.
 		player.species.equip_survival_gear(player)
 
 	if(default_outfit)
-		var/decl/hierarchy/outfit/outfit = GET_DECL(default_outfit)
-		outfit.equip(player)
+		var/decl/outfit/outfit = GET_DECL(default_outfit)
+		outfit.equip_outfit(player)
 
 	if(default_access)
 		var/obj/item/card/id/id = player.get_equipped_item(slot_wear_id_str)
@@ -31,10 +31,10 @@
 
 	return TRUE
 
-/decl/special_role/proc/unequip(var/mob/living/carbon/human/player)
+/decl/special_role/proc/unequip_role(var/mob/living/human/player)
 	return istype(player)
 
-/decl/special_role/proc/equip_rig(var/rig_type, var/mob/living/carbon/human/player)
+/decl/special_role/proc/equip_rig(var/rig_type, var/mob/living/human/player)
 	set waitfor = FALSE
 	if(istype(player) && ispath(rig_type))
 		var/obj/item/rig/rig = new rig_type(player)

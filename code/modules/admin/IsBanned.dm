@@ -1,5 +1,6 @@
 //Blocks an attempt to connect before even creating our client datum thing.
 /world/IsBanned(key, address, computer_id, type)
+
 	var/static/key_cache = list()
 	if(type == "world")
 		return ..()
@@ -10,16 +11,21 @@
 
 	var/ckeytext = ckey(key)
 
+	if(get_config_value(/decl/config/enum/server_whitelist) == CONFIG_SERVER_CONNECT_WHITELIST && !check_server_whitelist(ckeytext))
+		log_access("Failed Login: [key] - Not server whitelisted")
+		message_admins("<span class='notice'>Failed Login: [key] - Not server whitelisted</span>")
+		return list("reason"="whitelist", "desc"="\nReason: This server requires players to be whitelisted to join.")
+
 	if(admin_datums[ckeytext])
 		key_cache[key] = 0
 		return ..()
 
 	//Guest Checking
-	if(!config.guests_allowed && IsGuestKey(key))
+	if(!get_config_value(/decl/config/toggle/guests_allowed) && IsGuestKey(key))
 		log_access("Failed Login: [key] - Guests not allowed")
 		message_admins("<span class='notice'>Failed Login: [key] - Guests not allowed</span>")
 		key_cache[key] = 0
-		return list("reason"="guest", "desc"="\nReason: Guests not allowed. Please sign in with a byond account.")
+		return list("reason"="guest", "desc"="\nReason: Guests not allowed. Please sign in with a BYOND account.")
 
 	var/client/C = global.ckey_directory[ckeytext]
 	//If this isn't here, then topic call spam will result in all clients getting kicked with a connecting too fast error.
@@ -27,7 +33,7 @@
 		key_cache[key] = 0
 		return
 
-	if(config.ban_legacy_system)
+	if(get_config_value(/decl/config/toggle/on/ban_legacy_system))
 
 		//Ban Checking
 		. = CheckBan(ckeytext, computer_id, address)

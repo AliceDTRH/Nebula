@@ -35,7 +35,6 @@
 		/obj/item/stack/material/cyborg/steel,
 		/obj/item/stack/material/cyborg/aluminium,
 		/obj/item/stack/material/rods/cyborg,
-		/obj/item/stack/material/strut/cyborg,
 		/obj/item/stack/tile/floor/cyborg,
 		/obj/item/stack/tile/roof/cyborg,
 		/obj/item/stack/material/cyborg/glass,
@@ -60,7 +59,7 @@
 	)
 
 	skills = list(
-		SKILL_BUREAUCRACY	= SKILL_ADEPT,
+		SKILL_LITERACY		= SKILL_ADEPT,
 		SKILL_FINANCE		= SKILL_EXPERT,
 		SKILL_EVA			= SKILL_EXPERT,
 		SKILL_MECH			= HAS_PERK,
@@ -96,7 +95,6 @@
 		 /obj/item/stack/material/cyborg/steel,
 		 /obj/item/stack/material/cyborg/aluminium,
 		 /obj/item/stack/material/rods/cyborg,
-		 /obj/item/stack/material/strut/cyborg,
 		 /obj/item/stack/tile/floor/cyborg,
 		 /obj/item/stack/tile/roof/cyborg,
 		 /obj/item/stack/material/cyborg/glass/reinforced
@@ -123,7 +121,7 @@
 
 	. = ..()
 
-/obj/item/robot_module/flying/ascent/respawn_consumable(var/mob/living/silicon/robot/R, var/amount)
+/obj/item/robot_module/flying/ascent/respawn_consumable(var/mob/living/silicon/robot/robot, var/amount)
 	var/obj/item/stack/medical/resin/drone/resin = locate() in equipment
 	if(!resin)
 		resin = new(src, 1)

@@ -1,17 +1,17 @@
 //inedible old vendor food
-
-/obj/item/chems/food/old
+//filled with inedible and possibly dangerous chemicals
+/obj/item/food/old
 	name = "master old-food"
-	desc = "they're all inedible and potentially dangerous items"
-	center_of_mass = @"{'x':15,'y':12}"
+	center_of_mass = @'{"x":15,"y":12}'
 	nutriment_desc = list("rot" = 5, "mold" = 5)
 	nutriment_amt = 10
 	bitesize = 3
 	filling_color = "#336b42"
+	abstract_type = /obj/item/food/old
 
-/obj/item/chems/food/old/populate_reagents()
+/obj/item/food/old/populate_reagents()
 	. = ..()
-	reagents.add_reagent(pick(
+	add_to_reagents(pick(
 				/decl/material/liquid/fuel,
 				/decl/material/liquid/amatoxin,
 				/decl/material/liquid/carpotoxin,
@@ -19,32 +19,32 @@
 				/decl/material/liquid/presyncopics,
 				/decl/material/liquid/psychotropics), 5)
 
-/obj/item/chems/food/old/pizza
+/obj/item/food/old/pizza
 	name = "pizza"
 	desc = "It's so stale you could probably cut something with the cheese."
-	icon_state = "ancient_pizza"
+	icon = 'icons/obj/food/old/pizza.dmi'
 
-/obj/item/chems/food/old/burger
+/obj/item/food/old/burger
 	name = "\improper Giga Burger!"
 	desc = "At some point in time this probably looked delicious."
-	icon_state = "ancient_burger"
+	icon = 'icons/obj/food/old/burger.dmi'
 
-/obj/item/chems/food/old/hamburger
+/obj/item/food/old/hamburger
 	name = "\improper Horse Burger!"
 	desc = "Even if you were hungry enough to eat a horse, it'd be a bad idea to eat this."
-	icon_state = "ancient_hburger"
+	icon = 'icons/obj/food/old/hamburger.dmi'
 
-/obj/item/chems/food/old/fries
+/obj/item/food/old/fries
 	name = "chips"
 	desc = "The salt appears to have preserved these, still stale and gross."
-	icon_state = "ancient_fries"
+	icon = 'icons/obj/food/old/fries.dmi'
 
-/obj/item/chems/food/old/hotdog
+/obj/item/food/old/hotdog
 	name = "hotdog"
-	desc = "This one is probably only marginally less safe to eat than when it was first created.."
-	icon_state = "ancient_hotdog"
+	desc = "This is probably only marginally less safe to eat than when it was first created."
+	icon = 'icons/obj/food/old/hotdog.dmi'
 
-/obj/item/chems/food/old/taco
+/obj/item/food/old/taco
 	name = "taco"
 	desc = "Interestingly, the shell has gone soft and the contents have gone stale."
-	icon_state = "ancient_taco"
+	icon = 'icons/obj/food/old/taco.dmi'

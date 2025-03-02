@@ -3,9 +3,8 @@
 	icon = 'icons/obj/items/grenades/grenade_chem.dmi'
 	desc = "A hand made chemical grenade."
 	w_class = ITEM_SIZE_SMALL
-	force = 2.0
+	_base_attack_force = 2.0
 	det_time = null
-	unacidable = 1
 	var/stage = 0
 	var/path = 0
 	var/obj/item/assembly_holder/detonator = null
@@ -40,9 +39,7 @@
 		to_chat(user, "<span class='warning'>You prime \the [name]!</span>")
 		activate(user)
 		add_fingerprint(user)
-		if(iscarbon(user))
-			var/mob/living/carbon/C = user
-			C.throw_mode_on()
+		user.toggle_throw_mode(TRUE)
 
 /obj/item/grenade/chem_grenade/on_update_icon()
 	. = ..()
@@ -51,20 +48,20 @@
 	if(path == 1)
 		add_overlay("[icon_state]-locked")
 
-/obj/item/grenade/chem_grenade/attackby(obj/item/W, mob/user)
-	if(istype(W,/obj/item/assembly_holder) && (!stage || stage==1) && path != 2)
-		var/obj/item/assembly_holder/det = W
+/obj/item/grenade/chem_grenade/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item,/obj/item/assembly_holder) && (!stage || stage==1) && path != 2)
+		var/obj/item/assembly_holder/det = used_item
 		if(istype(det.a_left,det.a_right.type) || (!isigniter(det.a_left) && !isigniter(det.a_right)))
 			to_chat(user, "<span class='warning'>Assembly must contain one igniter.</span>")
-			return
+			return TRUE
 		if(!det.secured)
 			to_chat(user, "<span class='warning'>Assembly must be secured with screwdriver.</span>")
-			return
+			return TRUE
 		if(!user.try_unequip(det, src))
-			return
+			return TRUE
 		path = 1
-		log_and_message_admins("has attached \a [W] to \the [src].")
-		to_chat(user, "<span class='notice'>You add [W] to the metal casing.</span>")
+		log_and_message_admins("has attached \a [used_item] to \the [src].")
+		to_chat(user, "<span class='notice'>You add [used_item] to the metal casing.</span>")
 		playsound(src.loc, 'sound/items/Screwdriver2.ogg', 25, -3)
 		detonator = det
 		if(istimer(detonator.a_left))
@@ -75,7 +72,8 @@
 			det_time = 10*T.time
 		SetName("unsecured grenade with [beakers.len] containers[detonator?" and detonator":""]")
 		stage = 1
-	else if(IS_SCREWDRIVER(W) && path != 2)
+		. = TRUE
+	else if(IS_SCREWDRIVER(used_item) && path != 2)
 		if(stage == 1)
 			path = 1
 			if(beakers.len)
@@ -86,33 +84,40 @@
 				SetName("fake grenade")
 			playsound(src.loc, 'sound/items/Screwdriver.ogg', 25, -3)
 			stage = 2
+			. = TRUE
 		else if(stage == 2)
 			if(active && prob(95))
 				to_chat(user, "<span class='warning'>You trigger the assembly!</span>")
 				detonate()
-				return
+				return TRUE
 			else
 				to_chat(user, "<span class='notice'>You unlock the assembly.</span>")
 				playsound(src.loc, 'sound/items/Screwdriver.ogg', 25, -3)
 				SetName("unsecured grenade with [beakers.len] containers[detonator?" and detonator":""]")
 				stage = 1
 				active = FALSE
-	else if(is_type_in_list(W, allowed_containers) && (!stage || stage==1) && path != 2)
+				. = TRUE
+	else if(is_type_in_list(used_item, allowed_containers) && (!stage || stage==1) && path != 2)
 		path = 1
 		if(beakers.len == 2)
 			to_chat(user, "<span class='warning'>The grenade can not hold more containers.</span>")
-			return
+			return TRUE
 		else
-			if(W.reagents.total_volume)
-				if(!user.try_unequip(W, src))
-					return
-				to_chat(user, "<span class='notice'>You add \the [W] to the assembly.</span>")
-				beakers += W
+			if(used_item.reagents.total_volume)
+				if(!user.try_unequip(used_item, src))
+					return TRUE
+				to_chat(user, "<span class='notice'>You add \the [used_item] to the assembly.</span>")
+				beakers += used_item
 				stage = 1
 				SetName("unsecured grenade with [beakers.len] containers[detonator?" and detonator":""]")
+				. = TRUE
 			else
-				to_chat(user, "<span class='warning'>\The [W] is empty.</span>")
-	update_icon()
+				to_chat(user, "<span class='warning'>\The [used_item] is empty.</span>")
+				return TRUE
+	if(.)
+		update_icon()
+		return TRUE
+	return ..()
 
 /obj/item/grenade/chem_grenade/activate(mob/user)
 	if(active)
@@ -156,7 +161,7 @@
 	if(ismob(loc))
 		var/mob/M = loc
 		M.drop_from_inventory(src)
-		M.throw_mode_off()
+		M.toggle_throw_mode(FALSE)
 
 	for(var/obj/item/chems/glass/G in beakers)
 		G.reagents.trans_to_obj(src, G.reagents.total_volume)
@@ -184,17 +189,17 @@
 
 	qdel(src)
 
-/obj/item/grenade/chem_grenade/examine(mob/user)
+/obj/item/grenade/chem_grenade/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(detonator)
-		to_chat(user, "With attached [detonator.name]")
+		. += "It has \a [detonator] attached."
 
 /obj/item/grenade/chem_grenade/large
 	name = "large chem grenade"
 	desc = "An oversized grenade that affects a larger area."
 	icon = 'icons/obj/items/grenades/grenade_large.dmi'
 	allowed_containers = list(/obj/item/chems/glass)
-	origin_tech = "{'combat':3,'materials':3}"
+	origin_tech = @'{"combat":3,"materials":3}'
 	material = /decl/material/solid/metal/steel
 
 /obj/item/grenade/chem_grenade/metalfoam
@@ -207,9 +212,9 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/B1 = new(src)
 	var/obj/item/chems/glass/beaker/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/solid/metal/aluminium, 30)
-	B2.reagents.add_reagent(/decl/material/liquid/foaming_agent, 10)
-	B2.reagents.add_reagent(/decl/material/liquid/acid/polyacid, 10)
+	B1.add_to_reagents(/decl/material/solid/metal/aluminium, 30)
+	B2.add_to_reagents(/decl/material/liquid/foaming_agent, 10)
+	B2.add_to_reagents(/decl/material/liquid/acid/polyacid, 10)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2
@@ -225,10 +230,10 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/B1 = new(src)
 	var/obj/item/chems/glass/beaker/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/solid/metal/aluminium, 15)
-	B1.reagents.add_reagent(/decl/material/liquid/fuel, 15)
-	B2.reagents.add_reagent(/decl/material/solid/metal/aluminium, 15)
-	B2.reagents.add_reagent(/decl/material/liquid/acid, 15)
+	B1.add_to_reagents(/decl/material/solid/metal/aluminium, 15)
+	B1.add_to_reagents(/decl/material/liquid/fuel, 15)
+	B2.add_to_reagents(/decl/material/solid/metal/aluminium, 15)
+	B2.add_to_reagents(/decl/material/liquid/acid, 15)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2
@@ -244,10 +249,10 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/B1 = new(src)
 	var/obj/item/chems/glass/beaker/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/liquid/weedkiller, 25)
-	B1.reagents.add_reagent(/decl/material/solid/potassium, 25)
-	B2.reagents.add_reagent(/decl/material/solid/phosphorus, 25)
-	B2.reagents.add_reagent(/decl/material/liquid/nutriment/sugar, 25)
+	B1.add_to_reagents(/decl/material/liquid/weedkiller, 25)
+	B1.add_to_reagents(/decl/material/solid/potassium, 25)
+	B2.add_to_reagents(/decl/material/solid/phosphorus, 25)
+	B2.add_to_reagents(/decl/material/liquid/nutriment/sugar, 25)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2
@@ -263,9 +268,9 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/B1 = new(src)
 	var/obj/item/chems/glass/beaker/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/liquid/surfactant, 40)
-	B2.reagents.add_reagent(/decl/material/liquid/water, 40)
-	B2.reagents.add_reagent(/decl/material/liquid/cleaner, 10)
+	B1.add_to_reagents(/decl/material/liquid/surfactant, 40)
+	B2.add_to_reagents(/decl/material/liquid/water, 40)
+	B2.add_to_reagents(/decl/material/liquid/cleaner, 10)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2
@@ -281,11 +286,11 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/large/B1 = new(src)
 	var/obj/item/chems/glass/beaker/large/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/solid/phosphorus, 40)
-	B1.reagents.add_reagent(/decl/material/solid/potassium, 40)
-	B1.reagents.add_reagent(/decl/material/liquid/capsaicin/condensed, 40)
-	B2.reagents.add_reagent(/decl/material/liquid/nutriment/sugar, 40)
-	B2.reagents.add_reagent(/decl/material/liquid/capsaicin/condensed, 80)
+	B1.add_to_reagents(/decl/material/solid/phosphorus, 40)
+	B1.add_to_reagents(/decl/material/solid/potassium, 40)
+	B1.add_to_reagents(/decl/material/liquid/capsaicin/condensed, 40)
+	B2.add_to_reagents(/decl/material/liquid/nutriment/sugar, 40)
+	B2.add_to_reagents(/decl/material/liquid/capsaicin/condensed, 80)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2
@@ -302,8 +307,8 @@
 	. = ..()
 	var/obj/item/chems/glass/beaker/B1 = new(src)
 	var/obj/item/chems/glass/beaker/B2 = new(src)
-	B1.reagents.add_reagent(/decl/material/liquid/water, 40)
-	B2.reagents.add_reagent(/decl/material/liquid/water, 40)
+	B1.add_to_reagents(/decl/material/liquid/water, 40)
+	B2.add_to_reagents(/decl/material/liquid/water, 40)
 	detonator = new/obj/item/assembly_holder/timer_igniter(src)
 	beakers += B1
 	beakers += B2

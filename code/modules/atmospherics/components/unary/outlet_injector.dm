@@ -1,6 +1,6 @@
 //Basically a one way passive valve. If the pressure inside is greater than the environment then gas will flow passively,
 //but it does not permit gas to flow back from the environment into the injector. Can be turned off to prevent any gas flow.
-//When it receives the "inject" signal, it will try to pump it's entire contents into the environment regardless of pressure, using power.
+//When it receives the "inject" signal, it will try to pump its entire contents into the environment regardless of pressure, using power.
 
 /obj/machinery/atmospherics/unary/outlet_injector
 	icon = 'icons/atmos/injector.dmi'
@@ -17,7 +17,7 @@
 
 	var/volume_rate = 50	//flow rate limit
 
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	connect_types = CONNECT_TYPE_REGULAR|CONNECT_TYPE_FUEL
 
@@ -70,13 +70,13 @@
 	. = list()
 	. += "<table>"
 	. += "<tr><td><b>Name:</b></td><td>[name]</td>"
-	. += "<tr><td><b>Power:</b></td><td>[use_power?("<font color = 'green'>Injecting</font>"):("<font color = 'red'>Offline</font>")]</td><td><a href='?src=\ref[src];toggle_power=\ref[src]'>Toggle</a></td></tr>"
+	. += "<tr><td><b>Power:</b></td><td>[use_power?("<font color = 'green'>Injecting</font>"):("<font color = 'red'>Offline</font>")]</td><td><a href='byond://?src=\ref[src];toggle_power=\ref[src]'>Toggle</a></td></tr>"
 	. = JOINTEXT(.)
 
 /obj/machinery/atmospherics/unary/outlet_injector/OnTopic(mob/user, href_list, datum/topic_state/state)
 	if((. = ..()))
 		return
-	if(href_list["toggle_power"])
+	if(href_list["toggle_power"]) // todo: this could easily be refhacked if you don't have a multitool
 		update_use_power(!use_power)
 		to_chat(user, "<span class='notice'>The multitool emits a short beep confirming the change.</span>")
 		return TOPIC_REFRESH
@@ -127,12 +127,12 @@
 /obj/machinery/atmospherics/unary/outlet_injector/hide(var/i)
 	update_icon()
 
-/obj/machinery/atmospherics/unary/outlet_injector/attackby(var/obj/item/O, var/mob/user)
-	if(IS_MULTITOOL(O))
+/obj/machinery/atmospherics/unary/outlet_injector/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_MULTITOOL(used_item))
 		var/datum/browser/written_digital/popup = new (user, "Vent Configuration Utility", "[src] Configuration Panel", 600, 200)
 		popup.set_content(jointext(get_console_data(),"<br>"))
 		popup.open()
-		return
+		return TRUE
 	return ..()
 
 /decl/public_access/public_variable/volume_rate
@@ -155,7 +155,7 @@
 /decl/public_access/public_method/inject
 	name = "inject"
 	desc = "Injects gas into its environment."
-	call_proc = /obj/machinery/atmospherics/unary/outlet_injector/proc/inject
+	call_proc = TYPE_PROC_REF(/obj/machinery/atmospherics/unary/outlet_injector, inject)
 
 /decl/stock_part_preset/radio/event_transmitter/outlet_injector
 	frequency = ATMOS_TANK_FREQ

@@ -23,12 +23,13 @@
 	hack_state = null
 	return ..()
 
-/obj/item/multitool/hacktool/attackby(var/obj/item/W, var/mob/user)
-	if(IS_SCREWDRIVER(W))
+/obj/item/multitool/hacktool/attackby(var/obj/item/used_item, var/mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		in_hack_mode = !in_hack_mode
 		playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
+		return TRUE
 	else
-		..()
+		return ..()
 
 /obj/item/multitool/hacktool/resolve_attackby(atom/A, mob/user)
 	sanity_check()
@@ -61,7 +62,7 @@
 		to_chat(user, "<span class='notice'>Your hacking attempt was succesful!</span>")
 		user.playsound_local(get_turf(src), 'sound/piano/A#6.ogg', 50)
 		known_targets.Insert(1, target)	// Insert the newly hacked target first,
-		events_repository.register(/decl/observ/destroyed, target, src, /obj/item/multitool/hacktool/proc/on_target_destroy)
+		events_repository.register(/decl/observ/destroyed, target, src, TYPE_PROC_REF(/obj/item/multitool/hacktool, on_target_destroy))
 	else
 		to_chat(user, "<span class='warning'>Your hacking attempt failed!</span>")
 	return 1

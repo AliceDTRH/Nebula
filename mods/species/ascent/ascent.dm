@@ -5,10 +5,10 @@
 #define BODYTYPE_MANTID_SMALL "small mantid body"
 #define BODYTYPE_MANTID_LARGE "large mantid body"
 
-#define BODY_FLAG_ALATE BITFLAG(4)
-#define BODY_FLAG_GYNE  BITFLAG(5)
+#define BODY_EQUIP_FLAG_ALATE BITFLAG(4)
+#define BODY_EQUIP_FLAG_GYNE  BITFLAG(5)
 
-#define BP_M_HAND       "midlimb"
+#define BP_SYSTEM_CONTROLLER "system controller"
 
 #define MANTIDIFY(_thing, _name, _desc) \
 ##_thing/ascent/name = _name; \
@@ -19,9 +19,3 @@
 
 /decl/modpack/ascent
 	name = "The Ascent"
-
-/decl/modpack/ascent/pre_initialize()
-	. = ..()
-	global.all_limb_tags |= BP_M_HAND
-	global.all_limb_tags_by_depth.Insert(global.all_limb_tags_by_depth.Find(BP_CHEST)+1,  BP_M_HAND)
-	global.all_inventory_slots |= BP_M_HAND

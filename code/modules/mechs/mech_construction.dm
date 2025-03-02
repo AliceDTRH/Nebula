@@ -45,7 +45,7 @@
 	if(target == selected_hardpoint)
 		clear_selected_hardpoint()
 
-	events_repository.unregister(/decl/observ/destroyed, module_to_forget, src, .proc/forget_module)
+	events_repository.unregister(/decl/observ/destroyed, module_to_forget, src, PROC_REF(forget_module))
 
 	var/obj/screen/exosuit/hardpoint/H = hardpoint_hud_elements[target]
 	H.holding = null
@@ -82,13 +82,13 @@
 		return FALSE
 
 	if(user)
-		var/delay = 30 * user.skill_delay_mult(SKILL_DEVICES)
+		var/delay = 3 SECONDS * user.skill_delay_mult(SKILL_DEVICES)
 		if(delay > 0)
 			user.visible_message(
 				SPAN_NOTICE("\The [user] begins trying to install \the [system] into \the [src]."),
 				SPAN_NOTICE("You begin trying to install \the [system] into \the [src].")
 			)
-			if(!do_after(user, delay, src) || user.get_active_hand() != system)
+			if(!do_after(user, delay, src) || user.get_active_held_item() != system)
 				return FALSE
 
 			if(user.try_unequip(system))
@@ -96,7 +96,7 @@
 				playsound(user.loc, 'sound/items/Screwdriver.ogg', 100, 1)
 			else return FALSE
 
-	events_repository.register(/decl/observ/destroyed, system, src, .proc/forget_module)
+	events_repository.register(/decl/observ/destroyed, system, src, PROC_REF(forget_module))
 
 	system.forceMove(src)
 	hardpoints[system_hardpoint] = system
@@ -122,7 +122,7 @@
 
 	var/obj/item/system = hardpoints[system_hardpoint]
 	if(user)
-		var/delay = 30 * user.skill_delay_mult(SKILL_DEVICES)
+		var/delay = 3 SECONDS * user.skill_delay_mult(SKILL_DEVICES)
 		if(delay > 0)
 			user.visible_message(SPAN_NOTICE("\The [user] begins trying to remove \the [system] from \the [src]."))
 			if(!do_after(user, delay, src) || hardpoints[system_hardpoint] != system)
@@ -139,7 +139,7 @@
 	system.forceMove(get_turf(src))
 	system.screen_loc = null
 	system.layer = initial(system.layer)
-	events_repository.unregister(/decl/observ/destroyed, system, src, .proc/forget_module)
+	events_repository.unregister(/decl/observ/destroyed, system, src, PROC_REF(forget_module))
 
 	var/obj/screen/exosuit/hardpoint/H = hardpoint_hud_elements[system_hardpoint]
 	H.holding = null

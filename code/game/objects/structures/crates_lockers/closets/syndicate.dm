@@ -10,7 +10,8 @@
 	. = ..()
 	new /obj/item/tank/jetpack/oxygen(src)
 	new /obj/item/clothing/mask/gas/syndicate(src)
-	new /obj/item/clothing/under/syndicate(src)
+	new /obj/item/clothing/shirt/syndicate(src)
+	new /obj/item/clothing/pants/casual/camo(src)
 	new /obj/item/clothing/head/helmet/space/void/merc(src)
 	new /obj/item/clothing/suit/space/void/merc(src)
 	new /obj/item/crowbar/red(src)
@@ -44,8 +45,8 @@
 	new /obj/item/ammo_magazine/smg(src)
 	new /obj/item/ammo_magazine/smg(src)
 	new /obj/item/ammo_magazine/smg(src)
-	new /obj/item/storage/box/handcuffs(src)
-	new /obj/item/storage/box/flashbangs(src)
+	new /obj/item/box/handcuffs(src)
+	new /obj/item/box/flashbangs(src)
 	new /obj/item/gun/energy/gun(src)
 	new /obj/item/gun/energy/gun(src)
 	new /obj/item/gun/energy/gun(src)
@@ -126,8 +127,8 @@
 		/obj/item/stack/material/ingot/mapped/silver/fifty,
 		/obj/item/stack/material/puck/mapped/uranium/fifty,
 		/obj/item/stack/material/gemstone/mapped/diamond/fifty,
-		/obj/item/stack/material/reinforced/mapped/plasteel/fifty,
-		/obj/item/stack/material/rods/fifty
+		/obj/item/stack/material/sheet/reinforced/mapped/plasteel/fifty,
+		/obj/item/stack/material/rods/mapped/steel/fifty
 	)
 
 	for(var/i = 0, i < 2, i++)

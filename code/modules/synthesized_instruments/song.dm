@@ -10,7 +10,7 @@
 	var/datum/instrument/instrument_data
 
 	var/linear_decay = 1
-	var/sustain_timer = 1
+	var/sustain_timer = 15 // Setting this too low causes the guitar to sound inaudible.
 	var/soft_coeff = 2.0
 	var/transposition = 0
 
@@ -48,7 +48,7 @@
 
 	var/note_num = delta1+delta2+global.musical_config.nn2no[note]
 	if (note_num < 0 || note_num > 127)
-		CRASH("play_synthesized note failed because of 0..127 condition, [note], [acc], [oct]")
+		CRASH("play_synthesized note failed because of 0-127 condition, [note], [acc], [oct]")
 
 	var/datum/sample_pair/pair = src.instrument_data.sample_map[global.musical_config.n2t(note_num)]
 	#define Q 0.083 // 1/12
@@ -82,9 +82,6 @@
 	var/current_volume = clamp(sound_copy.volume, 0, 100)
 	sound_copy.volume = current_volume //Sanitize volume
 	var/datum/sound_token/token = new /datum/sound_token/instrument(src.player.actual_instrument, src.sound_id, sound_copy, src.player.range, FALSE, use_env, player)
-	#if DM_VERSION < 511
-	sound_copy.frequency = 1
-	#endif
 	var/delta_volume = player.volume / src.sustain_timer
 
 	var/tick = duration
@@ -117,11 +114,11 @@
 	autorepeat = 0 ;\
 	playing = 0 ;\
 	current_line = 0 ;\
-	player.event_manager.deactivate() ;\
+	player?.event_manager?.deactivate();\
 	return
 
 /datum/synthesized_song/proc/play_lines(mob/user, list/allowed_suff, list/note_off_delta, list/lines)
-	if (!lines.len)
+	if (!lines.len || QDELETED(player))
 		STOP_PLAY_LINES
 	var/list/cur_accidentals = list("n", "n", "n", "n", "n", "n", "n")
 	var/list/cur_octaves = list(3, 3, 3, 3, 3, 3, 3)
@@ -191,7 +188,7 @@
 	var/list/allowed_suff = list("b", "n", "#", "s")
 	var/list/note_off_delta = list("a"=91, "b"=91, "c"=98, "d"=98, "e"=98, "f"=98, "g"=98)
 	var/list/lines_copy = src.lines.Copy()
-	addtimer(CALLBACK(src, .proc/play_lines, user, allowed_suff, note_off_delta, lines_copy), 0)
+	addtimer(CALLBACK(src, PROC_REF(play_lines), user, allowed_suff, note_off_delta, lines_copy), 0)
 
 #undef CP
 #undef IS_DIGIT

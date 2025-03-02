@@ -3,41 +3,38 @@ SUBSYSTEM_DEF(fabrication)
 	flags = SS_NO_FIRE
 	init_order = SS_INIT_MISC_LATE
 
-	var/list/all_recipes =                 list()
 	var/list/locked_recipes =              list()
 	var/list/initial_recipes =             list()
 	var/list/categories =                  list()
 	var/list/crafting_procedures_by_type = list()
 	var/list/recipes_by_product_type =     list()
 	var/list/fields_by_id =                list()
-
 	// Weakrefs to fabricators who want their initial recipies
 	var/list/fabricators_to_init =         list()
-	// These should be removed after rewriting crafting to respect init order.
-	var/list/crafting_recipes_to_init = list()
-	var/post_recipe_init = FALSE
 
 /datum/controller/subsystem/fabrication/Initialize()
 
 	// Fab recipes.
-	for(var/R in subtypesof(/datum/fabricator_recipe))
-		var/datum/fabricator_recipe/recipe = R
+	for(var/datum/fabricator_recipe/recipe as anything in subtypesof(/datum/fabricator_recipe))
 		if(!initial(recipe.path))
 			continue
 		recipe = new recipe
 		recipes_by_product_type[recipe.path] = recipe
 		for(var/fab_type in recipe.fabricator_types)
-			LAZYADD(all_recipes[fab_type], recipe)
 			LAZYDISTINCTADD(categories[fab_type], recipe.category)
 			if(recipe.required_technology)
 				LAZYADD(locked_recipes[fab_type], recipe)
 			else
 				LAZYADD(initial_recipes[fab_type], recipe)
+		CHECK_TICK
 
 	// Slapcrafting trees.
 	var/list/all_crafting_handlers = decls_repository.get_decls_of_subtype(/decl/crafting_stage)
 	for(var/hid in all_crafting_handlers)
 		var/decl/crafting_stage/handler = all_crafting_handlers[hid]
+		// TODO: revisit this if map tech level can be mutated at runtime
+		if(global.using_map.map_tech_level < handler.available_to_map_tech_level)
+			continue
 		if(ispath(handler.begins_with_object_type))
 			LAZYDISTINCTADD(crafting_procedures_by_type[handler.begins_with_object_type], handler)
 
@@ -46,19 +43,7 @@ SUBSYSTEM_DEF(fabrication)
 		fab?.refresh_design_cache()
 	fabricators_to_init.Cut()
 
-	for(var/datum/stack_recipe/recipe in crafting_recipes_to_init)
-		recipe.InitializeMaterials()
-	crafting_recipes_to_init.Cut()
-
-	post_recipe_init = TRUE
-
 	. = ..()
-
-/datum/controller/subsystem/fabrication/proc/init_crafting_recipe(var/datum/stack_recipe/recipe)
-	if(post_recipe_init)
-		recipe.InitializeMaterials()
-	else
-		crafting_recipes_to_init |= recipe
 
 /datum/controller/subsystem/fabrication/proc/get_research_field_by_id(var/rnd_id)
 	if(!length(fields_by_id))
@@ -70,9 +55,6 @@ SUBSYSTEM_DEF(fabrication)
 
 /datum/controller/subsystem/fabrication/proc/get_categories(var/fab_type)
 	. = categories[fab_type]
-
-/datum/controller/subsystem/fabrication/proc/get_all_recipes(var/fab_type)
-	. = all_recipes[fab_type]
 
 /datum/controller/subsystem/fabrication/proc/get_initial_recipes(var/fab_type)
 	. = initial_recipes[fab_type]
@@ -99,15 +81,14 @@ SUBSYSTEM_DEF(fabrication)
 	. = crafting_procedures_by_type[_type]
 
 /datum/controller/subsystem/fabrication/proc/try_craft_with(var/obj/item/target, var/obj/item/thing, var/mob/user)
-	if(QDELETED(target) || QDELETED(thing) || QDELETED(user))
+	// crafting holders should handle this in attackby()
+	if(QDELETED(target) || QDELETED(thing) || QDELETED(user) || istype(target, /obj/item/crafting_holder) || istype(thing, /obj/item/crafting_holder))
 		return
 	for(var/decl/crafting_stage/initial_stage in SSfabrication.find_crafting_recipes(target.type))
-		if(initial_stage.can_begin_with(target) && initial_stage.is_appropriate_tool(thing))
-			var/obj/item/crafting_holder/H = new /obj/item/crafting_holder(get_turf(target), initial_stage, target, thing, user)
-			if(initial_stage.progress_to(thing, user, H))
-				return H
-			else
-				qdel(H)
+		if(initial_stage.can_begin_with(target) && initial_stage.is_appropriate_tool(thing, target) && initial_stage.is_sufficient_amount(user, thing))
+			var/obj/item/crafting_holder/holder = new(get_turf(target), initial_stage, target, thing, user)
+			initial_stage.progress_to(thing, user, holder)
+			return holder
 
 /datum/controller/subsystem/fabrication/proc/queue_design_cache_refresh(var/obj/machinery/fabricator/fab)
 	fabricators_to_init |= weakref(fab)

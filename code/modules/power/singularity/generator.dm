@@ -29,7 +29,7 @@
 		animation.pixel_y = -32
 		animation.layer = SINGULARITY_EFFECT_LAYER
 		flick('icons/effects/singularity_effect.dmi', animation)
-		addtimer(CALLBACK(src, .proc/spawn_contained, T), 6 SECOND)
+		addtimer(CALLBACK(src, PROC_REF(spawn_contained), T), 6 SECOND)
 		QDEL_IN(animation, 7 SECOND)
 		return PROCESS_KILL
 
@@ -39,17 +39,17 @@
 	if(!QDELETED(src))
 		qdel(src)
 
-/obj/machinery/singularity_generator/attackby(obj/item/W, mob/user)
-	if(IS_WRENCH(W))
-		anchored = !anchored
-		playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
-		if(anchored)
-			user.visible_message("[user.name] secures [src.name] to the floor.", \
-				"You secure the [src.name] to the floor.", \
-				"You hear a ratchet.")
-		else
-			user.visible_message("[user.name] unsecures [src.name] from the floor.", \
-				"You unsecure the [src.name] from the floor.", \
-				"You hear a ratchet.")
-		return
-	return ..()
+/obj/machinery/singularity_generator/attackby(obj/item/used_item, mob/user)
+	if(!IS_WRENCH(used_item))
+		return ..()
+	anchored = !anchored
+	playsound(src.loc, 'sound/items/Ratchet.ogg', 75, 1)
+	if(anchored)
+		user.visible_message("[user.name] secures \the [src] to the floor.", \
+			"You secure \the [src] to the floor.", \
+			"You hear a ratchet.")
+	else
+		user.visible_message("[user.name] unsecures \the [src] from the floor.", \
+			"You unsecure \the [src] from the floor.", \
+			"You hear a ratchet.")
+	return TRUE

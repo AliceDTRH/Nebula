@@ -1,7 +1,7 @@
 /decl/psionic_faculty/energistics
 	id = PSI_ENERGISTICS
 	name = "Energistics"
-	associated_intent = I_HURT
+	associated_intent_flag = I_FLAG_HARM
 	armour_types = list(ARMOR_BOMB, ARMOR_LASER, ARMOR_ENERGY)
 
 /decl/psionic_power/energistics
@@ -67,7 +67,8 @@
 	if(.)
 		user.visible_message("<span class='danger'>\The [user]'s eyes flare with light!</span>")
 
-		var/user_rank = user.psi.get_rank(faculty)
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+		var/user_rank = psi?.get_rank(faculty)
 		var/obj/item/projectile/pew
 		var/pew_sound
 
@@ -107,9 +108,9 @@
 	. = ..()
 	if(.)
 		if(istype(target,/obj/item/clothing/mask/smokable/cigarette))
-			var/decl/pronouns/G = user.get_pronouns()
+			var/decl/pronouns/pronouns = user.get_pronouns()
 			var/obj/item/clothing/mask/smokable/cigarette/S = target
-			S.light("\The [user] snaps [G.his] fingers and \the [S] lights up.")
+			S.light("\The [user] snaps [pronouns.his] fingers and \the [S] lights up.")
 			playsound(S.loc, "sparks", 50, 1)
 		else
 			spark_at(get_turf(target))

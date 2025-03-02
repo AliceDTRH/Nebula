@@ -8,6 +8,17 @@
 	var/static/list/spawnable_choices = list(
 		/obj/item/rig/industrial,
 		/obj/item/rig/eva,
+		/obj/item/rig/light
+	)
+	return spawnable_choices
+
+/obj/random/hardsuit/heist
+	name = "Random Heist Hardsuit"
+
+/obj/random/hardsuit/heist/spawn_choices()
+	var/static/list/spawnable_choices = list(
+		/obj/item/rig/industrial,
+		/obj/item/rig/eva,
 		/obj/item/rig/light/hacker,
 		/obj/item/rig/light/stealth,
 		/obj/item/rig/light
@@ -35,8 +46,8 @@
 			/obj/item/clothing/head/helmet/space/void/atmos
 		) = 2,
 		list(
-			/obj/item/clothing/suit/space/void/pilot,
-			/obj/item/clothing/head/helmet/space/void/pilot
+			/obj/item/clothing/suit/space/void/expedition,
+			/obj/item/clothing/head/helmet/space/void/expedition
 		) = 1
 	)
 	return spawnable_choices

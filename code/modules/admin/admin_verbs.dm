@@ -84,14 +84,13 @@ var/global/list/admin_verbs_admin = list(
 	/client/proc/change_human_appearance_admin,	// Allows an admin to change the basic appearance of human-based mobs ,
 	/client/proc/change_human_appearance_self,	// Allows the human-based mob itself change its basic appearance ,
 	/client/proc/change_security_level,
-	/client/proc/view_chemical_reaction_logs,
 	/client/proc/makePAI,
 	/client/proc/fixatmos,
 	/client/proc/list_traders,
 	/client/proc/add_trader,
 	/client/proc/remove_trader,
 	/datum/admins/proc/sendFax,
-	/datum/admins/proc/show_aspects
+	/datum/admins/proc/show_traits
 )
 var/global/list/admin_verbs_ban = list(
 	/client/proc/DB_ban_panel,
@@ -113,9 +112,7 @@ var/global/list/admin_verbs_fun = list(
 	/client/proc/everyone_random,
 	/client/proc/cinematic,
 	/datum/admins/proc/toggle_aliens,
-	/datum/admins/proc/toggle_space_ninja,
 	/client/proc/cmd_admin_add_freeform_ai_law,
-	/client/proc/cmd_admin_add_random_ai_law,
 	/client/proc/toggle_random_events,
 	/client/proc/editappear,
 	/client/proc/roll_dices,
@@ -155,9 +152,10 @@ var/global/list/admin_verbs_server = list(
 	/datum/admins/proc/adspawn,
 	/datum/admins/proc/adjump,
 	/datum/admins/proc/toggle_aliens,
-	/datum/admins/proc/toggle_space_ninja,
 	/client/proc/toggle_random_events,
 	/client/proc/nanomapgen_DumpImage,
+	/datum/admins/proc/addserverwhitelist,
+	/datum/admins/proc/removeserverwhitelist,
 	/datum/admins/proc/panicbunker,
 	/datum/admins/proc/addbunkerbypass,
 	/datum/admins/proc/revokebunkerbypass
@@ -166,7 +164,6 @@ var/global/list/admin_verbs_debug = list(
 	/datum/admins/proc/jump_to_fluid_source,
 	/datum/admins/proc/jump_to_fluid_active,
 	/client/proc/cmd_admin_list_open_jobs,
-	/client/proc/Debug2,
 	/client/proc/ZASSettings,
 	/client/proc/cmd_debug_make_powernets,
 	/client/proc/debug_controller,
@@ -219,7 +216,8 @@ var/global/list/admin_verbs_debug = list(
 	/client/proc/spawn_ore_pile,
 	/datum/admins/proc/force_initialize_weather,
 	/datum/admins/proc/force_weather_state,
-	/datum/admins/proc/force_kill_weather
+	/datum/admins/proc/force_kill_weather,
+	/client/proc/force_reload_theme_css,
 	)
 
 var/global/list/admin_verbs_paranoid_debug = list(
@@ -269,12 +267,9 @@ var/global/list/admin_verbs_hideable = list(
 	/client/proc/drop_bomb,
 	/client/proc/cinematic,
 	/datum/admins/proc/toggle_aliens,
-	/datum/admins/proc/toggle_space_ninja,
 	/client/proc/cmd_admin_add_freeform_ai_law,
-	/client/proc/cmd_admin_add_random_ai_law,
 	/client/proc/cmd_admin_create_centcom_report,
 	/client/proc/toggle_random_events,
-	/client/proc/cmd_admin_add_random_ai_law,
 	/client/proc/set_holiday,
 	/datum/admins/proc/startnow,
 	/datum/admins/proc/endnow,
@@ -292,7 +287,6 @@ var/global/list/admin_verbs_hideable = list(
 	/client/proc/cmd_admin_list_open_jobs,
 	/client/proc/callproc,
 	/client/proc/callproc_target,
-	/client/proc/Debug2,
 	/client/proc/reload_admins,
 	/client/proc/cmd_debug_make_powernets,
 	/client/proc/debug_controller,
@@ -330,7 +324,9 @@ var/global/list/admin_verbs_mod = list(
 	/client/proc/aooc,
 	/datum/admins/proc/sendFax,
 	/datum/admins/proc/paralyze_mob,
-	/datum/admins/proc/view_persistent_data
+	/datum/admins/proc/view_persistent_data,
+	/datum/admins/proc/dump_configuration,
+	/datum/admins/proc/dump_character_info_manifest
 )
 
 /client/proc/add_admin_verbs()
@@ -343,7 +339,7 @@ var/global/list/admin_verbs_mod = list(
 		if(holder.rights & R_SERVER)		verbs += admin_verbs_server
 		if(holder.rights & R_DEBUG)
 			verbs += admin_verbs_debug
-			if(config.debugparanoid && !(holder.rights & R_ADMIN))
+			if(get_config_value(/decl/config/toggle/paranoid) && !(holder.rights & R_ADMIN))
 				verbs.Remove(admin_verbs_paranoid_debug)			//Right now it's just callproc but we can easily add others later on.
 		if(holder.rights & R_POSSESS)		verbs += admin_verbs_possess
 		if(holder.rights & R_PERMISSIONS)	verbs += admin_verbs_permissions
@@ -416,12 +412,12 @@ var/global/list/admin_verbs_mod = list(
 		ghost.reenter_corpse()
 		SSstatistics.add_field_details("admin_verb","P") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
-	else if(istype(mob,/mob/new_player))
+	else if(isnewplayer(mob))
 		to_chat(src, SPAN_WARNING("Error: Aghost: Can't admin-ghost whilst in the lobby. Join or Observe first."))
 	else
 		//ghostize
 		var/mob/body = mob
-		var/mob/observer/ghost/ghost = body.ghostize(1)
+		var/mob/observer/ghost/ghost = body.ghostize()
 		ghost.admin_ghosted = 1
 		if(body)
 			body.teleop = ghost
@@ -465,7 +461,7 @@ var/global/list/admin_verbs_mod = list(
 	set name = "Display Job bans"
 	set category = "Admin"
 	if(holder)
-		if(config.ban_legacy_system)
+		if(get_config_value(/decl/config/toggle/on/ban_legacy_system))
 			holder.Jobbans()
 		else
 			holder.DB_ban_panel()
@@ -476,7 +472,7 @@ var/global/list/admin_verbs_mod = list(
 	set name = "Unban Panel"
 	set category = "Admin"
 	if(holder)
-		if(config.ban_legacy_system)
+		if(get_config_value(/decl/config/toggle/on/ban_legacy_system))
 			holder.unbanpanel()
 		else
 			holder.DB_ban_panel()
@@ -577,7 +573,7 @@ var/global/list/admin_verbs_mod = list(
 			explosion(epicenter, 3, 5, 7, 5)
 
 		if("Custom Bomb")
-			if(config.use_iterative_explosions)
+			if(get_config_value(/decl/config/toggle/use_iterative_explosions))
 				var/power = input(src, "Input power num.", "Power?") as num
 				explosion_iter(get_turf(mob), power, (UP|DOWN))
 			else
@@ -642,13 +638,10 @@ var/global/list/admin_verbs_mod = list(
 	set name = "Toggle href logging"
 	set category = "Server"
 	if(!holder)	return
-	if(config)
-		if(config.log_hrefs)
-			config.log_hrefs = 0
-			to_chat(src, "<b>Stopped logging hrefs</b>")
-		else
-			config.log_hrefs = 1
-			to_chat(src, "<b>Started logging hrefs</b>")
+	if(toggle_config_value(/decl/config/toggle/log_hrefs))
+		to_chat(src, "<b>Started logging hrefs</b>")
+	else
+		to_chat(src, "<b>Stopped logging hrefs</b>")
 
 /client/proc/check_ai_laws()
 	set name = "Check AI Laws"
@@ -692,7 +685,7 @@ var/global/list/admin_verbs_mod = list(
 
 	if(!check_rights(R_FUN)) return
 
-	var/mob/living/carbon/human/H = input("Select mob.", "Change Mob Appearance - Admin") as null|anything in global.human_mob_list
+	var/mob/living/human/H = input("Select mob.", "Change Mob Appearance - Admin") as null|anything in global.human_mob_list
 	if(!H) return
 
 	log_and_message_admins("is altering the appearance of [H].")
@@ -706,7 +699,7 @@ var/global/list/admin_verbs_mod = list(
 
 	if(!check_rights(R_FUN)) return
 
-	var/mob/living/carbon/human/H = input("Select mob.", "Change Mob Appearance - Self") as null|anything in global.human_mob_list
+	var/mob/living/human/H = input("Select mob.", "Change Mob Appearance - Self") as null|anything in global.human_mob_list
 	if(!H) return
 
 	if(!H.client)
@@ -714,8 +707,8 @@ var/global/list/admin_verbs_mod = list(
 		return
 
 	var/whitelist_check = alert("Do you wish for [H] to be allowed to select non-whitelisted races?","Alter Mob Appearance","Yes","No","Cancel") == "No"
-	var/decl/pronouns/G = H.get_pronouns(ignore_coverings = TRUE)
-	log_and_message_admins("has allowed [H] to change [G.his] appearance, [whitelist_check ? "excluding" : "including"] races that requires whitelisting.")
+	var/decl/pronouns/pronouns = H.get_pronouns(ignore_coverings = TRUE)
+	log_and_message_admins("has allowed [H] to change [pronouns.his] appearance, [whitelist_check ? "excluding" : "including"] races that requires whitelisting.")
 	H.change_appearance(APPEARANCE_ALL, H.loc, check_species_whitelist = whitelist_check)
 	SSstatistics.add_field_details("admin_verb","CMAS") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
@@ -737,45 +730,39 @@ var/global/list/admin_verbs_mod = list(
 
 
 //---- bs12 verbs ----
-
-/client/proc/mod_panel()
-	set name = "Moderator Panel"
-	set category = "Admin"
-/*	if(holder)
-		holder.mod_panel()*/
-//	SSstatistics.add_field_details("admin_verb","MP") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-	return
-
 /client/proc/editappear()
 	set name = "Edit Appearance"
 	set category = "Fun"
 
 	if(!check_rights(R_FUN))	return
 
-	var/mob/living/carbon/human/M = input("Select mob.", "Edit Appearance") as null|anything in global.human_mob_list
+	var/mob/living/human/M = input("Select mob.", "Edit Appearance") as null|anything in global.human_mob_list
 
-	if(!istype(M, /mob/living/carbon/human))
+	if(!ishuman(M))
 		to_chat(usr, "<span class='warning'>You can only do this to humans!</span>")
 		return
 	switch(alert("Are you sure you wish to edit this mob's appearance? This can result in unintended consequences.",,"Yes","No"))
 		if("No")
 			return
+
+	var/update_hair = FALSE
 	var/new_facial = input("Please select facial hair color.", "Character Generation") as color
 	if(new_facial)
-		M.facial_hair_colour = new_facial
+		SET_FACIAL_HAIR_COLOR(M, new_facial, TRUE)
+		update_hair = TRUE
 
 	var/new_hair = input("Please select hair color.", "Character Generation") as color
 	if(new_hair)
-		M.hair_colour = new_hair
+		SET_HAIR_COLOR(M, new_hair, TRUE)
+		update_hair = TRUE
 
 	var/new_eyes = input("Please select eye color.", "Character Generation") as color
 	if(new_eyes)
-		M.eye_colour = new_eyes
-		M.update_eyes()
+		M.set_eye_colour(new_eyes)
 
 	var/new_skin = input("Please select body color.", "Character Generation") as color
 	if(new_skin)
-		M.skin_colour = new_skin
+		M.set_skin_colour(new_skin, skip_update = TRUE)
 
 	var/new_tone = input("Please select skin tone level: 1-220 (1=albino, 35=caucasian, 150=black, 220='very' black)", "Character Generation")  as text
 
@@ -784,14 +771,16 @@ var/global/list/admin_verbs_mod = list(
 		M.skin_tone =  -M.skin_tone + 35
 
 	// hair
-	var/new_hstyle = input(usr, "Select a hair style", "Grooming") as null|anything in decls_repository.get_decl_paths_of_subtype(/decl/sprite_accessory/hair)
-	if(new_hstyle)
-		M.h_style = new_hstyle
+	var/new_hairstyle = input(usr, "Select a hair style", "Grooming") as null|anything in decls_repository.get_decl_paths_of_subtype(/decl/sprite_accessory/hair)
+	if(new_hairstyle)
+		SET_HAIR_STYLE(M, new_hairstyle, TRUE)
+		update_hair = TRUE
 
 	// facial hair
 	var/new_fstyle = input(usr, "Select a facial hair style", "Grooming")  as null|anything in decls_repository.get_decl_paths_of_subtype(/decl/sprite_accessory/facial_hair)
 	if(new_fstyle)
-		M.f_style = new_fstyle
+		SET_FACIAL_HAIR_STYLE(M, new_fstyle, TRUE)
+		update_hair = TRUE
 
 	var/new_gender = alert(usr, "Please select gender.", "Character Generation", "Male", "Female", "Neuter")
 	if (new_gender)
@@ -802,16 +791,9 @@ var/global/list/admin_verbs_mod = list(
 		else
 			M.set_gender(NEUTER)
 
-	M.update_hair()
+	if(update_hair)
+		M.update_hair(TRUE)
 	M.update_body()
-	M.check_dna(M)
-
-/client/proc/playernotes()
-	set name = "Show Player Info"
-	set category = "Admin"
-	if(holder)
-		holder.PlayerNotes()
-	return
 
 /client/proc/free_slot_submap()
 	set name = "Free Job Slot (Submap)"
@@ -858,30 +840,25 @@ var/global/list/admin_verbs_mod = list(
 /client/proc/toggleghostwriters()
 	set name = "Toggle ghost writers"
 	set category = "Server"
-	if(!holder)	return
-	if(config)
-		if(config.cult_ghostwriter)
-			config.cult_ghostwriter = 0
-			to_chat(src, "<b>Disallowed ghost writers.</b>")
-			message_admins("Admin [key_name_admin(usr)] has disabled ghost writers.", 1)
-		else
-			config.cult_ghostwriter = 1
-			to_chat(src, "<b>Enabled ghost writers.</b>")
-			message_admins("Admin [key_name_admin(usr)] has enabled ghost writers.", 1)
+	if(!holder)
+		return
+	if(toggle_config_value(/decl/config/toggle/on/cult_ghostwriter))
+		to_chat(src, "<b>Enabled ghost writers.</b>")
+		message_admins("Admin [key_name_admin(usr)] has enabled ghost writers.", 1)
+	else
+		to_chat(src, "<b>Disallowed ghost writers.</b>")
+		message_admins("Admin [key_name_admin(usr)] has disabled ghost writers.", 1)
 
 /client/proc/toggledrones()
 	set name = "Toggle maintenance drones"
 	set category = "Server"
 	if(!holder)	return
-	if(config)
-		if(config.allow_drone_spawn)
-			config.allow_drone_spawn = 0
-			to_chat(src, "<b>Disallowed maint drones.</b>")
-			message_admins("Admin [key_name_admin(usr)] has disabled maint drones.", 1)
-		else
-			config.allow_drone_spawn = 1
-			to_chat(src, "<b>Enabled maint drones.</b>")
-			message_admins("Admin [key_name_admin(usr)] has enabled maint drones.", 1)
+	if(toggle_config_value(/decl/config/toggle/on/allow_drone_spawn))
+		to_chat(src, "<b>Enabled maint drones.</b>")
+		message_admins("Admin [key_name_admin(usr)] has enabled maint drones.", 1)
+	else
+		to_chat(src, "<b>Disallowed maint drones.</b>")
+		message_admins("Admin [key_name_admin(usr)] has disabled maint drones.", 1)
 
 /client/proc/man_up(mob/T as mob in SSmobs.mob_list)
 	set category = "Fun"
@@ -903,16 +880,6 @@ var/global/list/admin_verbs_mod = list(
 		sound_to(T, 'sound/voice/ManUp1.ogg')
 
 	log_and_message_admins("told everyone to man up and deal with it.")
-
-/client/proc/give_spell(mob/T as mob in SSmobs.mob_list) // -- Urist
-	set category = "Fun"
-	set name = "Give Spell"
-	set desc = "Gives a spell to a mob."
-	var/spell/S = input("Choose the spell to give to that guy", "ABRAKADABRA") as null|anything in spells
-	if(!S) return
-	T.add_spell(new S)
-	SSstatistics.add_field_details("admin_verb","GS") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
-	log_and_message_admins("gave [key_name(T)] the spell [S].")
 
 /client/proc/change_lobby_screen()
 	set name = "Lobby Screen: Change"
@@ -938,3 +905,11 @@ var/global/list/admin_verbs_mod = list(
 
 		if("Cancel")
 			return
+
+/client/proc/force_reload_theme_css()
+	set category = "Debug"
+	set name     = "Reload UI Theme CSS"
+	set desc     = "Forces the client to reload its UI theme css file."
+	if(!check_rights(R_DEBUG))
+		return
+	ReloadThemeCss(src)

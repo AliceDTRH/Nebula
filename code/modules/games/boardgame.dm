@@ -1,9 +1,9 @@
 /obj/item/board
 	name = "board"
-	desc = "A standard 16\" checkerboard. Well used." //Goddamn imperial system.
+	desc = "A standard 16\" checkerboard. Well-used." //Goddamn imperial system.
 	icon = 'icons/obj/pieces.dmi'
 	icon_state = "board"
-	material = /decl/material/solid/wood
+	material = /decl/material/solid/organic/wood/oak
 
 	var/num = 0
 	var/board_icons = list()
@@ -20,16 +20,17 @@
 /obj/item/board/attack_hand(mob/M)
 	if(M.machine == src)
 		return ..()
-	M.examinate(src)
+	M.examine_verb(src)
 	return TRUE
 
-/obj/item/board/attackby(obj/item/I, mob/user)
-	if(!addPiece(I,user))
-		..()
+/obj/item/board/attackby(obj/item/used_item, mob/user)
+	if(addPiece(used_item,user))
+		return TRUE
+	return ..()
 
-/obj/item/board/proc/addPiece(obj/item/I, mob/user, var/tile = 0)
-	if(I.w_class != ITEM_SIZE_TINY) //only small stuff
-		user.show_message("<span class='warning'>\The [I] is too big to be used as a board piece.</span>")
+/obj/item/board/proc/addPiece(obj/item/used_item, mob/user, var/tile = 0)
+	if(used_item.w_class != ITEM_SIZE_TINY) //only small stuff
+		user.show_message("<span class='warning'>\The [used_item] is too big to be used as a board piece.</span>")
 		return 0
 	if(num == 64)
 		user.show_message("<span class='warning'>\The [src] is already full!</span>")
@@ -39,22 +40,22 @@
 		return 0
 	if(!user.Adjacent(src))
 		return 0
-	if(!user.try_unequip(I, src))
+	if(!user.try_unequip(used_item, src))
 		return 0
 	num++
 
 
-	if(!board_icons["[I.icon] [I.icon_state]"])
-		board_icons["[I.icon] [I.icon_state]"] = new /icon(I.icon,I.icon_state)
+	if(!board_icons["[used_item.icon] [used_item.icon_state]"])
+		board_icons["[used_item.icon] [used_item.icon_state]"] = new /icon(used_item.icon,used_item.icon_state)
 
 	if(tile == 0)
 		var i;
 		for(i=0;i<64;i++)
 			if(!board["[i]"])
-				board["[i]"] = I
+				board["[i]"] = used_item
 				break
 	else
-		board["[tile]"] = I
+		board["[tile]"] = used_item
 
 	src.updateDialog()
 
@@ -86,21 +87,21 @@
 			dat += "<td class='light'"
 
 		if(board["[i]"])
-			var/obj/item/I = board["[i]"]
-			send_rsc(user, board_icons["[I.icon] [I.icon_state]"], "[I.icon_state].png")
-			dat += " style='background-image:url([I.icon_state].png)'>"
+			var/obj/item/thing = board["[i]"]
+			send_rsc(user, board_icons["[thing.icon] [thing.icon_state]"], "[thing.icon_state].png")
+			dat += " style='background-image:url([thing.icon_state].png)'>"
 		else
 			dat+= ">"
 		if(!isobserver(user))
-			dat += "<a href='?src=\ref[src];select=[i];person=\ref[user]'></a>"
+			dat += "<a href='byond://?src=\ref[src];select=[i];person=\ref[user]'></a>"
 		dat += "</td>"
 
 	dat += "</table>"
 
 	if(selected >= 0 && !isobserver(user))
-		dat += "<br><A href='?src=\ref[src];remove=0'>Remove Selected Piece</A>"
+		dat += "<br><A href='byond://?src=\ref[src];remove=0'>Remove Selected Piece</A>"
 	show_browser(user, jointext(dat, null), "window=boardgame;size=430x500") // 50px * 8 squares + 30 margin
-	onclose(usr, "boardgame")
+	onclose(user, "boardgame")
 
 /obj/item/board/Topic(href, href_list)
 	if(!usr.Adjacent(src))
@@ -111,118 +112,152 @@
 	if(!usr.incapacitated()) //you can't move pieces if you can't move
 		if(href_list["select"])
 			var/s = href_list["select"]
-			var/obj/item/I = board["[s]"]
+			var/obj/item/thing = board["[s]"]
 			if(selected >= 0)
 				//check to see if clicked on tile is currently selected one
 				if(text2num(s) == selected)
 					selected = -1 //deselect it
 				else
 
-					if(I) //cant put items on other items.
+					if(thing) //cant put items on other items.
 						return
 
 				//put item in new spot.
-					I = board["[selected]"]
+					thing = board["[selected]"]
 					board["[selected]"] = null
 					board -= "[selected]"
 					board -= null
-					board["[s]"] = I
+					board["[s]"] = thing
 					selected = -1
 			else
-				if(I)
+				if(thing)
 					selected = text2num(s)
 				else
-					var/mob/living/carbon/human/H = locate(href_list["person"])
+					var/mob/living/human/H = locate(href_list["person"])
 					if(!istype(H))
 						return
-					var/obj/item/O = H.get_active_hand()
+					var/obj/item/O = H.get_active_held_item()
 					if(!O)
 						return
 					addPiece(O,H,text2num(s))
 		if(href_list["remove"])
-			var/obj/item/I = board["[selected]"]
-			if(!I)
+			var/obj/item/thing = board["[selected]"]
+			if(!thing)
 				return
 			board["[selected]"] = null
 			board -= "[selected]"
 			board -= null
-			I.forceMove(src.loc)
+			thing.forceMove(src.loc)
 			num--
 			selected = -1
 			var j
 			for(j=0;j<64;j++)
 				if(board["[j]"])
 					var/obj/item/K = board["[j]"]
-					if(K.icon == I.icon && cmptext(K.icon_state,I.icon_state))
+					if(K.icon == thing.icon && cmptext(K.icon_state,thing.icon_state))
 						src.updateDialog()
 						return
 			//Didn't find it in use, remove it and allow GC to delete it.
-			board_icons["[I.icon] [I.icon_state]"] = null
-			board_icons -= "[I.icon] [I.icon_state]"
+			board_icons["[thing.icon] [thing.icon_state]"] = null
+			board_icons -= "[thing.icon] [thing.icon_state]"
 			board_icons -= null
 	src.updateDialog()
 
 //Checkers
 
-/obj/item/chems/food/checker
+/obj/item/checker
 	name = "checker"
 	desc = "It is plastic and shiny."
 	icon = 'icons/obj/pieces.dmi'
 	icon_state = "checker_black"
 	w_class = ITEM_SIZE_TINY
-	center_of_mass = @"{'x':16,'y':16}"
-	nutriment_desc = list("a choking hazard" = 4)
-	nutriment_amt = 1
+	center_of_mass = @'{"x":16,"y":16}'
 	var/piece_color ="black"
 
-/obj/item/chems/food/checker/Initialize()
+// Override these to let people eat checkers.
+/obj/item/checker/is_edible(mob/eater)
+	return TRUE
+
+/obj/item/checker/is_food_empty(mob/eater)
+	return FALSE
+
+/obj/item/checker/transfer_eaten_material(mob/eater, amount)
+	if(isliving(eater))
+		var/mob/living/living_eater = eater
+		living_eater.get_ingested_reagents()?.add_reagent(/decl/material/solid/organic/plastic, 3)
+
+/obj/item/checker/play_feed_sound(mob/user, consumption_method = EATING_METHOD_EAT)
+	return
+
+/obj/item/checker/show_food_consumed_message(mob/user, mob/target, consumption_method = EATING_METHOD_EAT)
+	return
+
+/obj/item/checker/show_feed_message_start(mob/user, mob/target, consumption_method = EATING_METHOD_EAT)
+	target = target || user
+	if(user)
+		if(user == target)
+			to_chat(user, SPAN_NOTICE("You begin trying to swallow \the [target]."))
+		else
+			user.visible_message(SPAN_NOTICE("\The [user] attempts to force \the [target] to swallow \the [src]!"))
+
+/obj/item/checker/show_feed_message_end(mob/user, mob/target, consumption_method = EATING_METHOD_EAT)
+	target = target || user
+	if(user)
+		if(user == target)
+			to_chat(user, SPAN_NOTICE("You swallow \the [src]."))
+		else
+			user.visible_message(SPAN_NOTICE("\The [user] forces \the [target] to swallow \the [src]!"))
+
+// End food overrides.
+
+/obj/item/checker/Initialize()
 	. = ..()
 	icon_state = "[name]_[piece_color]"
 	name = "[piece_color] [name]"
 
-/obj/item/chems/food/checker/red
+/obj/item/checker/red
 	piece_color ="red"
 
 //Chess
 
-/obj/item/chems/food/checker/pawn
+/obj/item/checker/pawn
 	name = "pawn"
 	desc = "How many pawns will die in your war?"
 
-/obj/item/chems/food/checker/pawn/red
+/obj/item/checker/pawn/red
 	piece_color ="red"
 
-/obj/item/chems/food/checker/knight
+/obj/item/checker/knight
 	name = "knight"
 	desc = "The piece chess deserves, and needs to actually play."
 
-/obj/item/chems/food/checker/knight/red
+/obj/item/checker/knight/red
 	piece_color ="red"
 
-/obj/item/chems/food/checker/bishop
+/obj/item/checker/bishop
 	name = "bishop"
-	desc = "What corruption occured, urging holy men to fight?"
+	desc = "What corruption occurred, urging holy men to fight?"
 
-/obj/item/chems/food/checker/bishop/red
+/obj/item/checker/bishop/red
 	piece_color ="red"
 
-/obj/item/chems/food/checker/rook
+/obj/item/checker/rook
 	name = "rook"
 	desc = "Representing ancient moving towers. So powerful and fast they were banned from wars, forever."
 
-/obj/item/chems/food/checker/rook/red
+/obj/item/checker/rook/red
 	piece_color ="red"
 
-/obj/item/chems/food/checker/queen
+/obj/item/checker/queen
 	name = "queen"
 	desc = "A queen of battle and pain. She dances across the battlefield."
 
-/obj/item/chems/food/checker/queen/red
+/obj/item/checker/queen/red
 	piece_color ="red"
 
-/obj/item/chems/food/checker/king
+/obj/item/checker/king
 	name = "king"
 	desc = "Why does a chess game end when the king dies?"
 
-/obj/item/chems/food/checker/king/red
+/obj/item/checker/king/red
 	piece_color ="red"

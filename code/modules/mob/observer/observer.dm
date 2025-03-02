@@ -41,17 +41,33 @@ var/global/const/GHOST_IMAGE_ALL = ~GHOST_IMAGE_NONE
 		SSghost_images.queue_global_image_update()
 	. = ..()
 
+/mob/observer/can_slip(magboots_only = FALSE)
+	return FALSE
+
+/mob/observer/get_movement_delay(travel_dir)
+	return 1
+
 /mob/observer/check_airflow_movable()
 	return FALSE
 
 /mob/observer/CanPass()
 	return TRUE
 
+/mob/observer/physically_destroyed()
+	SHOULD_CALL_PARENT(FALSE)
+	return FALSE
+
+/mob/observer/handle_existence_failure(dusted)
+	SHOULD_CALL_PARENT(FALSE)
+	return FALSE
+
 /mob/observer/dust()	//observers can't be vaporised.
-	return
+	SHOULD_CALL_PARENT(FALSE)
+	return FALSE
 
 /mob/observer/gib()		//observers can't be gibbed.
-	return
+	SHOULD_CALL_PARENT(FALSE)
+	return FALSE
 
 /mob/observer/is_blind()	//Not blind either.
 	return
@@ -81,7 +97,7 @@ var/global/const/GHOST_IMAGE_ALL = ~GHOST_IMAGE_NONE
 	var/turf/T = locate(new_x, new_y, z)
 	if(T)
 		forceMove(T)
-		throwing = null
+		end_throw()
 		to_chat(src, "<span class='notice'>You cannot move further in this direction.</span>")
 
 /mob/observer/handle_reading_literacy(var/mob/user, var/text_content, var/skip_delays, var/digital = FALSE)

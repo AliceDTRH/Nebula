@@ -12,17 +12,18 @@
 		var/datum/computer/file/embedded_program/docking/airlock/docking_program = program
 		docking_program.display_name = display_name
 
-/obj/machinery/embedded_controller/radio/airlock/docking_port/attackby(obj/item/W, mob/user)
-	if(IS_MULTITOOL(W)) //give them part of code, would take few tries to get full
+/obj/machinery/embedded_controller/radio/airlock/docking_port/attackby(obj/item/used_item, mob/user)
+	if(IS_MULTITOOL(used_item)) //give them part of code, would take few tries to get full
 		var/datum/computer/file/embedded_program/docking/airlock/docking_program = program
 		var/code = docking_program.docking_codes
 		if(!code)
 			code = "N/A"
 		else
 			code = stars(code)
-		to_chat(user,"[W]'s screen displays '[code]'")
+		to_chat(user,"[used_item]'s screen displays '[code]'")
+		return TRUE
 	else
-		..()
+		return ..()
 
 /obj/machinery/embedded_controller/radio/airlock/docking_port/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1, var/datum/nanoui/master_ui = null, var/datum/topic_state/state = global.default_topic_state)
 	var/data[0]
@@ -68,7 +69,7 @@
 			disable_override()
 		else
 			enable_override()
-		return TRUE
+		return TOPIC_REFRESH
 
 	. = ..(command)
 	. = airlock_program.receive_user_command(command) || .	//pass along to subprograms; bypass shortcircuit
@@ -128,6 +129,7 @@
 /datum/computer/file/embedded_program/airlock/docking/receive_user_command(command)
 	if (master_prog.undocked() || master_prog.override_enabled)	//only allow the port to be used as an airlock if nothing is docked here or the override is enabled
 		return ..(command)
+	return TOPIC_NOACTION
 
 /datum/computer/file/embedded_program/airlock/docking/proc/open_doors()
 	toggleDoor(memory["interior_status"], tag_interior_door, memory["secure"], "open")

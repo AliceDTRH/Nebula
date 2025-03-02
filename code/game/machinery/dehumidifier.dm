@@ -34,15 +34,15 @@
 	if(panel_open)
 		overlays.Add("dhum-open")
 
-/obj/machinery/dehumidifier/examine(mob/user)
+/obj/machinery/dehumidifier/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(.)
-		to_chat(user, "The dehumidifier is [active ? "on" : "off"] and the hatch is [panel_open ? "open" : "closed"].")
+		. += "The dehumidifier is [active ? "on" : "off"] and the hatch is [panel_open ? "open" : "closed"]."
 		var/obj/item/cell/cell = get_cell()
 		if(panel_open)
-			to_chat(user, "The power cell is [cell ? "installed" : "missing"].")
+			. += "The power cell is [cell ? "installed" : "missing"]."
 		else
-			to_chat(user, "The charge meter reads [cell ? round(cell.percent(), 1) : 0]%")
+			. += "The charge meter reads [cell ? round(cell.percent(), 1) : 0]%"
 
 /obj/machinery/dehumidifier/proc/set_active(new_active)
 	if(active != new_active)
@@ -59,9 +59,10 @@
 			return TRUE
 		set_active(!active)
 		user.visible_message(
-			SPAN_NOTICE("[user] switches [active ? "on" : "off"] the [src]."),
-			SPAN_NOTICE("You switch [active ? "on" : "off"] the [src]."))
+			SPAN_NOTICE("[user] switches [active ? "on" : "off"] \the [src]."),
+			SPAN_NOTICE("You switch [active ? "on" : "off"] \the [src]."))
 		return TRUE
+	return FALSE
 
 /obj/machinery/dehumidifier/Process()
 	if(!active)
@@ -76,7 +77,7 @@
 			use_power_oneoff(drainage * 1000)
 			return
 
-		T.remove_fluid(CEILING(fluid_here * drainage))
+		T.remove_fluid(ceil(fluid_here * drainage))
 		T.show_bubbles()
 		use_power_oneoff(drainage * 5000)
 

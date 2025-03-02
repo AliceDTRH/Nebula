@@ -1,7 +1,6 @@
 //This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:32
 
-var/global/jobban_runonce			// Updates legacy bans with new info
-var/global/jobban_keylist[0]		//to store the keys & ranks
+var/global/list/jobban_keylist = list() //to store the keys & ranks
 
 /proc/jobban_fullban(mob/M, rank, reason)
 	if(!M)
@@ -12,11 +11,6 @@ var/global/jobban_keylist[0]		//to store the keys & ranks
 	jobban_keylist.Add(text("[last_ckey] - [rank] ## [reason]"))
 	jobban_savebanfile()
 
-/proc/jobban_client_fullban(ckey, rank)
-	if (!ckey || !rank) return
-	jobban_keylist.Add(text("[ckey] - [rank]"))
-	jobban_savebanfile()
-
 //returns a reason if M is banned from rank, returns 0 otherwise
 /proc/jobban_isbanned(mob/M, rank)
 	if(M && rank)
@@ -24,9 +18,9 @@ var/global/jobban_keylist[0]		//to store the keys & ranks
 			var/decl/special_role/antag = GET_DECL(rank)
 			rank = antag.name
 		if (SSjobs.guest_jobbans(rank))
-			if(config.guest_jobban && IsGuestKey(M.key))
+			if(get_config_value(/decl/config/toggle/on/guest_jobban) && IsGuestKey(M.key))
 				return "Guest Job-ban"
-			if(config.usewhitelist && !check_whitelist(M))
+			if(get_config_value(/decl/config/enum/server_whitelist) == CONFIG_SERVER_JOBS_WHITELIST && !check_server_whitelist(M))
 				return "Whitelisted Job"
 		return ckey_is_jobbanned(M.ckey, rank)
 	return 0
@@ -42,16 +36,11 @@ var/global/jobban_keylist[0]		//to store the keys & ranks
 			return "Reason Unspecified"
 	return 0
 
-/hook/startup/proc/loadJobBans()
-	jobban_loadbanfile()
-	return 1
-
 /proc/jobban_loadbanfile()
-	if(config.ban_legacy_system)
+	if(get_config_value(/decl/config/toggle/on/ban_legacy_system))
 		var/savefile/S=new("data/job_full.ban")
 		from_savefile(S, "keys[0]", jobban_keylist)
 		log_admin("Loading jobban_rank")
-		from_savefile(S, "runonce", jobban_runonce)
 
 		if (!length(jobban_keylist))
 			jobban_keylist=list()
@@ -60,7 +49,7 @@ var/global/jobban_keylist[0]		//to store the keys & ranks
 		if(!establish_db_connection())
 			error("Database connection failed. Reverting to the legacy ban system.")
 			log_misc("Database connection failed. Reverting to the legacy ban system.")
-			config.ban_legacy_system = 1
+			set_config_value(/decl/config/toggle/on/ban_legacy_system, TRUE)
 			jobban_loadbanfile()
 			return
 

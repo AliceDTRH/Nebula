@@ -3,9 +3,9 @@
 	desc = "A bulky pump-action grenade launcher. Holds up to 6 grenades in a revolving magazine."
 	icon = 'icons/obj/guns/launcher/grenade.dmi'
 	icon_state = ICON_STATE_WORLD
-	origin_tech = "{'combat':2,'materials':3}"
+	origin_tech = @'{"combat":2,"materials":3}'
 	w_class = ITEM_SIZE_HUGE
-	force = 10
+	_base_attack_force = 10
 
 	fire_sound = 'sound/weapons/empty.ogg'
 	fire_sound_text = "a metallic thunk"
@@ -46,13 +46,13 @@
 		to_chat(M, "<span class='warning'>You pump [src], but the magazine is empty.</span>")
 	update_icon()
 
-/obj/item/gun/launcher/grenade/examine(mob/user, distance)
+/obj/item/gun/launcher/grenade/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 2)
 		var/grenade_count = grenades.len + (chambered? 1 : 0)
-		to_chat(user, "Has [grenade_count] grenade\s remaining.")
+		. += "Has [grenade_count] grenade\s remaining."
 		if(chambered)
-			to_chat(user, "\A [chambered] is chambered.")
+			. += "\A [chambered] is chambered."
 
 /obj/item/gun/launcher/grenade/proc/load(obj/item/grenade/G, mob/user)
 	if(!can_load_grenade_type(G, user))
@@ -78,11 +78,11 @@
 /obj/item/gun/launcher/grenade/attack_self(mob/user)
 	pump(user)
 
-/obj/item/gun/launcher/grenade/attackby(obj/item/I, mob/user)
-	if((istype(I, /obj/item/grenade)))
-		load(I, user)
-	else
-		..()
+/obj/item/gun/launcher/grenade/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/grenade))
+		load(used_item, user)
+		return TRUE
+	return ..()
 
 /obj/item/gun/launcher/grenade/attack_hand(mob/user)
 	if(!user.is_holding_offhand(src) || !user.check_dexterity(DEXTERITY_HOLD_ITEM, TRUE))
@@ -132,7 +132,6 @@
 	name = "underslung grenade launcher"
 	desc = "Not much more than a tube and a firing mechanism, this grenade launcher is designed to be fitted to a rifle."
 	w_class = ITEM_SIZE_NORMAL
-	force = 5
 	max_grenades = 0
 
 /obj/item/gun/launcher/grenade/underslung/attack_self()

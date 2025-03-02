@@ -7,30 +7,39 @@
 	var/tmp/is_processing = FALSE
 	/// Used by the SStimer subsystem
 	var/list/active_timers
+	/// Used to avoid unnecessary refstring creation in Destroy().
+	var/tmp/has_state_machine = FALSE
 
-#ifdef TESTING
+#ifdef REFTRACKING_ENABLED
 	var/tmp/running_find_references
+	/// When was this datum last touched by a reftracker?
+	/// If this value doesn't match with the start of the search
+	/// We know this datum has never been seen before, and we should check it
 	var/tmp/last_find_references = 0
+	/// How many references we're trying to find when searching
+	var/tmp/references_to_clear = 0
 #endif
 
 // Default implementation of clean-up code.
 // This should be overridden to remove all references pointing to the object being destroyed.
 // Return the appropriate QDEL_HINT; in most cases this is QDEL_HINT_QUEUE.
 /datum/proc/Destroy(force=FALSE)
+	SHOULD_NOT_SLEEP(TRUE)
 	SHOULD_CALL_PARENT(TRUE)
 	tag = null
 	weakref = null // Clear this reference to ensure it's kept for as brief duration as possible.
 
-	if(istype(SSnano))
+	if(length(open_uis)) // inline the open ui check to avoid unnecessary proc call overhead
 		SSnano.close_uis(src)
 
-	var/list/timers = active_timers
-	active_timers = null
-	for(var/thing in timers)
-		var/datum/timedevent/timer = thing
-		if (timer.spent && !(timer.flags & TIMER_LOOP))
-			continue
-		qdel(timer)
+	if(active_timers)
+		var/list/timers = active_timers
+		active_timers = null
+		for(var/thing in timers)
+			var/datum/timedevent/timer = thing
+			if (timer.spent && !(timer.flags & TIMER_LOOP))
+				continue
+			qdel(timer)
 
 	if(extensions)
 		for(var/expansion_key in extensions)
@@ -41,19 +50,18 @@
 				qdel(extension)
 		extensions = null
 
-	var/decl/observ/destroyed/destroyed_event = GET_DECL(/decl/observ/destroyed)
-	// Typecheck is needed (rather than nullchecking) due to oddness with new() ordering during world creation.
-	if(istype(events_repository) && destroyed_event.global_listeners.len || destroyed_event.event_sources[src])
-		RAISE_EVENT(/decl/observ/destroyed, src)
+	if(event_listeners?[/decl/observ/destroyed])
+		raise_event_non_global(/decl/observ/destroyed)
 
 	if (!isturf(src))	// Not great, but the 'correct' way to do it would add overhead for little benefit.
 		cleanup_events(src)
 
-	var/list/machines = global.state_machines["\ref[src]"]
-	if(length(machines))
-		for(var/base_type in machines)
-			qdel(machines[base_type])
-		global.state_machines -= "\ref[src]"
+	if(has_state_machine)
+		var/list/machines = global.state_machines[src]
+		if(length(machines))
+			for(var/base_type in machines)
+				qdel(machines[base_type])
+			global.state_machines -= src
 
 	return QDEL_HINT_QUEUE
 
@@ -106,10 +114,3 @@
  */
 /datum/proc/PopulateClone(var/datum/clone)
 	return clone
-
-/////////////////////////////////////////////////////////////
-//Common implementations
-/////////////////////////////////////////////////////////////
-
-/image/GetCloneArgs()
-	return list(icon, loc, icon_state, layer, dir)

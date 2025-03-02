@@ -5,23 +5,18 @@
 	icon_state = "eshield0"
 	item_state = "nothing"
 	layer = BELOW_TABLE_LAYER
-
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	force = 5.0
 	w_class = ITEM_SIZE_TINY
 	slot_flags = SLOT_EARS
-	throwforce = 5
 	throw_range = 15
 	throw_speed = 3
-
-	origin_tech = "{'programming':1,'engineering':1,'esoteric':3}"
-	material = /decl/material/solid/plastic
+	origin_tech = @'{"programming":1,"engineering":1,"esoteric":3}'
+	material = /decl/material/solid/organic/plastic
 	matter = list(
-		/decl/material/solid/metal/copper    = MATTER_AMOUNT_REINFORCEMENT, 
-		/decl/material/solid/silicon         = MATTER_AMOUNT_REINFORCEMENT, 
+		/decl/material/solid/metal/copper    = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/silicon         = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/glass           = MATTER_AMOUNT_TRACE,
 	)
-
 	var/obj/item/radio/spy/radio
 
 /obj/item/spy_bug/Initialize()
@@ -32,24 +27,23 @@
 
 /obj/item/spy_bug/Destroy()
 	QDEL_NULL(radio)
-	global.listening_objects -= src
 	return ..()
 
-/obj/item/spy_bug/examine(mob/user, distance)
+/obj/item/spy_bug/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 0)
-		to_chat(user, "It's a tiny camera, microphone, and transmission device in a happy union.")
-		to_chat(user, "Needs to be both configured and brought in contact with monitor device to be fully functional.")
+		. += "It's a tiny camera, microphone, and transmission device in a happy union."
+		. += "Needs to be both configured and brought in contact with monitor device to be fully functional."
 
 /obj/item/spy_bug/attack_self(mob/user)
 	radio.attack_self(user)
 
-/obj/item/spy_bug/attackby(obj/W, mob/user)
-	if(istype(W, /obj/item/spy_monitor))
-		var/obj/item/spy_monitor/SM = W
+/obj/item/spy_bug/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/spy_monitor))
+		var/obj/item/spy_monitor/SM = used_item
 		SM.pair(src, user)
-	else
-		..()
+		return TRUE
+	return ..()
 
 /obj/item/spy_bug/hear_talk(mob/M, var/msg, verb, decl/language/speaking)
 	radio.hear_talk(M, msg, speaking)
@@ -62,8 +56,8 @@
 	icon_state = ICON_STATE_WORLD
 	color = COLOR_GRAY80
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'programming':1,'engineering':1,'esoteric':3}"
-	material = /decl/material/solid/plastic
+	origin_tech = @'{"programming":1,"engineering":1,"esoteric":3}'
+	material = /decl/material/solid/organic/plastic
 	matter = list(
 		/decl/material/solid/metal/copper = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/silicon = MATTER_AMOUNT_REINFORCEMENT,
@@ -80,34 +74,33 @@
 	global.listening_objects += src
 
 /obj/item/spy_monitor/Destroy()
-	global.listening_objects -= src
 	selected_camera = null
 	cameras.Cut()
 	return ..()
 
-/obj/item/spy_monitor/examine(mob/user, distance)
+/obj/item/spy_monitor/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
-		to_chat(user, "The time '12:00' is blinking in the corner of the screen and \the [src] looks very cheaply made.")
+		. += "The time '12:00' is blinking in the corner of the screen and \the [src] looks very cheaply made."
 
 /obj/item/spy_monitor/attack_self(mob/user)
 	radio.attack_self(user)
 	view_cameras(user)
 
-/obj/item/spy_monitor/attackby(obj/W, mob/user)
-	if(istype(W, /obj/item/spy_bug))
-		pair(W, user)
-	else
-		return ..()
+/obj/item/spy_monitor/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/spy_bug))
+		pair(used_item, user)
+		return TRUE
+	return ..()
 
 /obj/item/spy_monitor/proc/pair(var/obj/item/spy_bug/SB, var/mob/living/user)
 	to_chat(user, SPAN_NOTICE("\The [SB] has been paired with \the [src]."))
-	events_repository.register(/decl/observ/destroyed, SB, src, .proc/unpair)
+	events_repository.register(/decl/observ/destroyed, SB, src, PROC_REF(unpair))
 	cameras += SB
 
 /obj/item/spy_monitor/proc/unpair(var/obj/item/spy_bug/SB, var/mob/living/user)
 	to_chat(user, SPAN_NOTICE("\The [SB] has been unpaired from \the [src]."))
-	events_repository.unregister(/decl/observ/destroyed, SB, src, .proc/unpair)
+	events_repository.unregister(/decl/observ/destroyed, SB, src, PROC_REF(unpair))
 	if(selected_camera == SB)
 		selected_camera = null
 	cameras -= SB
@@ -154,4 +147,5 @@
 	broadcasting = 0
 	canhear_range = 1
 	name = "spy device"
-	icon_state = "syn_cypherkey"
+	icon = 'icons/obj/items/device/radio/spybug.dmi'
+	icon_state = ICON_STATE_WORLD

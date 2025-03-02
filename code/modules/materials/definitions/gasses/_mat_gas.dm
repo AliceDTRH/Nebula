@@ -3,7 +3,7 @@
 	melting_point = 70
 	boiling_point = 180 // -90 C - cryogenic liquid threshold
 	color = COLOR_GRAY80
-	shard_type = SHARD_NONE
+	shard_name = SHARD_NONE
 	conductive = 0
 	value = 0.15
 	burn_product = /decl/material/gas/carbon_dioxide
@@ -21,4 +21,6 @@
 		liquid_name = "liquid [name]"
 	if(!solid_name)
 		solid_name = "frozen [name]"
+	if(!solution_name)
+		solution_name = "[name] solution"
 	. = ..()

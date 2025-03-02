@@ -1,6 +1,6 @@
 /obj/machinery/igniter
 	name = "igniter"
-	desc = "It's useful for igniting flammable items."
+	desc = "A device that ignites flammable items and gases nearby when activated."
 	icon = 'icons/obj/machines/igniter.dmi'
 	icon_state = "igniter1"
 	var/on = 0
@@ -40,7 +40,7 @@
 /obj/machinery/igniter/interface_interact(mob/user)
 	if(!CanInteract(user, DefaultTopicState()))
 		return FALSE
-	ignite()
+	toggle_igniter()
 	visible_message(SPAN_NOTICE("\The [user] toggles \the [src]."))
 	return TRUE
 
@@ -51,7 +51,7 @@
 			location.hotspot_expose(1000,500,1)
 	return 1
 
-/obj/machinery/igniter/proc/ignite()
+/obj/machinery/igniter/proc/toggle_igniter()
 	use_power_oneoff(2000)
 	on = !on
 	if(on)
@@ -73,7 +73,7 @@
 /decl/public_access/public_method/igniter_toggle
 	name = "igniter toggle"
 	desc = "Toggle the igniter on or off."
-	call_proc = /obj/machinery/igniter/proc/ignite
+	call_proc = TYPE_PROC_REF(/obj/machinery/igniter, toggle_igniter)
 
 /decl/stock_part_preset/radio/receiver/igniter
 	frequency = BUTTON_FREQ
@@ -106,7 +106,7 @@
 	construct_state = /decl/machine_construction/wall_frame/panel_closed/simple
 	frame_type = /obj/item/frame/button/sparker
 	base_type = /obj/machinery/sparker/buildable
-	directional_offset = "{'NORTH':{'y':-32}, 'SOUTH':{'y':32}, 'EAST':{'x':32}, 'WEST':{'x':-32}}"
+	directional_offset = @'{"NORTH":{"y":-32}, "SOUTH":{"y":32}, "EAST":{"x":32}, "WEST":{"x":-32}}'
 
 /obj/machinery/sparker/buildable
 	uncreated_component_parts = null
@@ -119,31 +119,28 @@
 	else
 		icon_state = "[base_state]-p"
 
-/obj/machinery/sparker/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W))
+/obj/machinery/sparker/attackby(obj/item/used_item, mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		add_fingerprint(user)
 		disable = !disable
 		if(disable)
-			user.visible_message("<span class='warning'>[user] has disabled the [src]!</span>", "<span class='warning'>You disable the connection to the [src].</span>")
+			user.visible_message("<span class='warning'>[user] has disabled \the [src]!</span>", "<span class='warning'>You disable the connection to \the [src].</span>")
 		else if(!disable)
-			user.visible_message("<span class='warning'>[user] has reconnected the [src]!</span>", "<span class='warning'>You fix the connection to the [src].</span>")
+			user.visible_message("<span class='warning'>[user] has reconnected \the [src]!</span>", "<span class='warning'>You fix the connection to \the [src].</span>")
 		update_icon()
+		return TRUE
 	else
-		..()
+		return ..()
 
 /obj/machinery/sparker/attack_ai()
-	if (anchored)
-		return ignite()
-	else
-		return
+	return anchored ? create_sparks() : null
 
-/obj/machinery/sparker/proc/ignite()
+/obj/machinery/sparker/proc/create_sparks()
 	if (stat & NOPOWER)
 		return
 
 	if (disable || (last_spark && world.time < last_spark + 50))
 		return
-
 
 	flick("[base_state]-spark", src)
 	spark_at(src, amount=2, cardinal_only = TRUE)
@@ -158,13 +155,13 @@
 	if(stat & (BROKEN|NOPOWER))
 		..(severity)
 		return
-	ignite()
+	create_sparks()
 	..(severity)
 
 /decl/public_access/public_method/sparker_spark
 	name = "spark"
 	desc = "Creates sparks to ignite nearby gases."
-	call_proc = /obj/machinery/sparker/proc/ignite
+	call_proc = TYPE_PROC_REF(/obj/machinery/sparker, create_sparks)
 
 /decl/stock_part_preset/radio/receiver/sparker
 	frequency = BUTTON_FREQ

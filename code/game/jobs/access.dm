@@ -17,31 +17,60 @@
 	if(id)
 		. = id.GetAccess()
 
-/atom/movable/proc/GetIdCard()
-	var/list/cards = GetIdCards()
-	return LAZYACCESS(cards, LAZYLEN(cards))
+/atom/movable/proc/GetIdCard(list/exceptions, prefer_held = TRUE)
+	RETURN_TYPE(/obj/item/card/id)
+	. = GetIdCards(exceptions)
+	return LAZYACCESS(., LAZYLEN(.))
 
-/atom/movable/proc/GetIdCards()
+// Duplicated logic, because it's short enough to not bother splitting out.
+// Quite gross logic sorry, did not want to work out a proper sorting method :(
+// The logic behind this sorting is that we should prefer ID cards as such:
+// - held cards, because they are very easily shifted dropped etc
+// - equipped cards, because they can also be removed, albeit slower
+// - any remaining cards, because at time of writing they are implanted and
+//   can't be removed easily at all.
+/mob/GetIdCard(list/exceptions, prefer_held = TRUE)
+	RETURN_TYPE(/obj/item/card/id)
+	// Get candidate cards, return similar to parent if we don't care
+	. = GetIdCards(exceptions)
+	var/card_count = length(.)
+	if(card_count <= 0)
+		return null
+	if(!prefer_held || card_count == 1)
+		return .[card_count]
+	// Move ID to the end of the list.
+	var/obj/item/id = get_equipped_item(slot_wear_id_str)
+	if(id)
+		. -= id
+		. += id
+	// Move held items to the end of the list (prefer them over equipped ID)
+	for(var/obj/item/card in get_held_items())
+		if(card in .)
+			. -= card
+			. += card
+	return .[length(.)]
+
+/atom/movable/proc/GetIdCards(list/exceptions)
 	var/datum/extension/access_provider/our_provider = get_extension(src, /datum/extension/access_provider)
 	if(our_provider)
-		LAZYDISTINCTADD(., our_provider.GetIdCards())
+		LAZYDISTINCTADD(., our_provider.GetIdCards(exceptions))
 
 /atom/movable/proc/check_access(atom/movable/A)
 	return check_access_list(A ? A.GetAccess() : list())
 
-/atom/movable/proc/check_access_list(list/L)
-	var/list/R = get_req_access()
+/atom/movable/proc/check_access_list(list/supplied_access)
+	var/list/required_access = get_req_access()
 
-	if(!R)
-		R = list()
-	if(!istype(L, /list))
+	if(!required_access)
+		required_access = list()
+	if(!istype(supplied_access, /list))
 		return FALSE
 
 	if(maint_all_access)
-		L = L.Copy()
-		L |= access_maint_tunnels
+		supplied_access = supplied_access.Copy()
+		supplied_access |= access_maint_tunnels
 
-	return has_access(R, L)
+	return has_access(required_access, supplied_access)
 
 /proc/has_access(list/req_access, list/accesses)
 	for(var/req in req_access)
@@ -114,11 +143,10 @@ var/global/list/datum/access/priv_all_access_datums_region
 	return priv_all_access_datums_region.Copy()
 
 /proc/get_access_ids(var/access_types = ACCESS_TYPE_ALL)
-	var/list/L = new()
+	. = list()
 	for(var/datum/access/A in get_all_access_datums())
 		if(A.access_type & access_types)
-			L += A.id
-	return L
+			. += A.id
 
 var/global/list/priv_all_access
 /proc/get_all_accesses()
@@ -210,12 +238,6 @@ var/global/list/priv_region_access
 		"Emergency Response Team",
 		"Emergency Response Team Leader")
 
-/proc/FindNameFromID(var/mob/M, var/missing_id_name = "Unknown")
-	var/obj/item/card/id/C = M.GetIdCard()
-	if(C)
-		return C.registered_name
-	return missing_id_name
-
 /proc/get_all_job_icons() //For all existing HUD icons
 	return SSjobs.titles_to_datums + list("Prisoner")
 
@@ -226,13 +248,13 @@ var/global/list/priv_region_access
 		var/job_icons = get_all_job_icons()
 		if(I.assignment	in job_icons) //Check if the job has a hud icon
 			return I.assignment
-		if(I.rank in job_icons)
-			return I.rank
+		if(I.position in job_icons)
+			return I.position
 
 		var/centcom = get_all_centcom_jobs()
 		if(I.assignment	in centcom)
 			return "Centcom"
-		if(I.rank in centcom)
+		if(I.position in centcom)
 			return "Centcom"
 	else
 		return

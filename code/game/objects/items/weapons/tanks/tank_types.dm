@@ -62,7 +62,6 @@
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	slot_flags = SLOT_LOWER_BODY
 	w_class = ITEM_SIZE_SMALL
-	force = 5
 	attack_cooldown = DEFAULT_WEAPON_COOLDOWN
 	melee_accuracy_bonus = -10
 	distribute_pressure = ONE_ATMOSPHERE*O2STANDARD
@@ -88,8 +87,8 @@
 	w_class = ITEM_SIZE_NORMAL
 
 /obj/item/tank/emergency/oxygen/double/red	//firefighting tank, fits on belt, back or suitslot
-	name = "self contained breathing apparatus"
-	desc = "A self contained breathing apparatus, well known as SCBA. Generally filled with oxygen."
+	name = "self-contained breathing apparatus"
+	desc = "A self-contained breathing apparatus, well known as SCBA. Generally filled with oxygen."
 	icon = 'icons/obj/items/tanks/tank_scuba.dmi'
 	slot_flags = SLOT_LOWER_BODY | SLOT_BACK
 

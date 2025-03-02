@@ -4,9 +4,9 @@
 	var/base_icon_state = "tvalve"
 
 	name = "manual switching valve"
-	desc = "A pipe valve."
+	desc = "A pipe valve that switches gas flow between two branches, and must be operated by hand."
 
-	level = 1
+	level = LEVEL_BELOW_PLATING
 	dir = SOUTH
 	initialize_directions = SOUTH|NORTH|WEST
 
@@ -30,12 +30,12 @@
 /obj/machinery/atmospherics/tvalve/buildable
 	uncreated_component_parts = null
 
-/obj/machinery/atmospherics/tvalve/on_update_icon(animation)
-	if(animation)
-		flick("[base_icon_state][src.state][!src.state]",src)
-	else
-		icon_state = "[base_icon_state][state]"
+/obj/machinery/atmospherics/tvalve/proc/do_turn_animation()
+	update_icon()
+	flick("[base_icon_state][src.state][!src.state]",src)
 
+/obj/machinery/atmospherics/tvalve/on_update_icon()
+	icon_state = "[base_icon_state][state]"
 	build_device_underlays(FALSE)
 
 /obj/machinery/atmospherics/tvalve/hide(var/i)
@@ -105,8 +105,8 @@
 	return TRUE
 
 /obj/machinery/atmospherics/tvalve/proc/user_toggle()
-	update_icon(1)
-	sleep(10)
+	do_turn_animation()
+	sleep(1 SECOND)
 	toggle()
 
 /obj/machinery/atmospherics/tvalve/Process()
@@ -136,17 +136,17 @@
 /decl/public_access/public_method/tvalve_go_straight
 	name = "valve go straight"
 	desc = "Sets the valve to send output straight."
-	call_proc = /obj/machinery/atmospherics/tvalve/proc/go_straight
+	call_proc = TYPE_PROC_REF(/obj/machinery/atmospherics/tvalve, go_straight)
 
 /decl/public_access/public_method/tvalve_go_side
 	name = "valve go side"
 	desc = "Redirects output to the side."
-	call_proc = /obj/machinery/atmospherics/tvalve/proc/go_to_side
+	call_proc = TYPE_PROC_REF(/obj/machinery/atmospherics/tvalve, go_to_side)
 
 /decl/public_access/public_method/tvalve_toggle
 	name = "valve toggle"
 	desc = "Toggles the output direction."
-	call_proc = /obj/machinery/atmospherics/tvalve/proc/toggle
+	call_proc = TYPE_PROC_REF(/obj/machinery/atmospherics/tvalve, toggle)
 
 /decl/stock_part_preset/radio/receiver/tvalve
 	frequency = FUEL_FREQ
@@ -176,7 +176,7 @@
 
 /obj/machinery/atmospherics/tvalve/digital		// can be controlled by AI
 	name = "digital switching valve"
-	desc = "A digitally controlled valve."
+	desc = "A digitally-controlled pipe valve that switches gas flow between two branches."
 	icon = 'icons/atmos/digital_tvalve.dmi'
 	icon_state = "map_tvalve0"
 

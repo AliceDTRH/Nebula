@@ -12,7 +12,7 @@
 		if(path == board.build_path)
 			dat += "<td><span class='good'>&#9724</span></td><td>[initial(thing.name)]</td>"
 		else
-			dat += "<td><span class='bad'>&#9724</span></td><td><a href='?src=\ref[src];choose=\ref[path]'>[initial(thing.name)]</a></td>"
+			dat += "<td><span class='bad'>&#9724</span></td><td><a href='byond://?src=\ref[src];choose=\ref[path]'>[initial(thing.name)]</a></td>"
 		dat += "</tr>"
 	dat += "</table>"
 	return JOINTEXT(dat)
@@ -25,5 +25,5 @@
 			board.build_path = path
 			var/obj/thing = path
 			board.SetName("circuitboard ([initial(thing.name)])")
-			return MT_REFRESH
+			return TOPIC_REFRESH
 	return ..()

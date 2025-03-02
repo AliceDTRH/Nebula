@@ -19,38 +19,34 @@ var/global/list/pai_emotions = list(
 
 var/global/list/pai_software_by_key = list()
 var/global/list/default_pai_software = list()
-/hook/startup/proc/populate_pai_software_list()
-	var/r = 1 // I would use ., but it'd sacrifice runtime detection
+/proc/populate_pai_software_list()
+	pai_software_by_key = list()
+	default_pai_software = list()
 	for(var/type in subtypesof(/datum/pai_software))
 		var/datum/pai_software/P = new type()
 		if(pai_software_by_key[P.id])
 			var/datum/pai_software/O = pai_software_by_key[P.id]
-			log_error("<span class='warning'>pAI software module [P.name] has the same key as [O.name]!</span>")
-			r = 0
+			PRINT_STACK_TRACE("pAI software module [type] has the same key ([P.id]) as [O.type] [O.id]!")
 			continue
 		pai_software_by_key[P.id] = P
 		if(P.default)
 			default_pai_software[P.id] = P
-	return r
-
-/mob/living/silicon/pai/Initialize()
-	. = ..()
-	software = default_pai_software.Copy()
 
 /mob/living/silicon/pai/proc/paiInterface()
 	ui_interact(src)
 
 /mob/living/silicon/pai/ui_interact(mob/user, ui_key = "main", datum/nanoui/ui = null, force_open = 1)
-	if(user != src)
-		if(ui) ui.set_status(STATUS_CLOSE, 0)
+
+	if(user != src || !istype(card))
+		ui?.set_nano_status(STATUS_CLOSE, 0)
 		return
 
 	if(ui_key != "main")
 		var/datum/pai_software/S = software[ui_key]
 		if(S && !S.toggle)
 			S.on_ui_interact(src, ui, force_open)
-		else
-			if(ui) ui.set_status(STATUS_CLOSE, 0)
+		else if(ui)
+			ui.set_nano_status(STATUS_CLOSE, 0)
 		return
 
 	var/data[0]

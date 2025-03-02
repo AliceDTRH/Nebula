@@ -8,15 +8,13 @@
 
 	//copied from tank.dm
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
-	force = 5.0
-	throwforce = 10.0
 	throw_speed = 1
 	throw_range = 4
 	action_button_name = "Toggle Heatsink"
 
 	material = /decl/material/solid/metal/aluminium
 	matter = list(/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT)
-	origin_tech = "{'magnets':2,'materials':2}"
+	origin_tech = @'{"magnets":2,"materials":2}'
 
 	var/on = 0								//is it turned on?
 	var/cover_open = 0						//is the cover open?
@@ -45,7 +43,7 @@
 	if (!is_in_slot())
 		return
 
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 
 	var/temp_adj = min(H.bodytemperature - thermostat, max_cooling)
 
@@ -65,7 +63,7 @@
 // Checks whether the cooling unit is being worn on the back/suit slot.
 // That way you can't carry it in your hands while it's running to cool yourself down.
 /obj/item/suit_cooling_unit/proc/is_in_slot()
-	var/mob/living/carbon/human/H = loc
+	var/mob/living/human/H = loc
 	if(!istype(H))
 		return 0
 	return H.get_equipped_item(slot_back_str) == src || H.get_equipped_item(slot_s_store_str) == src
@@ -108,8 +106,8 @@
 		turn_on()
 	to_chat(user, "<span class='notice'>You switch \the [src] [on ? "on" : "off"].</span>")
 
-/obj/item/suit_cooling_unit/attackby(obj/item/W, mob/user)
-	if(IS_SCREWDRIVER(W))
+/obj/item/suit_cooling_unit/attackby(obj/item/used_item, mob/user)
+	if(IS_SCREWDRIVER(used_item))
 		if(cover_open)
 			cover_open = 0
 			to_chat(user, "You screw the panel into place.")
@@ -117,19 +115,19 @@
 			cover_open = 1
 			to_chat(user, "You unscrew the panel.")
 		update_icon()
-		return
+		return TRUE
 
-	if (istype(W, /obj/item/cell))
+	if (istype(used_item, /obj/item/cell))
 		if(cover_open)
 			if(cell)
 				to_chat(user, "There is a [cell] already installed here.")
 			else
-				if(!user.try_unequip(W, src))
-					return
-				cell = W
-				to_chat(user, "You insert the [cell].")
+				if(!user.try_unequip(used_item, src))
+					return TRUE
+				cell = used_item
+				to_chat(user, "You insert \the [cell].")
 		update_icon()
-		return
+		return TRUE
 
 	return ..()
 
@@ -158,18 +156,15 @@
 		if(-INFINITY to 17)
 			add_overlay("[icon_state]-battery-5")
 
-/obj/item/suit_cooling_unit/examine(mob/user, distance)
+/obj/item/suit_cooling_unit/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	if(distance >= 1)
+	if(distance > 1)
 		return
-
 	if (on)
-		to_chat(user, "It's switched on and running.")
+		. += "It's switched on and running."
 	else
-		to_chat(user, "It is switched off.")
-
+		. += "It is switched off."
 	if (cover_open)
-		to_chat(user, "The panel is open.")
-
+		. += "The panel is open."
 	if (cell)
-		to_chat(user, "The charge meter reads [round(cell.percent())]%.")
+		. += "The charge meter reads [round(cell.percent())]%."

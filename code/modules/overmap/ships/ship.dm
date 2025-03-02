@@ -19,9 +19,6 @@ var/global/const/OVERMAP_SPEED_CONSTANT = (1 SECOND)
 	var/skill_needed = SKILL_ADEPT  //piloting skill needed to steer it without going in random dir
 	var/operator_skill
 
-	var/needs_dampers = FALSE
-	var/list/inertial_dampers = list()
-	var/damping_strength = null
 	var/vessel_size = SHIP_SIZE_LARGE	// arbitrary number, affects how likely are we to evade meteors
 
 	var/list/navigation_viewers // list of weakrefs to people viewing the overmap via this ship
@@ -85,15 +82,6 @@ var/global/const/OVERMAP_SPEED_CONSTANT = (1 SECOND)
 
 /obj/effect/overmap/visitable/ship/adjust_speed(n_x, n_y)
 	. = ..()
-	var/magnitude = norm(n_x, n_y)
-	var/inertia_dir = magnitude >= 0 ? turn(fore_dir, 180) : fore_dir
-	var/inertia_strength = magnitude * 1e3
-	if(needs_dampers && damping_strength < inertia_strength)
-		var/list/areas_by_name = area_repository.get_areas_by_z_level()
-		for(var/area_name in areas_by_name)
-			var/area/A = areas_by_name[area_name]
-			if(area_belongs_to_zlevels(A, map_z))
-				A.throw_unbuckled_occupants(inertia_strength+2, inertia_strength, inertia_dir)
 	for(var/zz in map_z)
 		if(is_still())
 			toggle_move_stars(zz)
@@ -109,15 +97,16 @@ var/global/const/OVERMAP_SPEED_CONSTANT = (1 SECOND)
 		return 0
 	if(!get_speed())
 		return 0
-	var/num_burns = get_speed() / get_delta_v() + 2 //some padding in case acceleration drops fromm fuel usage
-	var/burns_per_grid = 1/ (burn_delay * get_speed())
+	var/delta_v = get_delta_v() + 2
+	if(delta_v <= 0)
+		return 0
+	var/num_burns = get_speed() / delta_v //some padding in case acceleration drops fromm fuel usage
+	var/burns_per_grid = 1 / (burn_delay * get_speed())
+	if(burns_per_grid <= 0)
+		return 0
 	return round(num_burns / burns_per_grid)
 
 /obj/effect/overmap/visitable/ship/Process(wait, tick)
-	damping_strength = 0
-	for(var/datum/ship_inertial_damper/I in inertial_dampers)
-		var/obj/machinery/inertial_damper/ID = I.holder
-		damping_strength += ID.get_damping_strength(TRUE)
 	sensor_visibility = min(round(base_sensor_visibility + get_speed_sensor_increase(), 1), 100)
 
 /obj/effect/overmap/visitable/ship/on_update_icon()
@@ -150,7 +139,7 @@ var/global/const/OVERMAP_SPEED_CONSTANT = (1 SECOND)
 	for(var/i = 1 to 2)
 		if(MOVING(speed[i], min_speed))
 			. = min(., ((speed[i] > 0 ? 1 : -1) - position[i]) / speed[i])
-	. = max(CEILING(.),0)
+	. = max(ceil(.),0)
 
 /obj/effect/overmap/visitable/ship/proc/halt()
 	adjust_speed(-speed[1], -speed[2])
@@ -176,9 +165,6 @@ var/global/const/OVERMAP_SPEED_CONSTANT = (1 SECOND)
 	for(var/datum/extension/ship_engine/E in global.ship_engines)
 		if(check_ownership(E.holder))
 			engines |= E
-	for(var/datum/ship_inertial_damper/I in global.ship_inertial_dampers)
-		if(check_ownership(I.holder))
-			inertial_dampers |= I
 	var/v_mass = recalculate_vessel_mass()
 	if(v_mass)
 		vessel_mass = v_mass

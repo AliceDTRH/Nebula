@@ -8,7 +8,7 @@
 	icon_state = "autopsy_scanner"
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	w_class = ITEM_SIZE_SMALL
-	origin_tech = "{'materials':1,'biotech':1}"
+	origin_tech = @'{"materials":1,"biotech":1}'
 	var/list/weapon_data = list()
 	var/list/chemtraces = list()
 	var/target_name
@@ -17,13 +17,13 @@
 /obj/item/scanner/autopsy/is_valid_scan_target(atom/O)
 	return ishuman(O) || istype(O, /obj/item/organ/external)
 
-/obj/item/scanner/autopsy/do_surgery(mob/living/carbon/M, mob/living/user, fuckup_prob)
+/obj/item/scanner/autopsy/do_surgery(mob/living/M, mob/living/user, fuckup_prob)
 	if(istype(M))
 		scan(M,user)
 
 /obj/item/scanner/autopsy/scan(atom/A, mob/user)
 	if(ishuman(A))
-		var/mob/living/carbon/human/M = A
+		var/mob/living/human/M = A
 		set_target(M, user)
 		timeofdeath = M.timeofdeath
 		var/obj/item/organ/external/S = GET_EXTERNAL_ORGAN(M, user.get_target_zone())
@@ -34,31 +34,30 @@
 			visible_message(SPAN_WARNING("[src] states, 'The access incision is missing.'"))
 			return
 
-		add_data(S)
-		for(var/T in M.chem_doses)
-			var/decl/material/R = T
-			chemtraces |= initial(R.name)
+		add_autopsy_data(S)
+		for(var/decl/material/dose in decls_repository.get_decls_unassociated(M.chem_doses))
+			chemtraces |= dose.use_name
 
 	else if(istype(A, /obj/item/organ/external))
 		set_target(A, user)
-		add_data(A)
+		add_autopsy_data(A)
 
 	scan_title = "Autopsy Report ([target_name])"
 	scan_data = get_formatted_data()
 	playsound(src, 'sound/effects/fastbeep.ogg', 10)
 
-/obj/item/scanner/autopsy/proc/add_data(var/obj/item/organ/external/O)
-	if(!O.autopsy_data.len) return
+/obj/item/scanner/autopsy/proc/add_autopsy_data(var/obj/item/organ/external/O)
+	if(!length(O.autopsy_data))
+		return
 
 	for(var/V in O.autopsy_data)
-		var/datum/autopsy_data/W = O.autopsy_data[V]
-		if(!weapon_data[V])
-			weapon_data[V] = list("data" = W.copy(), "organs" = list(O.name))
-		else
+		var/datum/autopsy_data/wound_data = O.autopsy_data[V]
+		if(weapon_data[V])
 			var/datum/autopsy_data/data = weapon_data[V]["data"]
-			data.merge_with(W)
-			var/list/organs = weapon_data[V]["organs"]
-			organs |= O.name
+			data.merge_with(wound_data)
+			weapon_data[V]["organs"] |= O.name
+		else
+			weapon_data[V] = list("data" = wound_data.copy(), "organs" = list(O.name))
 
 /obj/item/scanner/autopsy/proc/get_formatted_data()
 	var/list/scan_data = list("Subject: [target_name]")
@@ -66,11 +65,11 @@
 	if(timeofdeath)
 		scan_data += "<b>Time of death:</b> [worldtime2stationtime(timeofdeath)]<br>"
 
-	var/n = 1
+	var/weapon_count = 1
 	for(var/weapon in weapon_data)
 		var/list/organs = weapon_data[weapon]["organs"]
 		var/datum/autopsy_data/data = weapon_data[weapon]["data"]
-		scan_data += "<b>Weapon #[n++]:</b> [data.weapon]"
+		scan_data += "<b>Weapon #[weapon_count++]:</b> [data.weapon]"
 		if(data.hits)
 			var/damage_desc
 			switch(data.damage)
@@ -111,12 +110,12 @@
 	var/time_inflicted = 0
 
 /datum/autopsy_data/proc/copy()
-	var/datum/autopsy_data/W = new()
-	W.weapon = weapon
-	W.damage = damage
-	W.hits = hits
-	W.time_inflicted = time_inflicted
-	return W
+	var/datum/autopsy_data/wound_data = new()
+	wound_data.weapon = weapon
+	wound_data.damage = damage
+	wound_data.hits = hits
+	wound_data.time_inflicted = time_inflicted
+	return wound_data
 
 /datum/autopsy_data/proc/merge_with(var/datum/autopsy_data/other)
 	damage += other.damage

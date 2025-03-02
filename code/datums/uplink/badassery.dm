@@ -11,7 +11,7 @@
 
 /datum/uplink_item/item/badassery/balloon/random
 	name = "For showing 'Whatevah~' (Useless Balloon)"
-	desc = "Randomly selects a ballon for you!"
+	desc = "Randomly selects a balloon for you!"
 	path = /obj/item/toy/balloon
 
 /datum/uplink_item/item/badassery/balloon/random/get_goods(var/obj/item/uplink/U, var/loc)
@@ -23,13 +23,13 @@
 	name = "Crayon MRE"
 	desc = "Exceptionally robust MRE"
 	item_cost = DEFAULT_TELECRYSTAL_AMOUNT
-	path = /obj/item/storage/mre/menu11/special
+	path = /obj/item/mre/menu11/special
 
 /datum/uplink_item/item/badassery/modded_foam_gun
 	name = "Modded foam gun"
 	desc = "It's a Jorf revolver blaster and 14 weighted darts. Even after aftermarket modification to increase its range and launch velocity, it's not a very effective weapon."
 	item_cost = 32
-	path = /obj/item/storage/box/large/foam_gun/revolver/tampered
+	path = /obj/item/box/large/foam_gun/revolver/tampered
 
 /**************
 * Random Item *

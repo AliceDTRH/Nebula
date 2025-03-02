@@ -22,7 +22,6 @@
 	var/win_x = 450
 	var/win_y = 740                // Vote window size.
 
-	var/show_leading = 0           // Colours leading choice based on votes count.
 	var/manual_allowed = 1         // Whether humans can start it.
 
 	var/list/vote_start_sounds = list(
@@ -53,14 +52,14 @@
 
 /datum/vote/proc/start_vote()
 	start_time = world.time
-	time_set = (time_set ? time_set : config.vote_period)
+	time_set = (time_set ? time_set : get_config_value(/decl/config/num/vote_period))
 	time_remaining = round(time_set / 10)
 	status = VOTE_STATUS_ACTIVE
 
 	var/text = get_start_text()
 
 	log_vote(text)
-	to_world(SPAN_PURPLE("<b>[text]</b>\nType <b>vote</b> or click <a href='?src=\ref[SSvote];vote_panel=1'>here</a> to place your votes.\nYou have [round(time_set/10)] seconds to vote."))
+	to_world(SPAN_PURPLE("<b>[text]</b>\nType <b>vote</b> or click <a href='byond://?src=\ref[SSvote];vote_panel=1'>here</a> to place your votes.\nYou have [round(time_set/10)] seconds to vote."))
 	to_world(sound(pick(vote_start_sounds), repeat = 0, wait = 0, volume = 50, channel = sound_channels.vote_channel))
 
 /datum/vote/proc/get_start_text()
@@ -68,7 +67,7 @@
 
 //Modifies the vote totals based on non-voting mobs.
 /datum/vote/proc/handle_default_votes()
-	if(!config.vote_no_default)
+	if(!get_config_value(/decl/config/num/vote_no_default))
 		return length(global.clients) - length(voted) //Number of non-voters (might not be active, though; should be revisited if the config option is used. This is legacy code.)
 
 /datum/vote/proc/tally_result()
@@ -130,7 +129,7 @@
 
 // Checks if the mob is participating in the round sufficiently to vote, as per config settings.
 /datum/vote/proc/mob_not_participating(mob/voter)
-	if(config.vote_no_dead && voter.stat == DEAD && !voter.client.holder)
+	if(get_config_value(/decl/config/num/vote_no_dead) && voter.stat == DEAD && !voter.client.holder)
 		return 1
 
 //null = no toggle set. This is for UI purposes; a text return will give a link (toggle; currently "return") in the vote panel.
@@ -183,9 +182,9 @@
 		for(var/i = 1, i <= length(priorities), i++)
 			. += "<td align = 'center'>"
 			if(voted[user.ckey] && (voted[user.ckey][i] == j)) //We have this jth choice chosen at priority i.
-				. += "<b><a href='?src=\ref[src];choice=[j];priority=[i]'>[priorities[i]]</a></b>"
+				. += "<b><a href='byond://?src=\ref[src];choice=[j];priority=[i]'>[priorities[i]]</a></b>"
 			else
-				. += "<a href='?src=\ref[src];choice=[j];priority=[i]'>[priorities[i]]</a>"
+				. += "<a href='byond://?src=\ref[src];choice=[j];priority=[i]'>[priorities[i]]</a>"
 			. += "</td>"
 		. += "</td><td align = 'center'>[votepercent]</td>"
 		if (additional_text[choice])

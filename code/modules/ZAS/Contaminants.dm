@@ -49,7 +49,7 @@ var/global/image/contamination_overlay = image('icons/effects/contamination.dmi'
 
 /mob/proc/contaminate()
 
-/mob/living/carbon/human/contaminate()
+/mob/living/human/contaminate()
 	//See if anything can be contaminated.
 
 	if(!contaminant_suit_protected())
@@ -59,13 +59,13 @@ var/global/image/contamination_overlay = image('icons/effects/contamination.dmi'
 		if(prob(1)) suit_contamination() // Contaminants can sometimes get through such an open suit.
 
 //Cannot wash backpacks currently.
-//	if(istype(back,/obj/item/storage/backpack))
+//	if(istype(back,/obj/item/backpack))
 //		back.contaminate()
 
 /mob/proc/handle_contaminants()
 	return
 
-/mob/living/carbon/human/handle_contaminants()
+/mob/living/human/handle_contaminants()
 	//Handles all the bad things contaminants can do.
 
 	//Contamination
@@ -78,9 +78,9 @@ var/global/image/contamination_overlay = image('icons/effects/contamination.dmi'
 	//Burn skin if exposed.
 	if(vsc.contaminant_control.SKIN_BURNS)
 		if(!contaminant_head_protected() || !contaminant_suit_protected())
+			if(prob(20))
+				to_chat(src, "<span class='danger'>Your skin burns!</span>")
 			take_overall_damage(0, 0.75)
-			if(prob(20)) to_chat(src, "<span class='danger'>Your skin burns!</span>")
-			updatehealth()
 
 	//Burn eyes if exposed.
 	if(vsc.contaminant_control.EYE_BURNS)
@@ -96,33 +96,32 @@ var/global/image/contamination_overlay = image('icons/effects/contamination.dmi'
 	//Genetic Corruption
 	if(vsc.contaminant_control.GENETIC_CORRUPTION)
 		if(rand(1,10000) < vsc.contaminant_control.GENETIC_CORRUPTION)
-			randmutb(src)
+			add_genetic_condition(pick(decls_repository.get_decls_of_type(/decl/genetic_condition/disability)))
 			to_chat(src, "<span class='danger'>High levels of toxins cause you to spontaneously mutate!</span>")
-			domutcheck(src,null)
 
-
-/mob/living/carbon/human/proc/burn_eyes()
-	var/obj/item/organ/internal/eyes/E = get_organ(BP_EYES, /obj/item/organ/internal/eyes)
-	if(E && !E.bodytype.eye_contaminant_guard)
+/mob/living/human/proc/burn_eyes()
+	var/obj/item/organ/internal/eyes/eyes = get_organ(BP_EYES, /obj/item/organ/internal/eyes)
+	if(eyes && !eyes.bodytype.eye_contaminant_guard)
 		if(prob(20)) to_chat(src, "<span class='danger'>Your eyes burn!</span>")
-		E.damage += 2.5
+		eyes.adjust_organ_damage(2.5)
 		SET_STATUS_MAX(src, STAT_BLURRY, 50)
-		if (prob(max(0,E.damage - 15) + 1) && !GET_STATUS(src, STAT_BLIND))
+		if (prob(max(0,eyes.get_organ_damage() - 15) + 1) && !GET_STATUS(src, STAT_BLIND))
 			to_chat(src, "<span class='danger'>You are blinded!</span>")
 			SET_STATUS_MAX(src, STAT_BLIND, 20)
 
-/mob/living/carbon/human/proc/contaminant_head_protected()
+/mob/living/human/proc/contaminant_head_protected()
 	//Checks if the head is adequately sealed.
 	var/obj/item/head = get_equipped_item(slot_head_str)
-	if(head)
-		if(vsc.contaminant_control.STRICT_PROTECTION_ONLY)
-			if(head.item_flags & ITEM_FLAG_NO_CONTAMINATION)
-				return 1
-		else if(head.body_parts_covered & SLOT_EYES)
-			return 1
-	return 0
+	if(!head)
+		return FALSE
+	// If strict protection is on, you must have a head item with ITEM_FLAG_NO_CONTAMINATION.
+	if(vsc.contaminant_control.STRICT_PROTECTION_ONLY)
+		if(!(head.item_flags & ITEM_FLAG_NO_CONTAMINATION))
+			return FALSE
+	// Regardless, the head item must cover the face and head. Eyes are checked seperately above.
+	return BIT_TEST_ALL(head.body_parts_covered, SLOT_HEAD|SLOT_FACE)
 
-/mob/living/carbon/human/proc/contaminant_suit_protected()
+/mob/living/human/proc/contaminant_suit_protected()
 	//Checks if the suit is adequately sealed.
 	var/coverage = 0
 	for(var/slot in list(slot_wear_suit_str, slot_gloves_str, slot_shoes_str))
@@ -130,15 +129,15 @@ var/global/image/contamination_overlay = image('icons/effects/contamination.dmi'
 		if(!istype(protection))
 			continue
 		if(vsc.contaminant_control.STRICT_PROTECTION_ONLY && !(protection.item_flags & ITEM_FLAG_NO_CONTAMINATION))
-			return 0
+			return FALSE
 		coverage |= protection.body_parts_covered
 
 	if(vsc.contaminant_control.STRICT_PROTECTION_ONLY)
-		return 1
+		return TRUE
 
 	return BIT_TEST_ALL(coverage, SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS)
 
-/mob/living/carbon/human/proc/suit_contamination()
+/mob/living/human/proc/suit_contamination()
 	//Runs over the things that can be contaminated and does so.
 	for(var/slot in list(slot_w_uniform_str, slot_shoes_str, slot_gloves_str))
 		var/obj/item/gear = get_equipped_item(slot)

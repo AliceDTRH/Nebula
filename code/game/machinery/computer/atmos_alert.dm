@@ -1,9 +1,4 @@
 //This file was auto-corrected by findeclaration.exe on 25.5.2012 20:42:31
-
-var/global/list/priority_air_alarms = list()
-var/global/list/minor_air_alarms = list()
-
-
 /obj/machinery/computer/atmos_alert
 	name = "atmospheric alert computer"
 	desc = "Used to access the atmospheric sensors."
@@ -13,7 +8,7 @@ var/global/list/minor_air_alarms = list()
 
 /obj/machinery/computer/atmos_alert/Initialize()
 	. = ..()
-	atmosphere_alarm.register_alarm(src, /atom/proc/update_icon)
+	atmosphere_alarm.register_alarm(src, TYPE_PROC_REF(/atom, update_icon))
 
 /obj/machinery/computer/atmos_alert/Destroy()
 	atmosphere_alarm.unregister_alarm(src)

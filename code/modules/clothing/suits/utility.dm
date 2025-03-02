@@ -12,11 +12,11 @@
 /obj/item/clothing/suit/fire
 	name = "firesuit"
 	desc = "A suit that protects against fire and heat."
-	icon = 'icons/clothing/suit/firesuit.dmi'
+	icon = 'icons/clothing/suits/firesuit.dmi'
 	w_class = ITEM_SIZE_LARGE//large item
 	flags_inv = HIDETAIL
 
-	body_parts_covered = SLOT_UPPER_BODY | SLOT_LOWER_BODY| SLOT_ARMS
+	body_parts_covered = SLOT_UPPER_BODY | SLOT_LOWER_BODY| SLOT_ARMS | SLOT_TAIL
 	armor = list(ARMOR_LASER = ARMOR_LASER_MINOR, ARMOR_ENERGY = ARMOR_ENERGY_MINOR, ARMOR_BOMB = ARMOR_BOMB_MINOR)
 	allowed = list(/obj/item/flashlight,/obj/item/tank/emergency,/obj/item/chems/spray/extinguisher,/obj/item/clothing/head/hardhat)
 
@@ -31,7 +31,7 @@
 	matter = list(
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/suit/fire/Initialize()
 	. = ..()
@@ -58,7 +58,7 @@
 /obj/item/clothing/suit/bomb_suit
 	name = "bomb suit"
 	desc = "A suit designed for safety when handling explosives."
-	icon = 'icons/clothing/suit/bombsuit.dmi'
+	icon = 'icons/clothing/suits/bombsuit.dmi'
 	w_class = ITEM_SIZE_HUGE//bulky item
 	gas_transfer_coefficient = 0.01
 	permeability_coefficient = 0.01
@@ -70,7 +70,7 @@
 		ARMOR_BOMB = ARMOR_BOMB_SHIELDED
 		)
 	flags_inv = HIDEJUMPSUIT|HIDETAIL
-	heat_protection = SLOT_UPPER_BODY|SLOT_LOWER_BODY
+	heat_protection = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_TAIL
 	max_heat_protection_temperature = ARMOR_MAX_HEAT_PROTECTION_TEMPERATURE
 	siemens_coefficient = 0
 
@@ -83,9 +83,9 @@
 	icon = 'icons/clothing/head/bombsuit_olive.dmi'
 
 /obj/item/clothing/suit/bomb_suit/security
-	icon = 'icons/clothing/suit/bombsuit_olive.dmi'
+	icon = 'icons/clothing/suits/bombsuit_olive.dmi'
 	allowed = list(/obj/item/gun/energy,/obj/item/baton,/obj/item/handcuffs)
-	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS
+	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS|SLOT_TAIL
 
 /*
  * Radiation protection
@@ -101,20 +101,20 @@
 		ARMOR_RAD = ARMOR_RAD_SHIELDED
 		)
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT
 	)
 
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/suit/radiation
 	name = "radiation suit"
 	desc = "A suit that protects against radiation. Label: Made with lead, do not eat insulation."
-	icon = 'icons/clothing/suit/rad_suit.dmi'
+	icon = 'icons/clothing/suits/rad_suit.dmi'
 	w_class = ITEM_SIZE_HUGE//bulky item
 	gas_transfer_coefficient = 0.90
 	permeability_coefficient = 0.50
-	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_ARMS|SLOT_HANDS|SLOT_FEET
+	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_ARMS|SLOT_HANDS|SLOT_FEET|SLOT_TAIL
 	allowed = list(/obj/item/flashlight,/obj/item/tank/emergency,/obj/item/clothing/head/radiation,/obj/item/clothing/mask/gas,/obj/item/geiger)
 	armor = list(
 		ARMOR_BIO = ARMOR_BIO_RESISTANT,
@@ -122,10 +122,10 @@
 		)
 	flags_inv = HIDEJUMPSUIT|HIDETAIL|HIDEGLOVES|HIDESHOES
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/suit/radiation/Initialize()
 	. = ..()
@@ -137,7 +137,7 @@
 
 /obj/item/clothing/head/chem_hood
 	name = "chemical hood"
-	desc = "A hood that protects the head from chemical comtaminants."
+	desc = "A hood that protects the head from chemical contaminants."
 	icon = 'icons/clothing/head/chem_hood.dmi'
 	permeability_coefficient = 0
 	armor = list(
@@ -146,22 +146,22 @@
 		)
 	flags_inv = HIDEEARS|BLOCK_HEAD_HAIR
 	item_flags = ITEM_FLAG_THICKMATERIAL
-	body_parts_covered = SLOT_HEAD|SLOT_EARS
+	body_parts_covered = SLOT_HEAD|SLOT_EARS|SLOT_FACE
 	siemens_coefficient = 0.9
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'
 
 /obj/item/clothing/suit/chem_suit
 	name = "chemical suit"
 	desc = "A suit that protects against chemical contamination."
-	icon = 'icons/clothing/suit/chem_suit.dmi'
+	icon = 'icons/clothing/suits/chem_suit.dmi'
 	w_class = ITEM_SIZE_HUGE//bulky item
 	gas_transfer_coefficient = 0
 	permeability_coefficient = 0
-	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS
+	body_parts_covered = SLOT_UPPER_BODY|SLOT_LOWER_BODY|SLOT_LEGS|SLOT_FEET|SLOT_ARMS|SLOT_HANDS|SLOT_TAIL
 	allowed = list(/obj/item/tank/emergency,/obj/item/pen,/obj/item/flashlight/pen,/obj/item/scanner/health,/obj/item/scanner/breath,/obj/item/ano_scanner,/obj/item/clothing/head/chem_hood,/obj/item/clothing/mask/gas,/obj/item/geiger)
 	armor = list(
 		ARMOR_BIO = ARMOR_BIO_RESISTANT,
@@ -171,7 +171,7 @@
 	item_flags = ITEM_FLAG_THICKMATERIAL
 	siemens_coefficient = 0.9
 	matter = list(
-		/decl/material/solid/plastic = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT
 	)
-	origin_tech = "{'materials':2,'engineering':2}"
+	origin_tech = @'{"materials":2,"engineering":2}'

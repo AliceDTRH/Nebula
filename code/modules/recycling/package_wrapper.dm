@@ -24,22 +24,21 @@
 // Parcel Wrapper
 ///////////////////////////////////////////////////////////////////////////////////////
 /obj/item/stack/package_wrap
-	name             = "package wrapper roll"
-	desc             = "Heavy duty brown paper used to wrap packages to protect them during shipping."
-	icon             = 'icons/obj/items/gift_wrapper.dmi'
-	icon_state       = "deliveryPaper"
-	singular_name    = "sheet"
-	w_class          = ITEM_SIZE_NORMAL
-	max_amount       = 50
-	material         = /decl/material/solid/paper
-	force            = 1
-	throwforce       = 1
-	throw_range      = 5
-	throw_speed      = 3
-	item_flags       = ITEM_FLAG_NO_BLUDGEON
-	///Check to prevent people from wrapping something multiple times at once.
+	name               = "package wrapper roll"
+	desc               = "Heavy duty brown paper used to wrap packages to protect them during shipping."
+	icon               = 'icons/obj/items/gift_wrapper.dmi'
+	icon_state         = "deliveryPaper"
+	singular_name      = "sheet"
+	w_class            = ITEM_SIZE_NORMAL
+	max_amount         = 50
+	material           = /decl/material/solid/organic/paper
+	throw_range        = 5
+	throw_speed        = 3
+	item_flags         = ITEM_FLAG_NO_BLUDGEON
+	_base_attack_force = 1
+	/// Check to prevent people from wrapping something multiple times at once.
 	var/tmp/currently_wrapping = FALSE
-	///The type of wrapped item that will be produced
+	/// The type of wrapped item that will be produced
 	var/tmp/wrapped_result_type = /obj/item/parcel
 
 /obj/item/stack/package_wrap/twenty_five
@@ -61,7 +60,7 @@
 		to_chat(user, SPAN_WARNING("You cannot wrap yourself!"))
 		return
 	if(ishuman(AM))
-		var/mob/living/carbon/human/H = AM
+		var/mob/living/human/H = AM
 		if(!H.incapacitated(INCAPACITATION_DISABLED | INCAPACITATION_RESTRAINED))
 			if(user)
 				to_chat(user, SPAN_WARNING("\The [H] is moving around too much. Restrain or incapacitate them first."))
@@ -95,7 +94,7 @@
 			qdel(wrapper)
 
 	else if(ishuman(target))
-		var/mob/living/carbon/human/H = target
+		var/mob/living/human/H = target
 		if(H.incapacitated(INCAPACITATION_DISABLED | INCAPACITATION_RESTRAINED))
 			var/obj/item/parcel/wrapper = new wrapped_result_type(get_turf(target))
 			if(wrapper.make_parcel(target, user)) //Call this directly so it applies our fingerprints
@@ -109,7 +108,7 @@
 			to_chat(user, SPAN_WARNING("\The [target] moving around too much. Restrain or incapacitate them first."))
 
 /obj/item/stack/package_wrap/afterattack(var/obj/target, mob/user, proximity_flag, click_parameters)
-	if(!proximity_flag || !can_wrap(target) || (user.isEquipped(target) && !user.canUnEquip(target)))
+	if(!proximity_flag || !can_wrap(target) || (user.isEquipped(target) && !user.can_unequip_item(target)))
 		return
 	user.setClickCooldown(attack_cooldown)
 	return wrap(target, user) || ..()
@@ -125,15 +124,15 @@
 /obj/item/stack/package_wrap/create_matter()
 	. = ..()
 	//Cardboard for the tube, isn't in the matter_per_piece list, has to be added after that's been initialized
-	LAZYSET(matter, /decl/material/solid/cardboard, MATTER_AMOUNT_PRIMARY * HOLLOW_OBJECT_MATTER_MULTIPLIER)
+	LAZYSET(matter, /decl/material/solid/organic/cardboard, MATTER_AMOUNT_PRIMARY * HOLLOW_OBJECT_MATTER_MULTIPLIER)
 
 /obj/item/stack/package_wrap/update_matter()
 	//Keep track of the cardboard amount to prevent it creating infinite cardboard matter each times the stack changes
-	var/cardboard_amount = LAZYACCESS(matter, /decl/material/solid/cardboard)
+	var/cardboard_amount = LAZYACCESS(matter, /decl/material/solid/organic/cardboard)
 	matter = list()
 	for(var/mat in matter_per_piece)
 		matter[mat] = (matter_per_piece[mat] * amount)
-	matter[/decl/material/solid/cardboard] = cardboard_amount
+	matter[/decl/material/solid/organic/cardboard] = cardboard_amount
 
 ///Types that the wrapper cannot wrap, ever
 /obj/item/stack/package_wrap/proc/get_blacklist()
@@ -187,8 +186,7 @@
 	icon        = 'icons/obj/items/gift_wrapper.dmi'
 	icon_state  = "c_tube"
 	w_class     = ITEM_SIZE_NORMAL
-	throwforce  = 1
 	throw_speed = 4
 	throw_range = 5
-	material    = /decl/material/solid/cardboard
+	material    = /decl/material/solid/organic/cardboard
 	obj_flags   = OBJ_FLAG_HOLLOW

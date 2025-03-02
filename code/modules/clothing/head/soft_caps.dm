@@ -13,10 +13,10 @@
 	if(flipped)
 		icon_state = "[get_world_inventory_state()]_flipped"
 
-/obj/item/clothing/head/soft/adjust_mob_overlay(var/mob/living/user_mob, var/bodytype,  var/image/overlay, var/slot, var/bodypart)
+/obj/item/clothing/head/soft/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && flipped && check_state_in_icon("[overlay.icon_state]_flipped", overlay.icon))
 		overlay.icon_state = "[overlay.icon_state]_flipped"
-	. = ..()	
+	. = ..()
 
 /obj/item/clothing/head/soft/dropped()
 	src.flipped=0
@@ -80,7 +80,7 @@
 
 /obj/item/clothing/head/soft/sec
 	name = "security cap"
-	desc = "It's a field cap in tasteful red color."
+	desc = "It's a field cap."
 	color = COLOR_NT_RED
 
 /obj/item/clothing/head/soft/black

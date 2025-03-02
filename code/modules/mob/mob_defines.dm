@@ -26,6 +26,8 @@
 		/datum/movement_handler/mob/movement
 	)
 
+	mouse_drag_pointer = MOUSE_ACTIVE_POINTER
+
 	var/shift_to_open_context_menu = FALSE
 
 	var/mob_flags
@@ -39,54 +41,21 @@
 
 	var/stat = CONSCIOUS //Whether a mob is alive or dead. TODO: Move this to living - Nodrak
 
-	var/obj/screen/cells = null
-
-	var/obj/screen/hands = null
-	var/obj/screen/internals = null
-	var/obj/screen/oxygen = null
-	var/obj/screen/toxin = null
-	var/obj/screen/fire = null
-	var/obj/screen/bodytemp = null
-	var/obj/screen/healths = null
-	var/obj/screen/throw_icon = null
-	var/obj/screen/nutrition_icon = null
-	var/obj/screen/hydration_icon = null
-	var/obj/screen/pressure = null
-	var/obj/screen/pain = null
-	var/obj/screen/up_hint = null
-	var/obj/screen/gun/item/item_use_icon = null
-	var/obj/screen/gun/radio/radio_use_icon = null
-	var/obj/screen/gun/move/gun_move_icon = null
-	var/obj/screen/gun/mode/gun_setting_icon = null
-
-	var/obj/screen/ability_master/ability_master = null
-
 	/*A bunch of this stuff really needs to go under their own defines instead of being globally attached to mob.
 	A variable should only be globally attached to turfs/objects/whatever, when it is in fact needed as such.
 	The current method unnecessarily clusters up the variable list, especially for humans (although rearranging won't really clean it up a lot but the difference will be noticable for other mobs).
 	I'll make some notes on where certain variable defines should probably go.
 	Changing this around would probably require a good look-over the pre-existing code.
 	*/
-	var/obj/screen/zone_selector/zone_sel = null
-
-	/// Cursor icon used when holding shift over things.
-	var/examine_cursor_icon = 'icons/effects/mouse_pointers/examine_pointer.dmi'
 
 	var/damageoverlaytemp = 0
 	var/obj/machinery/machine = null
 
-	var/sdisabilities = 0	//Carbon
-	var/disabilities = 0	//Carbon
-
 	var/next_move = null
 	var/real_name = null
 
-	var/resting =    0
-	var/lying =      0
-
 	var/radio_interrupt_cooldown = 0    // TODO move this to /human
 
-	var/unacidable = 0
 	var/list/pinned                     // Lazylist of things pinning this creature to walls (see living_defense.dm)
 	var/list/embedded                   // Embedded items, since simple mobs don't have organs.
 	var/list/languages = list()         // TODO: lazylist this var. For speaking/listening.
@@ -103,40 +72,27 @@
 	var/bodytemperature = 310.055	//98.7 F
 
 	var/shakecamera = 0
-	var/a_intent = I_HELP//Living
-
 	var/decl/move_intent/move_intent = /decl/move_intent/walk
 	var/list/move_intents = list(/decl/move_intent/walk)
 
 	var/decl/move_intent/default_walk_intent
 	var/decl/move_intent/default_run_intent
 
-	var/obj/item/storage/active_storage
-	var/obj/buckled = null//Living
+	var/datum/storage/active_storage
+	var/atom/movable/buckled = null
 	var/in_throw_mode = 0
 
 	var/can_pull_size = ITEM_SIZE_STRUCTURE // Maximum w_class the mob can pull.
 	var/can_pull_mobs = MOB_PULL_SAME       // Whether or not the mob can pull other mobs.
 
-	var/datum/dna/dna = null//Carbon
-	var/list/active_genes
-	var/list/mutations = list() // TODO: Lazylist this var.
-	//see: setup.dm for list of mutations
-
 	var/radiation = 0.0//Carbon
-
-	var/voice_name = "unidentifiable voice"
 
 	var/faction = MOB_FACTION_NEUTRAL //Used for checking whether hostile simple animals will attack you, possibly more stuff later
 
-	//The last mob/living/carbon to push/drag/grab this mob (mostly used by slimes friend recognition)
+	//The last mob/living to push/drag/grab this mob (mostly used by slimes friend recognition)
 	var/weakref/last_handled_by_mob
 
-	mouse_drag_pointer = MOUSE_ACTIVE_POINTER
-
-	var/update_icon = 1 //Set to 1 to trigger update_icon() at the next life() call
-
-	var/status_flags = CANSTUN|CANWEAKEN|CANPARALYSE|CANPUSH	//bitflags defining which status effects can be inflicted (replaces canweaken, canstun, etc)
+	var/status_flags = CANSTUN|CANWEAKEN|CANPARALYSE|CANPUSH	//bitflags defining which status conditions can be inflicted (replaces canweaken, canstun, etc)
 
 	var/area/lastarea = null
 
@@ -165,7 +121,7 @@
 
 	var/list/progressbars = null //for stacking do_after bars
 
-	var/datum/ai/ai						// Type abused. Define with path and will automagically create. Determines behaviour for clientless mobs.
+	var/datum/mob_controller/ai						// Type abused. Define with path and will automagically create. Determines behaviour for clientless mobs.
 
 	var/holder_type
 	/// If this mob is or was piloted by a player with typing indicators enabled, an instance of one.
@@ -175,3 +131,13 @@
 
 	/// Used for darksight, required on all mobs to ensure lighting renders properly.
 	var/obj/screen/lighting_plane_master/lighting_master
+
+	// Offset the overhead text if necessary.
+	var/offset_overhead_text_x = 0
+	var/offset_overhead_text_y = 0
+
+	/// What bodypart are we currently targetting?
+	var/selected_zone = BP_CHEST
+
+	/// Are you trying not to hurt your opponent?
+	var/pulling_punches

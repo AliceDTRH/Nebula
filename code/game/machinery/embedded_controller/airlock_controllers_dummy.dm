@@ -1,16 +1,15 @@
 ///Provides remote access to a controller (since they must be unique).
 /obj/machinery/dummy_airlock_controller
 	name               = "remote airlock control terminal"
-	desc               = "A secondary airlock control terminal meant to be subordinated to a master airlock control terminal to allow remotely controlling the later from the former."
+	desc               = "A secondary airlock control terminal meant to be subordinated to a master airlock control terminal to allow remotely controlling the latter from the former."
 	icon               = 'icons/obj/airlock_machines.dmi'
 	icon_state         = "airlock_control_off"
 	layer              = ABOVE_OBJ_LAYER
 	obj_flags          = OBJ_FLAG_MOVES_UNSUPPORTED
-	unacidable         = TRUE
 	base_type          = /obj/machinery/dummy_airlock_controller
 	construct_state    = /decl/machine_construction/wall_frame/panel_closed
 	frame_type         = /obj/item/frame/button/airlock_controller
-	directional_offset = "{'NORTH':{'y':-22}, 'SOUTH':{'y':24}, 'EAST':{'x':-22}, 'WEST':{'x':22}}"
+	directional_offset = @'{"NORTH":{"y":-22}, "SOUTH":{"y":24}, "EAST":{"x":-22}, "WEST":{"x":22}}'
 	power_channel      = ENVIRON //Same as airlock controller
 	required_interaction_dexterity = DEXTERITY_TOUCHSCREENS
 	///Topic state used to interact remotely with the master controller's UI
@@ -114,12 +113,12 @@
 	if(!istype(terminal))
 		return
 	. = list()
-	. += "ID tag: <a href='?src=\ref[src];input_tag=1'>[terminal.id_tag]</a><br>"
+	. += "ID tag: <a href='byond://?src=\ref[src];input_tag=1'>[terminal.id_tag]</a><br>"
 	. += "Nearby controllers:<br>"
 
 	var/list/controllers
 	for(var/obj/machinery/embedded_controller/radio/C in range(12, terminal))
-		LAZYADD(controllers, "<tr> <td>[C]</td><td><a href='?src=\ref[src];set_tag=\"[C.id_tag]\"'>[C.id_tag]</a></td> </tr>")
+		LAZYADD(controllers, "<tr> <td>[C]</td><td><a href='byond://?src=\ref[src];set_tag=\"[C.id_tag]\"'>[C.id_tag]</a></td> </tr>")
 
 	if(!LAZYLEN(controllers))
 		. += "None."
@@ -133,12 +132,12 @@
 	if(href_list["input_tag"])
 		var/new_tag = input(user, "Enter the tag of the controller to connect to.", "Tag Selection", terminal.id_tag) as text|null
 		if(extension_status(user) != STATUS_INTERACTIVE)
-			return MT_NOACTION
+			return TOPIC_NOACTION
 		new_tag = sanitize_name(new_tag, MAX_MESSAGE_LEN, TRUE, FALSE)
 		if(new_tag)
 			terminal.id_tag = new_tag
 			terminal.setup_target_controller()
-			return MT_REFRESH
+			return TOPIC_REFRESH
 
 	if(istext(href_list["set_tag"]))
 		var/new_tag = href_list["set_tag"]
@@ -146,6 +145,6 @@
 		if(new_tag)
 			terminal.id_tag = new_tag
 			terminal.setup_target_controller()
-			return MT_REFRESH
+			return TOPIC_REFRESH
 
 	return ..()

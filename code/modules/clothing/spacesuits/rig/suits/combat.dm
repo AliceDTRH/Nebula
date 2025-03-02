@@ -31,10 +31,10 @@
 		/obj/item/multitool,
 		/obj/item/radio,
 		/obj/item/scanner/gas,
-		/obj/item/storage/briefcase/inflatable,
+		/obj/item/briefcase/inflatable,
 		/obj/item/baton,
 		/obj/item/gun,
-		/obj/item/storage/firstaid,
+		/obj/item/firstaid,
 		/obj/item/chems/hypospray,
 		/obj/item/chems/inhaler,
 		/obj/item/roller,
@@ -47,7 +47,6 @@
 	gloves = /obj/item/clothing/gloves/rig/combat
 
 /obj/item/clothing/head/helmet/space/rig/combat
-	light_overlay = "helmet_light_dual_green"
 	icon = 'icons/clothing/rigs/helmets/helmet_security.dmi'
 /obj/item/clothing/suit/space/rig/combat
 	icon = 'icons/clothing/rigs/chests/chest_security.dmi'
@@ -104,10 +103,10 @@
 		/obj/item/multitool,
 		/obj/item/radio,
 		/obj/item/scanner/gas,
-		/obj/item/storage/briefcase/inflatable,
+		/obj/item/briefcase/inflatable,
 		/obj/item/baton,
 		/obj/item/gun,
-		/obj/item/storage/firstaid,
+		/obj/item/firstaid,
 		/obj/item/chems/hypospray,
 		/obj/item/chems/inhaler,
 		/obj/item/roller,
@@ -120,7 +119,6 @@
 	gloves = /obj/item/clothing/gloves/rig/military
 
 /obj/item/clothing/head/helmet/space/rig/military
-	light_overlay = "helmet_light_dual_green"
 	icon = 'icons/clothing/rigs/helmets/helmet_military.dmi'
 /obj/item/clothing/suit/space/rig/military
 	icon = 'icons/clothing/rigs/chests/chest_military.dmi'

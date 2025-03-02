@@ -41,9 +41,9 @@
 	power_rating *= initial(power_rating)
 	..()
 
-/obj/machinery/atmospherics/binary/oxyregenerator/examine(user)
+/obj/machinery/atmospherics/binary/oxyregenerator/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user,"Its outlet port is to the [dir2text(dir)].")
+	. += "Its outlet port is to the [dir2text(dir)]."
 
 /obj/machinery/atmospherics/binary/oxyregenerator/Process(wait, tick)
 	..()
@@ -68,7 +68,7 @@
 
 	if (phase == "processing")//processing CO2 in tank
 		if (inner_tank.gas[/decl/material/gas/carbon_dioxide])
-			var/co2_intake = clamp(0, inner_tank.gas[/decl/material/gas/carbon_dioxide], power_setting*wait/10)
+			var/co2_intake = clamp(inner_tank.gas[/decl/material/gas/carbon_dioxide], 0, power_setting*wait/10)
 			last_flow_rate = co2_intake
 			inner_tank.adjust_gas(/decl/material/gas/carbon_dioxide, -co2_intake, 1)
 			var/datum/gas_mixture/new_oxygen = new
@@ -136,13 +136,12 @@
 		ui.open()
 		ui.set_auto_update(1)
 
-/obj/machinery/atmospherics/binary/oxyregenerator/Topic(href, href_list)
-	if(..())
-		return 1
+/obj/machinery/atmospherics/binary/oxyregenerator/OnTopic(mob/user, href_list)
+	if((. = ..()))
+		return
 	if(href_list["toggleStatus"])
 		update_use_power(!use_power)
-		update_icon()
-		return 1
+		return TOPIC_REFRESH
 	if(href_list["setPower"]) //setting power to 0 is redundant anyways
-		power_setting = clamp(1, text2num(href_list["setPower"]), 5)
-		return 1
+		power_setting = clamp(text2num(href_list["setPower"]), 1, 5)
+		return TOPIC_REFRESH

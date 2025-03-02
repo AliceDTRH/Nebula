@@ -1,20 +1,21 @@
 /obj/item/kit
 	icon_state = "modkit"
 	icon = 'icons/obj/items/modkit.dmi'
-	material = /decl/material/solid/plastic
-	var/new_name = "exosuit"     // What is the variant called?
-	var/new_desc = "An exosuit." // How is the new exosuit described?
-	var/new_icon                 // What base icon will the new exosuit use?
-	var/new_state = "ripley"     // What base icon state with the new exosuit use.
-	var/uses = 1                 // Uses before the kit deletes itself.
+	material = /decl/material/solid/organic/plastic
+	var/new_name = "exosuit"       // What is the variant called?
+	var/new_desc = "An exosuit."   // How is the new exosuit described?
+	var/new_icon                   // What base icon will the new exosuit use?
+	var/new_state                  // What base icon state with the new exosuit use.
+	var/new_blend = BLEND_MULTIPLY // What decal blend mode does this kit use?
+	var/uses = 1                   // Uses before the kit deletes itself.
 	var/custom = FALSE
 
 /obj/item/kit/get_single_monetary_worth()
 	. = max(round(..()), (custom ? 100 : 750) * uses) // Luxury good, value is entirely artificial.
 
-/obj/item/kit/examine(mob/user)
+/obj/item/kit/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It has [uses] use\s left.")
+	. += "It has [uses] use\s left."
 
 /obj/item/kit/inherit_custom_item_data(var/datum/custom_item/citem)
 	custom = TRUE
@@ -36,47 +37,31 @@
 	name = "voidsuit modification kit"
 	desc = "A kit for modifying a voidsuit."
 	uses = 2
-	var/new_light_overlay
 
-/obj/item/kit/suit/inherit_custom_item_data(var/datum/custom_item/citem)
-	. = ..()
-	if(citem.additional_data["light_overlay"])
-		new_light_overlay = citem.additional_data["light_overlay"]
+/obj/item/clothing/head/helmet/space/void/attackby(var/obj/item/used_item, var/mob/user)
 
-/obj/item/clothing/head/helmet/space/void/attackby(var/obj/item/O, var/mob/user)
-
-	if(istype(O,/obj/item/kit/suit))
-		var/obj/item/kit/suit/kit = O
-
+	if(istype(used_item,/obj/item/kit/suit))
+		var/obj/item/kit/suit/kit = used_item
 		to_chat(user, SPAN_NOTICE("You set about modifying \the [src] into \a [kit.new_name] void helmet."))
 		SetName("[kit.new_name] void helmet")
 		desc = kit.new_desc
 		icon = kit.new_icon
-		if(kit.new_light_overlay)
-			light_overlay = kit.new_light_overlay
-
-		var/mob/living/carbon/human/H = user
-		if(istype(H))
-			bodytype_equip_flags = H.get_bodytype().bodytype_flag
+		bodytype_equip_flags = user.get_bodytype()?.bodytype_flag
 		kit.use(1,user)
 		reconsider_single_icon()
 		return TRUE
 
 	return ..()
 
-/obj/item/clothing/suit/space/void/attackby(var/obj/item/O, var/mob/user)
+/obj/item/clothing/suit/space/void/attackby(var/obj/item/used_item, var/mob/user)
 
-	if(istype(O, /obj/item/kit/suit))
-		var/obj/item/kit/suit/kit = O
-
+	if(istype(used_item, /obj/item/kit/suit))
+		var/obj/item/kit/suit/kit = used_item
 		to_chat(user, SPAN_NOTICE("You set about modifying \the [src] into \a [kit.new_name] voidsuit."))
 		SetName("[kit.new_name] voidsuit")
 		desc = kit.new_desc
 		icon = kit.new_icon
-
-		var/mob/living/carbon/human/H = user
-		if(istype(H))
-			bodytype_equip_flags = H.get_bodytype().bodytype_flag
+		bodytype_equip_flags = user.get_bodytype()?.bodytype_flag
 		kit.use(1,user)
 		reconsider_single_icon()
 		return TRUE
@@ -86,27 +71,30 @@
 // Mechs are handled in their attackby (mech_interaction.dm).
 /obj/item/kit/paint
 	name = "exosuit decal kit"
-	desc = "A kit containing all the needed tools and parts to repaint a exosuit."
+	desc = "A kit containing all the needed tools and parts to repaint an exosuit."
+	abstract_type = /obj/item/kit/paint
 
-/obj/item/kit/paint/examine(mob/user)
+/obj/item/kit/paint/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "This kit will add a '[new_name]' decal to a exosuit'.")
+	. += "This kit will add a '[new_name]' decal to an exosuit'."
 
 // exosuit kits.
 /obj/item/kit/paint/flames_red
 	name = "\"Firestarter\" exosuit customisation kit"
-	new_icon = "flames_red"
+	new_state = "flames_red"
+	new_blend = BLEND_OVERLAY
 
 /obj/item/kit/paint/flames_blue
 	name = "\"Burning Chrome\" exosuit customisation kit"
-	new_icon = "flames_blue"
+	new_state = "flames_blue"
+	new_blend = BLEND_OVERLAY
 
 /obj/item/kit/paint/camouflage
 	name = "\"Guerilla\" exosuit customisation kit"
 	desc = "An old military pattern for jungle warfare, now available for general use."
-	new_icon = "cammo1"
+	new_state = "cammo1"
 
 /obj/item/kit/paint/camouflage/forest
 	name = "\"Alpine\" exosuit customisation kit"
-	new_icon = "cammo2"
+	new_state = "cammo2"
 	desc = "A muted pattern for alpine environments. Don't miss the forest for the trees!"

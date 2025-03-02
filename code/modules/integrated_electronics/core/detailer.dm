@@ -9,7 +9,7 @@
 	matter = list(
 		/decl/material/solid/metal/steel = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_TRACE,
-		/decl/material/solid/plastic = MATTER_AMOUNT_TRACE
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_TRACE
 	)
 	var/scanning_color = FALSE
 	var/detail_color = COLOR_ASSEMBLY_WHITE
@@ -39,7 +39,7 @@
 
 /obj/item/integrated_electronics/detailer/on_update_icon()
 	. = ..()
-	add_overlay('icons/obj/assemblies/electronic_tools.dmi', "detailer-color", detail_color)
+	add_overlay(overlay_image('icons/obj/assemblies/electronic_tools.dmi', "detailer-color", detail_color))
 
 /obj/item/integrated_electronics/detailer/attack_self(mob/user)
 	var/color_choice = input(user, "Select color.", "Assembly Detailer") as null|anything in color_list

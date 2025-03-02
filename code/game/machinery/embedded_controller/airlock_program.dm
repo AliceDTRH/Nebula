@@ -9,7 +9,7 @@
 #define TARGET_INOPEN		-1
 #define TARGET_OUTOPEN		-2
 
-#define SENSOR_TOLERANCE 1
+#define SENSOR_TOLERANCE 0.5
 
 /datum/computer/file/embedded_program/airlock
 	var/tag_exterior_door
@@ -145,7 +145,7 @@
 
 /datum/computer/file/embedded_program/airlock/receive_user_command(command)
 	var/shutdown_pump = 0
-	. = TRUE
+	. = TOPIC_REFRESH
 	switch(command)
 		if("cycle_ext")
 			//If airlock is already cycled in this direction, just toggle the doors.
@@ -188,7 +188,7 @@
 			toggleDoor(memory["interior_status"], tag_interior_door, !memory["secure"])
 			memory["secure"] = !memory["secure"]
 		else
-			. = FALSE
+			. = TOPIC_NOACTION
 
 	if(shutdown_pump)
 		signalPump(tag_airpump, 0)		//send a signal to stop pressurizing
@@ -234,7 +234,7 @@
 						signalPump(tag_airpump, 1, 0, target_pressure)	//send a signal to start depressurizing
 					else
 						signalPump(tag_pump_out_internal, 1, 0, target_pressure) // if going inside, pump external air out of the airlock
-						signalPump(tag_pump_out_external, 1, 1, 1000) // make sure the air is actually going outside
+						signalPump(tag_pump_out_external, 1, 1, MAX_PUMP_PRESSURE) // make sure the air is actually going outside
 
 				else if(chamber_pressure <= target_pressure)
 					state = STATE_PRESSURIZE
@@ -403,7 +403,7 @@ toggleDoor()
 
 Sends a radio command to a door to either open or close. If
 the command is 'toggle' the door will be sent a command that
-reverses it's current state.
+reverses its current state.
 Can also toggle whether the door bolts are locked or not,
 depending on the state of the 'secure' flag.
 Only sends a command if it is needed, i.e. if the door is
@@ -416,6 +416,8 @@ send an additional command to open the door again.
 	if(command == "toggle")
 		command = doorStatus["state"] == "open" ? "close" : "open"
 
+	// the close command is 'close' but the closed state is 'closed'
+	// so we have to check if we aren't the open state, because the command and status strings match for it
 	var/toggle = command && ((doorStatus["state"] == "open") ^ (command == "open"))
 	var/locked = (doorStatus["lock"] == "locked")
 	if(toggle)

@@ -2,13 +2,13 @@
 	icon = 'icons/atmos/connector.dmi'
 	icon_state = "map_connector"
 
-	name = "Connector Port"
-	desc = "For connecting portable devices related to atmospherics control."
+	name = "connector port"
+	desc = "A connector port with a flexible tube that can be attached to portable atmospherics devices using a wrench."
 
 	dir = SOUTH
 	initialize_directions = SOUTH
 
-	var/obj/machinery/portable_atmospherics/connected_device
+	var/atom/movable/connected_device
 	var/on = 0
 	use_power = POWER_USE_OFF
 	interact_offline = TRUE
@@ -17,7 +17,7 @@
 	frame_type = /obj/item/pipe
 	construct_state = /decl/machine_construction/pipe
 
-	level = 1
+	level = LEVEL_BELOW_PLATING
 
 	connect_types = CONNECT_TYPE_REGULAR|CONNECT_TYPE_FUEL
 	build_icon_state = "connector"
@@ -43,7 +43,8 @@
 
 /obj/machinery/atmospherics/portables_connector/Destroy()
 	if(connected_device)
-		connected_device.disconnect()
+		var/datum/extension/atmospherics_connection/connection = get_extension(connected_device, /datum/extension/atmospherics_connection)
+		connection?.disconnect()
 	. = ..()
 
 /obj/machinery/atmospherics/portables_connector/return_network(obj/machinery/atmospherics/reference)
@@ -54,7 +55,9 @@
 
 /obj/machinery/atmospherics/portables_connector/return_network_air(datum/pipe_network/reference)
 	if(connected_device)
-		return list(connected_device.air_contents)
+		var/datum/extension/atmospherics_connection/connection = get_extension(connected_device, /datum/extension/atmospherics_connection)
+		if(connection)
+			return list(connection.merged_mixture)
 
 /obj/machinery/atmospherics/portables_connector/deconstruction_pressure_check()
 	var/datum/gas_mixture/int_air = return_air()
@@ -66,7 +69,7 @@
 /obj/machinery/atmospherics/portables_connector/cannot_transition_to(state_path, mob/user)
 	if(state_path == /decl/machine_construction/default/deconstructed)
 		if (connected_device)
-			return SPAN_WARNING("You cannot unwrench \the [src], dettach \the [connected_device] first.")
+			return SPAN_WARNING("You cannot unwrench \the [src], detach \the [connected_device] first.")
 		if (locate(/obj/machinery/portable_atmospherics, src.loc))
 			return MCS_BLOCK
 	return ..()

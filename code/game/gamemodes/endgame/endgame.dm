@@ -1,3 +1,4 @@
+var/global/universe_has_ended = 0
 /**********************
  * ENDGAME STUFF
  **********************/
@@ -26,18 +27,7 @@
 
 // Actually decay the turf.
 /datum/universal_state/proc/DecayTurf(var/turf/T)
-	if(istype(T,/turf/simulated/wall))
-		var/turf/simulated/wall/W=T
-		W.melt()
-		return
-	if(istype(T,/turf/simulated/floor))
-		var/turf/simulated/floor/F=T
-		// Burnt?
-		if(!F.burnt)
-			F.burn_tile()
-		else
-			F.ReplaceWithLattice()
-		return
+	T.handle_universal_decay()
 
 // Return 0 to cause shuttle call to fail.
 /datum/universal_state/proc/OnShuttleCall(var/mob/user)

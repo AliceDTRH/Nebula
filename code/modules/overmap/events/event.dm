@@ -13,7 +13,7 @@
 		return
 
 	// Acquire the list of not-yet utilized overmap turfs on this Z-level
-	var/list/candidate_turfs = block(locate(OVERMAP_EDGE, OVERMAP_EDGE, overmap.assigned_z),locate(overmap.map_size_x - OVERMAP_EDGE, overmap.map_size_y - OVERMAP_EDGE, overmap.assigned_z))
+	var/list/candidate_turfs = block(OVERMAP_EDGE, OVERMAP_EDGE, overmap.assigned_z, overmap.map_size_x - OVERMAP_EDGE, overmap.map_size_y - OVERMAP_EDGE, overmap.assigned_z)
 	candidate_turfs = where(candidate_turfs, /proc/can_not_locate, /obj/effect/overmap)
 
 	for(var/i = 1 to overmap.event_areas)
@@ -126,13 +126,13 @@
 
 	if(!active_hazards.len)
 		hazard_by_turf -= T
-		events_repository.unregister(/decl/observ/entered, T, src, .proc/on_turf_entered)
-		events_repository.unregister(/decl/observ/exited,  T, src, .proc/on_turf_exited)
+		events_repository.unregister(/decl/observ/entered, T, src, PROC_REF(on_turf_entered))
+		events_repository.unregister(/decl/observ/exited,  T, src, PROC_REF(on_turf_exited))
 	else
 		hazard_by_turf |= T
 		hazard_by_turf[T] = active_hazards
-		events_repository.register(/decl/observ/entered, T, src, .proc/on_turf_entered)
-		events_repository.register(/decl/observ/exited,  T, src, .proc/on_turf_exited)
+		events_repository.register(/decl/observ/entered, T, src, PROC_REF(on_turf_entered))
+		events_repository.register(/decl/observ/exited,  T, src, PROC_REF(on_turf_exited))
 
 	for(var/obj/effect/overmap/visitable/ship/ship in T)
 		for(var/datum/event/E in ship_events[ship])
@@ -146,7 +146,7 @@
 
 /decl/overmap_event_handler/proc/is_event_in_turf(var/datum/event/E, var/turf/T)
 	for(var/obj/effect/overmap/event/hazard in hazard_by_turf[T])
-		if(E in hazard.events && E.severity == hazard.difficulty)
+		if((E in hazard.events) && E.severity == hazard.difficulty)
 			return TRUE
 
 /decl/overmap_event_handler/proc/is_event_included(var/list/hazards, var/obj/effect/overmap/event/E, var/equal_or_better)//this proc is only used so it can break out of 2 loops cleanly

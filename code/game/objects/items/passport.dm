@@ -2,26 +2,29 @@
 	name = "identification papers"
 	icon = 'icons/obj/items/passport.dmi'
 	icon_state = "passport"
-	force = 1
+	_base_attack_force = 1
 	gender = PLURAL
 	w_class = ITEM_SIZE_SMALL
 	attack_verb = list("whipped")
 	hitsound = 'sound/weapons/towelwhip.ogg'
 	desc = "A set of identifying documents."
-	material = /decl/material/solid/cardboard
-	matter = list(/decl/material/solid/leather = MATTER_AMOUNT_REINFORCEMENT)
+	material = /decl/material/solid/organic/paper
+	matter = list(
+		/decl/material/solid/organic/leather   = MATTER_AMOUNT_REINFORCEMENT,
+		/decl/material/solid/organic/cardboard = MATTER_AMOUNT_REINFORCEMENT
+	)
 	var/info
 
-/obj/item/passport/proc/set_info(mob/living/carbon/human/H)
+/obj/item/passport/proc/set_info(mob/living/human/H)
 	if(!istype(H))
 		return
 
-	var/decl/cultural_info/culture = H.get_cultural_value(TAG_HOMEWORLD)
-	var/pob = culture ? culture.name : "Unset"
+	var/decl/background_detail/background = H.get_background_datum_by_flag(BACKGROUND_FLAG_CITIZENSHIP)
+	var/pob = background ? background.name : "Unset"
 
 	var/fingerprint = H.get_full_print(ignore_blockers = TRUE) || "N/A"
-	var/decl/pronouns/G = H.get_pronouns(ignore_coverings = TRUE)
-	info = "\icon[src] [src]:\nName: [H.real_name]\nSpecies: [H.get_species_name()]\nGender: [capitalize(G.name)]\nAge: [H.get_age()]\nPlace of Birth: [pob]\nFingerprint: [fingerprint]"
+	var/decl/pronouns/pronouns = H.get_pronouns(ignore_coverings = TRUE)
+	info = "\icon[src] [src]:\nName: [H.real_name]\nSpecies: [H.get_species_name()]\nGender: [capitalize(pronouns.name)]\nAge: [H.get_age()]\nPlace of Birth: [pob]\nFingerprint: [fingerprint]"
 
 /obj/item/passport/attack_self(mob/user)
 	user.visible_message(

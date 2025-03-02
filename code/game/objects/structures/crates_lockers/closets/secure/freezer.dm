@@ -6,6 +6,7 @@
 	return list(
 		/obj/item/chems/condiment/large/salt = 1,
 		/obj/item/chems/condiment/flour = 7,
+		/obj/item/chems/condiment/yeast = 1,
 		/obj/item/chems/condiment/sugar = 2
 	)
 
@@ -19,8 +20,8 @@
 
 /obj/structure/closet/secure_closet/freezer/meat/WillContain()
 	return list(
-		/obj/item/chems/food/meat/beef = 8,
-		/obj/item/chems/food/fish = 4
+		/obj/item/food/butchery/meat/beef = 8,
+		/obj/item/food/butchery/meat/fish = 4
 	)
 
 /obj/structure/closet/secure_closet/freezer/fridge
@@ -32,7 +33,9 @@
 	return list(
 		/obj/item/chems/drinks/milk = 6,
 		/obj/item/chems/drinks/soymilk = 4,
-		/obj/item/storage/fancy/egg_box = 4
+		/obj/item/food/dairy/butter/stick = 2,
+		/obj/item/food/dairy/butter/stick/margarine = 2,
+		/obj/item/box/fancy/egg_box = 4
 	)
 
 /obj/structure/closet/secure_closet/freezer/money
@@ -47,7 +50,7 @@
 	var/created_size = 0
 	for(var/i = 1 to 200) //sanity loop limit
 		var/obj/item/cash_type = pick(3; /obj/item/cash/c1000, 4; /obj/item/cash/c500, 5; /obj/item/cash/c200)
-		var/bundle_size = initial(cash_type.w_class) / 2
+		var/bundle_size = initial(cash_type.w_class)
 		if(created_size + bundle_size <= storage_capacity)
 			created_size += bundle_size
 			. += cash_type

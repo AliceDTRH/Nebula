@@ -3,7 +3,7 @@
 	name = "improvised armour"
 	desc = "An improvised set of armour."
 	material_alteration = MAT_FLAG_ALTERATION_COLOR | MAT_FLAG_ALTERATION_NAME
-	icon = 'icons/clothing/suit/armor/improvised.dmi'
+	icon = 'icons/clothing/suits/armor/improvised.dmi'
 	material = /decl/material/solid/metal/steel
 	armor_degradation_speed = 1
 	armor_type = /datum/extension/armor/ablative
@@ -24,14 +24,14 @@
 		desc = initial(desc)
 
 /obj/item/clothing/suit/armor/crafted/cardboard
-	material = /decl/material/solid/cardboard
+	material = /decl/material/solid/organic/cardboard
 /obj/item/clothing/suit/armor/crafted/leather
-	material = /decl/material/solid/leather
+	material = /decl/material/solid/organic/leather
 /obj/item/clothing/suit/armor/crafted/copper
 	material = /decl/material/solid/metal/copper
 /obj/item/clothing/suit/armor/crafted/diamond
 	material = /decl/material/solid/gemstone/diamond
 /obj/item/clothing/suit/armor/crafted/gold
 	material = /decl/material/solid/metal/gold
-/obj/item/clothing/suit/armor/crafted/supermatter
+/obj/item/clothing/suit/armor/crafted/exotic_matter
 	material = /decl/material/solid/exotic_matter

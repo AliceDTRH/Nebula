@@ -82,11 +82,11 @@
 
 // attach a wire to a power machine - leads from the turf you are standing on
 //almost never called, overwritten by all power machines but terminal and generator
-/obj/machinery/power/attackby(obj/item/W, mob/user)
+/obj/machinery/power/attackby(obj/item/used_item, mob/user)
 	if((. = ..()))
 		return
-	if(IS_COIL(W))
-		var/obj/item/stack/cable_coil/coil = W
+	if(IS_COIL(used_item))
+		var/obj/item/stack/cable_coil/coil = used_item
 		var/turf/T = user.loc
 		if(!istype(T) || T.density || T.cannot_build_cable())
 			return
@@ -127,32 +127,25 @@
 	return .
 
 //remove the old powernet and replace it with a new one throughout the network.
-/proc/propagate_network(var/obj/O, var/datum/powernet/PN)
+/proc/propagate_network(var/obj/structure/cable/cable, var/datum/powernet/PN)
 	//to_world_log("propagating new network")
-	var/list/worklist = list()
+	var/list/cables = list()
 	var/list/found_machines = list()
 	var/index = 1
-	var/obj/P = null
+	var/obj/structure/cable/working_cable = null
 
-	worklist+=O //start propagating from the passed object
-
-	while(index<=worklist.len) //until we've exhausted all power objects
-		P = worklist[index] //get the next power object found
+	// add the first cable to the list
+	cables[cable] = TRUE // associative list for speedy deduplication
+	while(index <= length(cables)) //until we've exhausted all power objects
+		working_cable = cables[index] //get the next power object found
 		index++
 
-		if( istype(P,/obj/structure/cable))
-			var/obj/structure/cable/C = P
-			if(C.powernet != PN) //add it to the powernet, if it isn't already there
-				PN.add_cable(C)
-			worklist |= C.get_connections() //get adjacents power objects, with or without a powernet
+		for(var/new_cable in working_cable.get_cable_connections()) //get adjacent cables, with or without a powernet
+			cables[new_cable] = TRUE
 
-		else if(P.anchored && istype(P,/obj/machinery/power))
-			var/obj/machinery/power/M = P
-			found_machines |= M //we wait until the powernet is fully propagates to connect the machines
-
-		else
-			continue
-
+	for(var/obj/structure/cable/cable_entry in cables)
+		PN.add_cable(cable_entry)
+		found_machines += cable_entry.get_machine_connections()
 	//now that the powernet is set, connect found machines to it
 	for(var/obj/machinery/power/PM in found_machines)
 		if(!PM.connect_to_network()) //couldn't find a node on its turf...
@@ -186,11 +179,14 @@
 	return net1
 
 //Determines how strong could be shock, deals damage to mob, uses power.
-//M is a mob who touched wire/whatever
+//victim is a mob who touched wire/whatever
 //power_source is a source of electricity, can be powercell, area, apc, cable, powernet or null
 //source is an object caused electrocuting (airlock, grille, etc)
 //No animations will be performed by this proc.
-/proc/electrocute_mob(mob/living/carbon/M, var/power_source, var/obj/source, var/siemens_coeff = 1.0)
+/proc/electrocute_mob(mob/living/victim, power_source, obj/source, siemens_coeff = 1.0, coverage_flags = SLOT_HANDS)
+
+	coverage_flags = victim?.get_active_hand_bodypart_flags() || coverage_flags
+
 	var/area/source_area
 	if(istype(power_source,/area))
 		source_area = power_source
@@ -215,19 +211,16 @@
 	else if (!power_source)
 		return 0
 	else
-		log_admin("ERROR: /proc/electrocute_mob([M], [power_source], [source]): wrong power_source")
+		log_admin("ERROR: /proc/electrocute_mob([victim], [power_source], [source]): wrong power_source")
 		return 0
+
 	//Triggers powernet warning, but only for 5 ticks (if applicable)
 	//If following checks determine user is protected we won't alarm for long.
 	if(PN)
 		PN.trigger_warning(5)
-	if(istype(M,/mob/living/carbon/human))
-		var/mob/living/carbon/human/H = M
-		if(H.species.siemens_coefficient <= 0)
-			return
-		var/obj/item/clothing/gloves/G = H.get_equipped_item(slot_gloves_str)
-		if(istype(G) && G.siemens_coefficient == 0)
-			return 0 //to avoid spamming with insulated glvoes on
+
+	if(victim.get_siemens_coefficient_for_coverage(coverage_flags) <= 0)
+		return
 
 	//Checks again. If we are still here subject will be shocked, trigger standard 20 tick warning
 	//Since this one is longer it will override the original one.
@@ -249,7 +242,7 @@
 	else
 		power_source = cell
 		shock_damage = cell_damage
-	var/drained_hp = M.electrocute_act(shock_damage, source, siemens_coeff) //zzzzzzap!
+	var/drained_hp = victim.electrocute_act(shock_damage, source, siemens_coeff) //zzzzzzap!
 	var/drained_energy = drained_hp*20
 
 	if (source_area)

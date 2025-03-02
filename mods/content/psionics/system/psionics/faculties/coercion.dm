@@ -1,7 +1,7 @@
 /decl/psionic_faculty/coercion
 	id = PSI_COERCION
 	name = "Coercion"
-	associated_intent = I_DISARM
+	associated_intent_flag = I_FLAG_DISARM
 	armour_types = list(PSIONIC)
 
 /decl/psionic_power/coercion
@@ -32,20 +32,19 @@
 		return FALSE
 	. = ..()
 	if(.)
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
 		user.visible_message(SPAN_DANGER("\The [user] suddenly throws back their head, as though screaming silently!"))
 		to_chat(user, SPAN_DANGER("You strike at all around you with a deafening psionic scream!"))
-		for(var/mob/living/M in orange(user, user.psi.get_rank(PSI_COERCION)))
+		for(var/mob/living/M in orange(user, psi?.get_rank(PSI_COERCION)))
 			if(M == user)
 				continue
 			var/blocked = 100 * M.get_blocked_ratio(null, PSIONIC)
 			if(prob(blocked))
 				to_chat(M, SPAN_DANGER("A psionic onslaught strikes your mind, but you withstand it!"))
 				continue
-			if(prob(60) && iscarbon(M))
-				var/mob/living/carbon/C = M
-				if(C.can_feel_pain())
-					M.emote("scream")
-			to_chat(M, SPAN_DANGER("Your senses are blasted into oblivion by a psionic scream!"))
+			if(prob(60) && M.can_feel_pain())
+				to_chat(M, SPAN_DANGER("Your senses are blasted into oblivion by a psionic scream!"))
+				M.emote(/decl/emote/audible/scream)
 			M.flash_eyes()
 			SET_STATUS_MAX(M, STAT_BLIND,   3)
 			SET_STATUS_MAX(M, STAT_DEAF,    6)
@@ -118,7 +117,7 @@
 	min_rank =       PSI_RANK_MASTER
 	use_description = "Target the arms or hands on disarm intent to use a ranged attack that may rip the weapons away from the target."
 
-/decl/psionic_power/coercion/spasm/invoke(var/mob/living/user, var/mob/living/carbon/human/target)
+/decl/psionic_power/coercion/spasm/invoke(var/mob/living/user, var/mob/living/human/target)
 	if(!istype(target))
 		return FALSE
 
@@ -131,7 +130,7 @@
 		to_chat(user, "<span class='danger'>You lash out, stabbing into \the [target] with a lance of psi-power.</span>")
 		to_chat(target, "<span class='danger'>The muscles in your arms cramp horrendously!</span>")
 		if(prob(75))
-			target.emote("scream")
+			target.emote(/decl/emote/audible/scream)
 		for(var/hand_slot in target.get_held_item_slots())
 			var/obj/item/thing = target.get_equipped_item(hand_slot)
 			if(thing?.simulated && prob(75) && target.try_unequip(thing))
@@ -180,14 +179,14 @@
 			return TRUE
 
 		if(accepted_glamour == "Yes")
-			to_chat(user,   SPAN_DANGER("You layer a glamour across the \the [target]'s senses, beguiling them to unwittingly follow your commands."))
+			to_chat(user,   SPAN_DANGER("You layer a glamour across \the [target]'s senses, beguiling them to unwittingly follow your commands."))
 			to_chat(target, SPAN_DANGER("You have been ensnared by \the [user]'s glamour!"))
 			beguiled.add_antagonist(target.mind, new_controller = user)
 		else
 			to_chat(user,   SPAN_WARNING("\The [target] resists your glamour, writhing in your grip. You hurriedly release them before too much damage is done, but the psyche is left tattered. They should have no memory of this encounter, at least."))
 			to_chat(target, SPAN_DANGER("You resist \the [user], struggling free of their influence at the cost of your own mind!"))
 			to_chat(target, SPAN_DANGER("You fall into darkness, losing all memory of the encounter..."))
-			target.adjustBrainLoss(rand(25,40))
+			target.take_damage(rand(25,40), BRAIN)
 			SET_STATUS_MAX(target, STAT_PARA, 10 SECONDS)
 
 		return TRUE
@@ -209,7 +208,8 @@
 		to_chat(user, SPAN_NOTICE("You insinuate your mentality into that of \the [target]..."))
 		to_chat(target, SPAN_WARNING("Your persona is being probed by the psychic lens of \the [user]."))
 		if(!do_after(user, (target.stat == CONSCIOUS ? 50 : 25), target, 0, 1))
-			user.psi.backblast(rand(5,10))
+			var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
+			psi?.backblast(rand(5,10))
 			return TRUE
 		to_chat(user, SPAN_NOTICE("You retreat from \the [target], holding your new knowledge close."))
 		to_chat(target, SPAN_DANGER("Your mental complexus is laid bare to judgement of \the [user]."))
@@ -229,20 +229,21 @@
 		return FALSE
 	. = ..()
 	if(.)
+		var/datum/ability_handler/psionics/psi = user?.get_ability_handler(/datum/ability_handler/psionics)
 		user.visible_message(SPAN_WARNING("\The [user] holds the head of \the [target] in both hands..."))
-		to_chat(user, SPAN_NOTICE("You probe \the [target]'s mind for various ailments.."))
+		to_chat(user, SPAN_NOTICE("You probe \the [target]'s mind for various ailments..."))
 		to_chat(target, SPAN_WARNING("Your mind is being cleansed of ailments by \the [user]."))
 		if(!do_after(user, (target.stat == CONSCIOUS ? 50 : 25), target, 0, 1))
-			user.psi.backblast(rand(5,10))
+			psi?.backblast(rand(5,10))
 			return TRUE
 		to_chat(user, SPAN_WARNING("You clear \the [target]'s mind of ailments."))
 		to_chat(target, SPAN_WARNING("Your mind is cleared of ailments."))
 
-		var/coercion_rank = user.psi.get_rank(PSI_COERCION)
+		var/coercion_rank = psi?.get_rank(PSI_COERCION)
 		if(coercion_rank >= PSI_RANK_GRANDMASTER)
 			ADJ_STATUS(target, STAT_PARA, -1)
-		target.set_status(STAT_DROWSY, 0)
-		if(istype(target, /mob/living/carbon))
-			var/mob/living/carbon/M = target
+		target.set_status_condition(STAT_DROWSY, 0)
+		if(isliving(target))
+			var/mob/living/M = target
 			M.adjust_hallucination(-30)
 		return TRUE

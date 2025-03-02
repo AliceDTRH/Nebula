@@ -1,17 +1,10 @@
 /mob/living/bot
 	name = "Bot"
-	health = 20
-	maxHealth = 20
+	max_health = 20
 	icon = 'icons/mob/bot/placeholder.dmi'
 	universal_speak = TRUE
 	density = FALSE
-
-	meat_type = null
-	meat_amount = 0
-	skin_material = null
-	skin_amount = 0
-	bone_material = null
-	bone_amount = 0
+	butchery_data = null
 
 	var/obj/item/card/id/botcard = null
 	var/list/botcard_access = list()
@@ -22,6 +15,7 @@
 	var/light_strength = 3
 	var/busy = 0
 
+	// Dummy object used to hold bot access strings. TODO: just put it on the mob.
 	var/obj/access_scanner = null
 	var/list/req_access = list()
 
@@ -55,66 +49,79 @@
 	access_scanner = new /obj(src)
 	access_scanner.req_access = req_access?.Copy()
 
-/mob/living/bot/Initialize()
-	. = ..()
 	if(on)
 		turn_on() // Update lights and other stuff
 	else
 		turn_off()
 
-/mob/living/bot/Life()
-	..()
-	if(health <= 0)
-		death()
-		return
-	set_status(STAT_WEAK, 0)
-	set_status(STAT_STUN, 0)
-	set_status(STAT_PARA, 0)
+/mob/living/bot/handle_regular_status_updates()
+	. = ..()
+	if(.)
+		set_status_condition(STAT_WEAK, 0)
+		set_status_condition(STAT_STUN, 0)
+		set_status_condition(STAT_PARA, 0)
 
-	if(on && !client && !busy)
-		handleAI()
+/mob/living/bot/get_life_damage_types()
+	var/static/list/life_damage_types = list(
+		BURN,
+		BRUTE
+	)
+	return life_damage_types
 
-/mob/living/bot/updatehealth()
-	if(status_flags & GODMODE)
-		health = maxHealth
-		set_stat(CONSCIOUS)
-	else
-		health = maxHealth - getFireLoss() - getBruteLoss()
+/mob/living/bot/get_dusted_remains()
+	return /obj/effect/decal/cleanable/blood/oil
 
-/mob/living/bot/death()
-	explode()
+/mob/living/bot/gib(do_gibs = TRUE)
+	if(stat != DEAD)
+		death(gibbed = TRUE)
+	if(stat == DEAD)
+		turn_off()
+		visible_message(SPAN_DANGER("\The [src] blows apart!"))
+		spark_at(src, cardinal_only = TRUE)
+	return ..()
 
-/mob/living/bot/attackby(var/obj/item/O, var/mob/user)
-	if(O.GetIdCard())
+/mob/living/bot/death(gibbed)
+	. = ..()
+	if(. && !gibbed)
+		gib()
+
+/mob/living/bot/ssd_check()
+	return FALSE
+
+/mob/living/bot/try_awaken(mob/user)
+	return FALSE
+
+/mob/living/bot/attackby(var/obj/item/used_item, var/mob/user)
+	if(used_item.GetIdCard())
 		if(access_scanner.allowed(user) && !open)
 			locked = !locked
 			to_chat(user, "<span class='notice'>Controls are now [locked ? "locked." : "unlocked."]</span>")
-			Interact(usr)
+			Interact(user)
 		else if(open)
 			to_chat(user, "<span class='warning'>Please close the access panel before locking it.</span>")
 		else
 			to_chat(user, "<span class='warning'>Access denied.</span>")
-		return
-	else if(IS_SCREWDRIVER(O))
+		return TRUE
+	else if(IS_SCREWDRIVER(used_item))
 		if(!locked)
 			open = !open
 			to_chat(user, "<span class='notice'>Maintenance panel is now [open ? "opened" : "closed"].</span>")
-			Interact(usr)
+			Interact(user)
 		else
 			to_chat(user, "<span class='notice'>You need to unlock the controls first.</span>")
-		return
-	else if(IS_WELDER(O))
-		if(health < maxHealth)
+		return TRUE
+	else if(IS_WELDER(used_item))
+		if(current_health < get_max_health())
 			if(open)
-				health = min(maxHealth, health + 10)
+				heal_overall_damage(10)
 				user.visible_message("<span class='notice'>\The [user] repairs \the [src].</span>","<span class='notice'>You repair \the [src].</span>")
 			else
 				to_chat(user, "<span class='notice'>Unable to repair with the maintenance panel closed.</span>")
 		else
 			to_chat(user, "<span class='notice'>\The [src] does not need a repair.</span>")
-		return
+		return TRUE
 	else
-		..()
+		return ..()
 
 /mob/living/bot/attack_ai(var/mob/living/user)
 	Interact(user)
@@ -164,7 +171,7 @@
 	return
 
 /mob/living/bot/proc/GetInteractStatus()
-	. = "Status: <A href='?src=\ref[src];command=toggle'>[on ? "On" : "Off"]</A>"
+	. = "Status: <A href='byond://?src=\ref[src];command=toggle'>[on ? "On" : "Off"]</A>"
 	. += "<BR>Behaviour controls are [locked ? "locked" : "unlocked"]"
 	. += "<BR>Maintenance panel is [open ? "opened" : "closed"]"
 
@@ -209,7 +216,12 @@
 /mob/living/bot/emag_act(var/remaining_charges, var/mob/user)
 	return 0
 
-/mob/living/bot/proc/handleAI()
+/mob/living/bot/handle_living_non_stasis_processes()
+	. = ..()
+	if(!key && on && !busy)
+		handle_async_ai()
+
+/mob/living/bot/proc/handle_async_ai()
 	set waitfor = FALSE
 	if(ignore_list.len)
 		for(var/atom/A in ignore_list)
@@ -231,7 +243,7 @@
 		resetTarget()
 		lookForTargets()
 		if(will_patrol && !LAZYLEN(grabbed_by) && !target)
-			if(patrol_path && patrol_path.len)
+			if(length(patrol_path))
 				for(var/i = 1 to patrol_speed)
 					sleep(20 / (patrol_speed + 1))
 					handlePatrol()
@@ -255,7 +267,7 @@
 	if(!target || !target.loc)
 		return
 	if(get_dist(src, target) > min_target_dist)
-		if(!target_path.len || get_turf(target) != target_path[target_path.len])
+		if(!length(target_path) || get_turf(target) != target_path[target_path.len])
 			calcTargetPath()
 		if(makeStep(target_path))
 			frustration = 0
@@ -272,12 +284,12 @@
 /mob/living/bot/proc/lookForTargets()
 	return
 
-/mob/living/bot/proc/confirmTarget(var/atom/A)
-	if(A.invisibility >= INVISIBILITY_LEVEL_ONE)
+/mob/living/bot/proc/confirmTarget(atom/target)
+	if(target.invisibility >= INVISIBILITY_LEVEL_ONE)
 		return 0
-	if(A in ignore_list)
+	if(target in ignore_list)
 		return 0
-	if(!A.loc)
+	if(!target.loc)
 		return 0
 	return 1
 
@@ -286,9 +298,9 @@
 	return
 
 /mob/living/bot/proc/startPatrol()
-	var/turf/T = getPatrolTurf()
-	if(T)
-		patrol_path = AStar(get_turf(loc), T, /turf/proc/CardinalTurfsWithAccess, /turf/proc/Distance, 0, max_patrol_dist, id = botcard, exclude = obstacle)
+	var/turf/target_turf = getPatrolTurf()
+	if(target_turf)
+		patrol_path = SSpathfinding.find_path_immediate(start = get_turf(loc), end = target_turf, max_node_depth = max_patrol_dist, id = botcard, exclude = obstacle, check_tick = TRUE)
 		if(!patrol_path)
 			patrol_path = list()
 		obstacle = null
@@ -320,23 +332,22 @@
 	return
 
 /mob/living/bot/proc/calcTargetPath()
-	target_path = AStar(get_turf(loc), get_turf(target), /turf/proc/CardinalTurfsWithAccess, /turf/proc/Distance, 0, max_target_dist, id = botcard, exclude = obstacle)
-	if(!target_path)
-		if(target && target.loc)
-			ignore_list |= target
-		resetTarget()
-		obstacle = null
-	return
+	target_path = SSpathfinding.find_path_immediate(start = get_turf(loc), end = get_turf(target), max_node_depth = max_target_dist, min_target_dist = min_target_dist, id = botcard, exclude = obstacle, check_tick = TRUE)
+	if(length(target_path))
+		return
+	if(target?.loc)
+		ignore_list |= target
+	resetTarget()
+	obstacle = null
 
 /mob/living/bot/proc/makeStep(var/list/path)
-	if(!path.len)
-		return 0
-	var/turf/T = path[1]
-	if(get_turf(src) == T)
-		path -= T
+	if(!length(path))
+		return FALSE
+	var/turf/target_turf = path[1]
+	if(get_turf(src) == target_turf)
+		path -= target_turf
 		return makeStep(path)
-
-	return step_towards(src, T)
+	return step_towards(src, target_turf)
 
 /mob/living/bot/proc/resetTarget()
 	target = null
@@ -360,77 +371,21 @@
 	set_light(0)
 	update_icon()
 
-/mob/living/bot/proc/explode()
-	qdel(src)
-
-/******************************************************************/
-// Navigation procs
-// Used for A-star pathfinding
-
-
-// Returns the surrounding cardinal turfs with open links
-// Including through doors openable with the ID
-/turf/proc/CardinalTurfsWithAccess(var/obj/item/card/id/ID)
-	var/L[] = new()
-
-	//	for(var/turf/simulated/t in oview(src,1))
-
-	for(var/d in global.cardinal)
-		var/turf/simulated/T = get_step(src, d)
-		if(istype(T) && !T.density)
-			if(!LinkBlockedWithAccess(src, T, ID))
-				L.Add(T)
-	return L
-
-
-// Returns true if a link between A and B is blocked
-// Movement through doors allowed if ID has access
-/proc/LinkBlockedWithAccess(turf/A, turf/B, obj/item/card/id/ID)
-
-	if(A == null || B == null) return 1
-	var/adir = get_dir(A,B)
-	var/rdir = get_dir(B,A)
-	if((adir & (NORTH|SOUTH)) && (adir & (EAST|WEST)))	//	diagonal
-		var/iStep = get_step(A,adir&(NORTH|SOUTH))
-		if(!LinkBlockedWithAccess(A,iStep, ID) && !LinkBlockedWithAccess(iStep,B,ID))
-			return 0
-
-		var/pStep = get_step(A,adir&(EAST|WEST))
-		if(!LinkBlockedWithAccess(A,pStep,ID) && !LinkBlockedWithAccess(pStep,B,ID))
-			return 0
-		return 1
-
-	if(DirBlockedWithAccess(A,adir, ID))
-		return 1
-
-	if(DirBlockedWithAccess(B,rdir, ID))
-		return 1
-
-	for(var/obj/O in B)
-		if(O.density && !istype(O, /obj/machinery/door) && !(O.atom_flags & ATOM_FLAG_CHECKS_BORDER))
-			return 1
-
-	return 0
-
-// Returns true if direction is blocked from loc
-// Checks doors against access with given ID
-/proc/DirBlockedWithAccess(turf/loc,var/dir,var/obj/item/card/id/ID)
-	for(var/obj/structure/window/D in loc)
-		if(!D.density)			continue
-		if(D.dir == SOUTHWEST)	return 1
-		if(D.dir == dir)		return 1
-
-	for(var/obj/machinery/door/D in loc)
-		if(!D.density)			continue
-		if(istype(D, /obj/machinery/door/window))
-			if( dir & D.dir )	return !D.check_access(ID)
-
-			//if((dir & SOUTH) && (D.dir & (EAST|WEST)))		return !D.check_access(ID)
-			//if((dir & EAST ) && (D.dir & (NORTH|SOUTH)))	return !D.check_access(ID)
-		else return !D.check_access(ID)	// it's a real, air blocking door
-	return 0
-
-/mob/living/bot/GetIdCards()
+/mob/living/bot/GetIdCards(list/exceptions)
 	. = ..()
-	if(istype(botcard))
+	if(istype(botcard) && !is_type_in_list(botcard, exceptions))
 		LAZYDISTINCTADD(., botcard)
+
+// We don't want to drop these on gib().
+/mob/living/bot/physically_destroyed(skip_qdel)
+	QDEL_NULL(botcard)
+	QDEL_NULL(access_scanner)
+	return ..()
+
+/mob/living/bot/Destroy()
+	QDEL_NULL(botcard)
+	QDEL_NULL(access_scanner)
+	return ..()
+
+/mob/living/bot/isSynthetic()
+	return TRUE

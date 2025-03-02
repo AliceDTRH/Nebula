@@ -12,12 +12,14 @@
 /obj/structure/artifact/Initialize()
 	. = ..()
 
-	var/effecttype = pick(subtypesof(/datum/artifact_effect))
-	my_effect = new effecttype(src)
+	if(!ispath(my_effect))
+		my_effect = pick(subtypesof(/datum/artifact_effect))
+	my_effect = new my_effect(src)
 
-	if(prob(75))
-		effecttype = pick(subtypesof(/datum/artifact_effect))
-		secondary_effect = new effecttype(src)
+	if(prob(75) && !ispath(secondary_effect))
+		secondary_effect = pick(subtypesof(/datum/artifact_effect))
+	if(ispath(secondary_effect))
+		secondary_effect = new secondary_effect(src)
 		if(prob(75))
 			secondary_effect.ToggleActivate(0)
 
@@ -61,10 +63,10 @@
 	if(!istype(T)) 	// We're inside a container or on null turf, either way stop processing effects
 		return
 
-	for(var/obj/item/grab/G in grabbed_by)
-		if(isliving(G.assailant))
-			check_triggers(/datum/artifact_trigger/proc/on_touch, G.assailant)
-			touched(G.assailant)
+	for(var/obj/item/grab/grab as anything in grabbed_by)
+		if(isliving(grab.assailant))
+			check_triggers(/datum/artifact_trigger/proc/on_touch, grab.assailant)
+			touched(grab.assailant)
 
 	var/datum/gas_mixture/enivonment = T.return_air()
 	if(enivonment?.return_pressure() >= SOUND_MINIMUM_PRESSURE)
@@ -86,10 +88,10 @@
 	check_triggers(/datum/artifact_trigger/proc/on_touch, user)
 	touched(user)
 
-/obj/structure/artifact/attackby(obj/item/W, mob/user)
+/obj/structure/artifact/attackby(obj/item/used_item, mob/user)
 	. = ..()
-	visible_message(SPAN_WARNING("[user] hits \the [src] with \the [W]."))
-	check_triggers(/datum/artifact_trigger/proc/on_hit, W, user)
+	visible_message(SPAN_WARNING("[user] hits \the [src] with \the [used_item]."))
+	check_triggers(/datum/artifact_trigger/proc/on_hit, used_item, user)
 
 /obj/structure/artifact/Bumped(M)
 	..()
@@ -109,7 +111,7 @@
 		physically_destroyed()
 
 /obj/structure/artifact/Move()
-	..()
+	. = ..()
 	if(my_effect)
 		my_effect.UpdateMove()
 	if(secondary_effect)
@@ -136,3 +138,7 @@
 	..()
 	if(!QDELETED(src) && fluids?.total_volume)
 		check_triggers(/datum/artifact_trigger/proc/on_fluid_act, fluids)
+
+// Premade subtypes for mapping or testing.
+/obj/structure/artifact/dnascramble
+	my_effect = /datum/artifact_effect/dnaswitch

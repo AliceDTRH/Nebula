@@ -1,7 +1,6 @@
 /datum/map/example
 	default_job_type = /datum/job/example
 	default_department_type = /decl/department/example
-	id_hud_icons = 'maps/example/hud.dmi'
 
 /datum/job/example
 	title = "Tourist"
@@ -12,10 +11,11 @@
 	economic_power = 1
 	access = list()
 	minimal_access = list()
-	outfit_type = /decl/hierarchy/outfit/job/tourist
+	outfit_type = /decl/outfit/job/tourist
+	hud_icon = 'maps/example/hud.dmi'
 	department_types = list(
 		/decl/department/example
-		)
+	)
 
-/decl/hierarchy/outfit/job/tourist
+/decl/outfit/job/tourist
 	name = "Job - Testing Site Tourist"

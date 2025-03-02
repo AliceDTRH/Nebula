@@ -17,7 +17,7 @@
 	return a.sort_order - b.sort_order
 
 /proc/cmp_name_or_type_asc(atom/a, atom/b)
-	return sorttext(istype(b) || ("name" in b.vars) ? b.name : b.type, istype(a) || ("name" in a.vars) ? a.name : a.type)
+	return sorttext("[b]", "[a]")
 
 /proc/cmp_name_asc(atom/a, atom/b)
 	return sorttext(b.name, a.name)
@@ -57,6 +57,8 @@
 
 /proc/cmp_qdel_item_time(datum/qdel_item/A, datum/qdel_item/B)
 	. = B.hard_delete_time - A.hard_delete_time
+	if (!. && B.qdels && A.qdels) // sort by time per call
+		. = (B.destroy_time / B.qdels) - (A.destroy_time / A.qdels)
 	if (!.)
 		. = B.destroy_time - A.destroy_time
 	if (!.)
@@ -133,3 +135,31 @@
 
 /proc/cmp_gripper_asc(datum/inventory_slot/gripper/a, datum/inventory_slot/gripper/b)
 	return a.hand_sort_priority - b.hand_sort_priority
+
+/proc/cmp_decl_uid_asc(decl/a, decl/b)
+	return sorttext(b.uid, a.uid)
+
+/proc/cmp_decl_sort_value_asc(decl/a, decl/b)
+	return a.sort_order - b.sort_order
+
+/proc/cmp_inventory_slot_desc(datum/inventory_slot/a, datum/inventory_slot/b)
+	return b.quick_equip_priority - a.quick_equip_priority
+
+/proc/cmp_skill_category_asc(decl/skill_category/a, decl/skill_category/b)
+	return a.sort_priority - b.sort_priority
+
+/proc/cmp_skill_asc(decl/skill/a, decl/skill/b)
+	if(length(a.prerequisites))
+		var/decl/skill/prerequisite = GET_DECL(a.prerequisites[1])
+		if(b == prerequisite)
+			return 1 // goes before
+		return cmp_skill_asc(GET_DECL(a.prerequisites[1]), b)
+	if(length(b.prerequisites))
+		var/decl/skill/prerequisite = GET_DECL(b.prerequisites[1])
+		if(a == prerequisite)
+			return -1 // goes after
+		return cmp_skill_asc(a, GET_DECL(b.prerequisites[1]))
+	return cmp_name_or_type_asc(a, b)
+
+/proc/cmp_priority_list(list/A, list/B)
+	return A["priority"] - B["priority"]

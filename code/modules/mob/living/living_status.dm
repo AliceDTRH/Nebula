@@ -1,19 +1,33 @@
-/mob // Defined on /mob to avoid having to pass args to every single attack_foo() proc.
-	var/datum/status_marker_holder/status_markers
+// Defined on /mob to avoid having to pass args to every single attack_foo() proc.
+/mob
+	// A STATUS CONDITION is a counter on an general incapacitating effect like sleep or blindness.
+	// STATUS CONDITION TRACKERS:
 	var/list/status_counters
 	var/list/pending_status_counters
+	var/datum/status_marker_holder/status_markers
 
-/mob/living/set_status(var/condition, var/amount)
+// Status condition procs:
+/mob/living/set_status_condition(var/condition, var/amount)
+	if(QDELETED(src))
+		return FALSE
 	if(!ispath(condition, /decl/status_condition))
 		return FALSE
 	var/decl/status_condition/cond = GET_DECL(condition)
 	if(!cond.check_can_set(src))
 		return FALSE
+
+	var/decl/species/my_species = get_species()
+	if(my_species)
+		amount = my_species.adjust_status(src, condition, amount)
+	var/decl/bodytype/my_bodytype = get_bodytype()
+	if(my_bodytype)
+		amount = my_bodytype.adjust_status(src, condition, amount)
 	amount = clamp(amount, 0, 1000)
+
 	if(amount == PENDING_STATUS(src, condition))
 		return FALSE
 	LAZYSET(pending_status_counters, condition, amount)
-	addtimer(CALLBACK(src, .proc/apply_pending_status_changes), 0, TIMER_UNIQUE)
+	addtimer(CALLBACK(src, PROC_REF(apply_pending_status_changes)), 0, TIMER_UNIQUE)
 	return TRUE
 
 /mob/living/proc/rebuild_status_markers()
@@ -47,7 +61,7 @@
 	var/decl/status_condition/status = GET_DECL(condition)
 	status.handle_changed_amount(src, new_amount, last_amount)
 
-/mob/living/handle_status_effects()
+/mob/living/handle_status_conditions()
 	. = ..()
 	var/refresh_icon = FALSE
 	for(var/condition in status_counters)
@@ -56,13 +70,18 @@
 		if(GET_STATUS(src, condition) <= 0)
 			status_counters -= condition
 			refresh_icon = TRUE
+			if(status.associated_mob_modifier)
+				remove_mob_modifier(status.associated_mob_modifier, source = src)
+		else if(status.associated_mob_modifier)
+			add_mob_modifier(status.associated_mob_modifier, source = src)
+
 	if(refresh_icon)
 		update_icon()
 
-/mob/living/clear_status_effects()
+/mob/living/clear_status_conditions()
 	var/had_counters = !!LAZYLEN(status_counters)
 	for(var/stype in status_counters)
-		set_status(stype, 0)
+		set_status_condition(stype, 0)
 	status_counters = null
 	pending_status_counters = null
 	if(had_counters)

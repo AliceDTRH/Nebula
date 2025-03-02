@@ -32,7 +32,8 @@ var/global/list/all_skill_verbs
 	. = ..()
 
 /datum/skillset/proc/get_value(skill_path)
-	. = skill_list[skill_path] || default_value
+	var/decl/skill/skill = GET_DECL(skill_path)
+	. = skill_list[skill_path] || (isnull(skill.default_value) ? src.default_value : skill.default_value)
 	for(var/datum/skill_buff/SB in skill_buffs)
 		. += SB.buffs[skill_path]
 
@@ -61,7 +62,7 @@ var/global/list/all_skill_verbs
 /datum/skillset/proc/update_special_effects()
 	if(!owner)
 		return
-	for(var/decl/hierarchy/skill/skill in global.skills)
+	for(var/decl/skill/skill in global.using_map.get_available_skills())
 		skill.update_special_effects(owner, get_value(skill.type))
 
 /datum/skillset/proc/obtain_from_client(datum/job/job, client/given_client, override = 0)
@@ -75,7 +76,7 @@ var/global/list/all_skill_verbs
 	var/allocation = given_client.prefs.skills_allocated[job] || list()
 	skill_list = list()
 
-	for(var/decl/hierarchy/skill/S in global.skills)
+	for(var/decl/skill/S in global.using_map.get_available_skills())
 		var/min = job ? given_client.prefs.get_min_skill(job, S) : SKILL_MIN
 		skill_list[S.type] = min + (allocation[S] || 0)
 	on_levels_change()
@@ -118,8 +119,8 @@ var/global/list/all_skill_verbs
 		else
 			return max(0, 1 + (SKILL_DEFAULT - points) * factor)
 
-/mob/proc/do_skilled(base_delay, skill_path , atom/target = null, factor = 0.3, check_holding = FALSE)
-	return do_after(src, base_delay * skill_delay_mult(skill_path, factor), target, check_holding)
+/mob/proc/do_skilled(base_delay, skill_path , atom/target = null, factor = 0.3, check_holding = FALSE, set_cooldown = FALSE)
+	return do_after(src, base_delay * skill_delay_mult(skill_path, factor), target, check_holding, set_cooldown = set_cooldown)
 
 // A generic way of modifying success probabilities via skill values. Higher factor means skills have more effect. fail_chance is the chance at SKILL_NONE.
 /mob/proc/skill_fail_chance(skill_path, fail_chance, no_more_fail = SKILL_MAX, factor = 1)

@@ -4,7 +4,7 @@
 	icon = 'icons/obj/items/borg_module/borg_rnd_analyser.dmi'
 	icon_state = "portable_analyzer"
 	desc = "Similar to the stationary version, this rather unwieldy device allows you to break down objects in the name of science."
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
 	matter = list(
 		/decl/material/solid/metal/copper = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/steel  = MATTER_AMOUNT_REINFORCEMENT,
@@ -68,97 +68,26 @@
 	flick("portable_analyzer_load", src)
 	icon_state = "portable_analyzer_full"
 
-/obj/item/portable_destructive_analyzer/examine(mob/user, distance)
+/obj/item/portable_destructive_analyzer/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
 		if(loaded_item)
-			to_chat(user, "It is holding \the [loaded_item].")
-		to_chat(user, "It has the following data saved:")
+			. += "It is holding \the [loaded_item]."
+		. += "It has the following data saved:"
 		for(var/tech in saved_tech_levels)
-			to_chat(user, "[tech]: [saved_tech_levels[tech]]")
-
-/obj/item/party_light
-	name = "party light"
-	desc = "An array of LEDs in tons of colors."
-	icon = 'icons/obj/lighting.dmi'
-	icon_state = "partylight-off"
-	item_state = "partylight-off"
-	material = /decl/material/solid/plastic
-	matter = list(
-		/decl/material/solid/metal/steel  = MATTER_AMOUNT_SECONDARY,
-		/decl/material/solid/glass        = MATTER_AMOUNT_REINFORCEMENT,
-		/decl/material/solid/metal/copper = MATTER_AMOUNT_TRACE,
-		/decl/material/solid/silicon      = MATTER_AMOUNT_TRACE,
-	)
-	var/activated = 0
-	var/strobe_effect = null
-
-/obj/item/party_light/attack_self()
-	if (activated)
-		deactivate_strobe()
-	else
-		activate_strobe()
-
-/obj/item/party_light/on_update_icon()
-	. = ..()
-	if (activated)
-		icon_state = "partylight-on"
-		set_light(7, 1)
-	else
-		icon_state = "partylight_off"
-		set_light(0)
-
-/obj/item/party_light/proc/activate_strobe()
-	activated = 1
-
-	// Create the party light effect and place it on the turf of who/whatever has it.
-	var/turf/T = get_turf(src)
-	var/obj/effect/party_light/L = new(T)
-	strobe_effect = L
-
-	// Make the light effect follow this party light object.
-	events_repository.register(/decl/observ/moved, src, L, /atom/movable/proc/move_to_turf_or_null)
-
-	update_icon()
-
-/obj/item/party_light/proc/deactivate_strobe()
-	activated = 0
-
-	// Cause the party light effect to stop following this object, and then delete it.
-	events_repository.unregister(/decl/observ/moved, src, strobe_effect, /atom/movable/proc/move_to_turf_or_null)
-	QDEL_NULL(strobe_effect)
-
-	update_icon()
-
-/obj/item/party_light/Destroy()
-	deactivate_strobe()
-	. = .. ()
-
-/obj/effect/party_light
-	name = "party light"
-	desc = "This is probably bad for your eyes."
-	icon = 'icons/effects/lens_flare.dmi'
-	icon_state = "party_strobe"
-	simulated = 0
-	anchored = TRUE
-	pixel_x = -30
-	pixel_y = -4
-
-/obj/effect/party_light/Initialize()
-	update_icon()
-	. = ..()
+			. += "[tech]: [saved_tech_levels[tech]]"
 
 //This is used to unlock other borg covers.
 /obj/item/card/robot //This is not a child of id cards, as to avoid dumb typechecks on computers.
 	name = "access code transmission device"
-	icon_state = "robot_base"
+	icon_state = "emag"
 	desc = "A circuit grafted onto the bottom of an ID card.  It is used to transmit access codes into other robot chassis, \
 	allowing you to lock and unlock other robots' panels."
 
 //A harvest item for serviceborgs.
 /obj/item/robot_harvester
 	name = "auto harvester"
-	desc = "A hand-held harvest tool that resembles a sickle.  It uses energy to cut plant matter very efficently."
+	desc = "A hand-held harvest tool that resembles a sickle.  It uses energy to cut plant matter very efficiently."
 	icon = 'icons/obj/items/borg_module/autoharvester.dmi'
 	icon_state = "autoharvester"
 	max_health = ITEM_HEALTH_NO_DAMAGE
@@ -181,7 +110,7 @@
 // Click on table to unload, click on item to load. Otherwise works identically to a tray.
 // Unlike the base item "tray", robotrays ONLY pick up food, drinks and condiments.
 
-/obj/item/storage/tray/robotray
+/obj/item/plate/tray/robotray
 	name = "RoboTray"
 	desc = "An autoloading tray specialized for carrying refreshments."
 
@@ -193,7 +122,7 @@
 	var/mode = 1
 
 /obj/item/pen/robopen/make_pen_description()
-	desc = "\A [stroke_colour_name] [medium_name] printing attachment with a paper naming mode."
+	desc = "\A [stroke_color_name] [medium_name] printing attachment with a paper naming mode."
 
 /obj/item/pen/robopen/attack_self(mob/user)
 
@@ -245,15 +174,11 @@
 	item_state = "sheet-metal"
 	max_health = ITEM_HEALTH_NO_DAMAGE
 
-/obj/item/form_printer/attack(mob/living/carbon/M, mob/living/carbon/user)
-	return
+/obj/item/form_printer/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
+	return FALSE
 
-/obj/item/form_printer/afterattack(atom/target, mob/living/user, flag, params)
-
-	if(!target || !flag)
-		return
-
-	if(istype(target,/obj/structure/table))
+/obj/item/form_printer/afterattack(atom/target, mob/living/user, proximity, params)
+	if(istype(target) && !istype(target, /obj/screen) && proximity)
 		deploy_paper(get_turf(target))
 
 /obj/item/form_printer/attack_self(mob/user)
@@ -263,12 +188,11 @@
 	T.visible_message(SPAN_NOTICE("\The [src.loc] dispenses a sheet of crisp white paper."))
 	new /obj/item/paper(T)
 
-
 //Personal shielding for the combat module.
 /obj/item/borg/combat/shield
 	name = "personal shielding"
 	desc = "A powerful experimental module that turns aside or absorbs incoming attacks at the cost of charge."
-	icon = 'icons/obj/decals.dmi'
+	icon = 'icons/obj/signs/warnings.dmi'
 	icon_state = "shock"
 	var/shield_level = 0.5 //Percentage of damage absorbed by the shield.
 
@@ -284,7 +208,7 @@
 /obj/item/borg/combat/mobility
 	name = "mobility module"
 	desc = "By retracting limbs and tucking in its head, a combat android can roll at high speeds."
-	icon = 'icons/obj/decals.dmi'
+	icon = 'icons/obj/signs/warnings.dmi'
 	icon_state = "shock"
 
 /obj/item/inflatable_dispenser
@@ -309,14 +233,14 @@
 	max_doors = 5
 	max_health = ITEM_HEALTH_NO_DAMAGE
 
-/obj/item/inflatable_dispenser/examine(mob/user)
+/obj/item/inflatable_dispenser/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It has [stored_walls] wall segment\s and [stored_doors] door segment\s stored.")
-	to_chat(user, "It is set to deploy [mode ? "doors" : "walls"]")
+	. += "It has [stored_walls] wall segment\s and [stored_doors] door segment\s stored."
+	. += "It is set to deploy [mode ? "doors" : "walls"]"
 
-/obj/item/inflatable_dispenser/attack_self()
+/obj/item/inflatable_dispenser/attack_self(mob/user)
 	mode = !mode
-	to_chat(usr, "You set \the [src] to deploy [mode ? "doors" : "walls"].")
+	to_chat(user, "You set \the [src] to deploy [mode ? "doors" : "walls"].")
 
 /obj/item/inflatable_dispenser/afterattack(var/atom/A, var/mob/user)
 	..(A, user)
@@ -372,7 +296,7 @@
 	if(istype(A, /obj/item/inflatable))
 		if(istype(A, /obj/item/inflatable/door))
 			if(stored_doors >= max_doors)
-				to_chat(usr, "\The [src] is full!")
+				to_chat(user, "\The [src] is full!")
 				return
 			stored_doors++
 			qdel(A)
@@ -402,9 +326,9 @@
 	var/capacity = 1                   //How many objects can be held.
 	var/list/obj/item/held = list()    //What is being held.
 
-/obj/item/robot_rack/examine(mob/user)
+/obj/item/robot_rack/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-	to_chat(user, "It can hold up to [capacity] item\s.")
+	. += "It can hold up to [capacity] item\s."
 
 /obj/item/robot_rack/Initialize(mapload, starting_objects = 0)
 	. = ..()
@@ -415,12 +339,12 @@
 	if(!length(held))
 		to_chat(user, "<span class='notice'>The rack is empty.</span>")
 		return
-	var/obj/item/R = held[length(held)]
-	R.dropInto(loc)
-	held -= R
-	R.attack_self(user) // deploy it
-	to_chat(user, "<span class='notice'>You deploy [R].</span>")
-	R.add_fingerprint(user)
+	var/obj/item/rack = held[length(held)]
+	rack.dropInto(loc)
+	held -= rack
+	rack.attack_self(user) // deploy it
+	to_chat(user, "<span class='notice'>You deploy [rack].</span>")
+	rack.add_fingerprint(user)
 
 /obj/item/robot_rack/resolve_attackby(obj/O, mob/user, click_params)
 	if(istype(O, object_type))
@@ -445,8 +369,8 @@
 	var/base_power_generation = 75 KILOWATTS
 	var/max_fuel_items = 5
 	var/list/fuel_types = list(
-		/obj/item/chems/food/meat = 2,
-		/obj/item/chems/food/fish = 1.5
+		/obj/item/food/butchery/meat = 2,
+		/obj/item/food/butchery/meat/fish = 1.5
 	)
 
 /obj/item/bioreactor/attack_self(var/mob/user)
@@ -461,7 +385,7 @@
 	if(!proximity_flag || !istype(target))
 		return
 
-	var/is_fuel = istype(target, /obj/item/chems/food/grown)
+	var/is_fuel = istype(target, /obj/item/food/grown)
 	is_fuel = is_fuel || is_type_in_list(target, fuel_types)
 
 	if(!is_fuel)
@@ -483,8 +407,8 @@
 	. = ..()
 
 /obj/item/bioreactor/Process()
-	var/mob/living/silicon/robot/R = loc
-	if(!istype(R) || !R.cell || R.cell.fully_charged() || !contents.len)
+	var/mob/living/silicon/robot/robot = loc
+	if(!istype(robot) || !robot.cell || robot.cell.fully_charged() || !contents.len)
 		return
 
 	var/generating_power
@@ -492,7 +416,7 @@
 
 	for(var/thing in contents)
 		var/atom/A = thing
-		if(istype(A, /obj/item/chems/food/grown))
+		if(istype(A, /obj/item/food/grown))
 			generating_power = base_power_generation
 			using_item = A
 		else
@@ -511,4 +435,4 @@
 		qdel(using_item)
 
 	if(generating_power)
-		R.cell.give(generating_power * CELLRATE)
+		robot.cell.give(generating_power * CELLRATE)

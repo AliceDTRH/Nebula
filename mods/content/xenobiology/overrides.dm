@@ -1,4 +1,4 @@
-/obj/structure/plasticflaps/Initialize()
+/obj/structure/flaps/Initialize()
 	. = ..()
 	mobs_can_pass |= /mob/living/slime
 
@@ -25,7 +25,7 @@
 /obj/machinery/smartfridge/secure/extract
 	name = "\improper Slime Extract Storage"
 	desc = "A refrigerated storage unit for slime extracts."
-	icon_contents = "slime"
+	overlay_contents_icon = 'mods/content/xenobiology/icons/smartfridge_contents_slime.dmi'
 	initial_access = list(access_research)
 
 /obj/machinery/smartfridge/secure/extract/accept_check(var/obj/item/O)
@@ -38,3 +38,9 @@
 /obj/item/gripper/cultivator/Initialize(ml, material_key)
 	. = ..()
 	can_hold |= /obj/item/slime_extract
+
+/mob/living/human/say_understands(var/mob/other,var/decl/language/speaking = null)
+	. = (!speaking && isslime(other)) || ..()
+
+/mob/living/brain/say_understands(var/mob/other,var/decl/language/speaking = null)
+	. = (!speaking && isslime(other)) || ..()

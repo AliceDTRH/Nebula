@@ -1,15 +1,15 @@
+// TODO: This is literally only available from abandoned mining crates. Remove?
 /obj/item/latexballon
 	name = "latex glove"
 	desc = "A latex glove, usually used as a balloon."
 	icon = 'icons/obj/items/latexballon.dmi'
 	icon_state = "latexballon"
 	item_state = "lgloves"
-	force = 0
-	throwforce = 0
 	w_class = ITEM_SIZE_SMALL
 	throw_speed = 1
 	throw_range = 15
-	material = /decl/material/solid/plastic
+	material = /decl/material/solid/organic/plastic
+	_base_attack_force = 0
 	var/datum/gas_mixture/air_contents = null
 
 /obj/item/latexballon/proc/blow(obj/item/tank/tank)
@@ -41,8 +41,10 @@
 /obj/item/latexballon/fire_act(datum/gas_mixture/air, exposed_temperature, exposed_volume)
 	if(exposed_temperature > T0C+100)
 		burst()
-	return
+	return ..()
 
-/obj/item/latexballon/attackby(obj/item/W, mob/user)
-	if (W.can_puncture())
+/obj/item/latexballon/attackby(obj/item/used_item, mob/user)
+	if (used_item.can_puncture())
 		burst()
+		return TRUE
+	return FALSE

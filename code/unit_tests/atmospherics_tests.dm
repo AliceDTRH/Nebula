@@ -2,7 +2,7 @@
 	Unit tests for ATMOSPHERICS primitives
 */
 /datum/unit_test/atmos_machinery
-	template = /datum/unit_test/atmos_machinery
+	abstract_type = /datum/unit_test/atmos_machinery
 	var/list/test_cases = list()
 
 /datum/unit_test/atmos_machinery/proc/create_gas_mixes(gas_mix_data)
@@ -60,7 +60,7 @@
 		pass("[case_name]: conserved moles of each gas ID.")
 
 /datum/unit_test/atmos_machinery/conserve_moles
-	template = /datum/unit_test/atmos_machinery/conserve_moles
+	abstract_type = /datum/unit_test/atmos_machinery/conserve_moles
 	test_cases = list(
 		uphill = list(
 			source = list(
@@ -382,8 +382,8 @@
 
 	// make a place to test
 	SSmapping.increment_world_z_size(/datum/level_data/unit_test)
-	for(var/turf/T in block(locate(1, 1, world.maxz), locate(3, 3, world.maxz)))
-		T.ChangeTurf(/turf/simulated/floor)
+	for(var/turf/T as anything in block(1, 1, world.maxz, 3, 3, world.maxz))
+		T.ChangeTurf(/turf/floor)
 	var/turf/T = locate(2, 2, world.maxz)
 
 	// first, every spawnable machine ("mapped" behavior)

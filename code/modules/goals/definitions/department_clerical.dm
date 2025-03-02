@@ -20,26 +20,25 @@
 		SSgoals.pending_goals -= src
 		return
 	paperwork_type = pick(paperwork_types)
-	var/obj/item/paperwork/paperwork_type_obj = paperwork_type
-	waiting_for_signatories_description = replacetext(waiting_for_signatories_description, "%PAPERWORK%", "\the [initial(paperwork_type_obj.name)]")
+	waiting_for_signatories_description = replacetext(waiting_for_signatories_description, "%PAPERWORK%", "\the [atom_info_repository.get_name_for(paperwork_type)]")
 
 	..()
 
-/datum/goal/department/paperwork/proc/get_spawn_turfs()
+/datum/goal/department/paperwork/proc/get_paper_spawn_turfs()
 	return
 
-/datum/goal/department/paperwork/proc/get_end_areas()
+/datum/goal/department/paperwork/proc/get_paper_end_areas()
 	return
 
 /datum/goal/department/paperwork/try_initialize()
 
-	var/list/start_candidates = get_spawn_turfs()
+	var/list/start_candidates = get_paper_spawn_turfs()
 	if(!length(start_candidates))
 		PRINT_STACK_TRACE("Paperwork goal [type] initialized with no spawn landmarks mapped!")
 		SSgoals.pending_goals -= src
 		return FALSE
 
-	var/list/end_candidates = get_end_areas()
+	var/list/end_candidates = get_paper_end_areas()
 	if(!length(end_candidates))
 		PRINT_STACK_TRACE("Paperwork goal [type] initialized with no end landmarks mapped!")
 		SSgoals.pending_goals -= src
@@ -74,8 +73,7 @@
 	if(!generated_paperwork)
 		description = waiting_for_signatories_description
 	else if(QDELETED(paperwork_instance))
-		var/obj/item/paperwork/paperwork_type_obj = paperwork_type
-		description = "\The [initial(paperwork_type_obj.name)] has been destroyed."
+		description = "\The [atom_info_repository.get_name_for(paperwork_type)] has been destroyed."
 	else if(length(paperwork_instance.needs_signed))
 		description = "Have \the [paperwork_instance] signed by [english_list(paperwork_instance.all_signatories)]."
 	else
@@ -100,7 +98,7 @@
 	desc = "This densely typed sheaf of documents is filled with legalese and jargon. You can't make heads or tails of them."
 	icon = 'icons/obj/goal_paperwork.dmi'
 	icon_state = "generic"
-	material = /decl/material/solid/cardboard //#TODO: replace with paper
+	material = /decl/material/solid/organic/paper
 
 	var/datum/goal/department/paperwork/associated_goal
 	var/list/all_signatories
@@ -120,25 +118,25 @@
 	. = ..()
 	icon_state = "[icon_state][length(has_signed) || ""]"
 
-/obj/item/paperwork/examine(mob/user, distance)
+/obj/item/paperwork/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 1)
 		if(length(needs_signed))
-			to_chat(user, SPAN_WARNING("It needs [length(needs_signed)] more signature\s before it can be filed: [english_list(needs_signed)]."))
+			. += SPAN_WARNING("It needs [length(needs_signed)] more signature\s before it can be filed: [english_list(needs_signed)].")
 		if(length(has_signed))
-			to_chat(user, SPAN_NOTICE("It has been signed by: [english_list(has_signed)]."))
+			. += SPAN_NOTICE("It has been signed by: [english_list(has_signed)].")
 
-/obj/item/paperwork/attackby(obj/item/W, mob/user)
-	if(IS_PEN(W))
+/obj/item/paperwork/attackby(obj/item/used_item, mob/user)
+	if(IS_PEN(used_item))
 		if(user.real_name in has_signed)
 			to_chat(user, SPAN_WARNING("You have already signed \the [src]."))
-			return
+			return TRUE
 		if(!(user.real_name in needs_signed))
 			to_chat(user, SPAN_WARNING("You can't see anywhere on \the [src] for you to sign; it doesn't need your signature."))
-			return
+			return TRUE
 		LAZYADD(has_signed, user.real_name)
 		LAZYREMOVE(needs_signed, user.real_name)
-		user.visible_message(SPAN_NOTICE("\The [user] signs \the [src] with \the [W]."))
+		user.visible_message(SPAN_NOTICE("\The [user] signs \the [src] with \the [used_item]."))
 		associated_goal?.update_strings()
 		update_icon()
 		return TRUE

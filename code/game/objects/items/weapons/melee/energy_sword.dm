@@ -2,7 +2,7 @@
 	name = "energy sword"
 	desc = "May the force be mass times acceleration."
 	icon = 'icons/obj/items/weapon/e_sword.dmi'
-	origin_tech = "{'magnets':3,'esoteric':4}"
+	origin_tech = @'{"magnets":3,"esoteric":4}'
 	active_parry_chance = 50
 
 	var/blade_color
@@ -20,16 +20,17 @@
 	if(!lighting_color)
 		lighting_color = blade_color
 	. = ..()
+	set_extension(src, /datum/extension/demolisher/energy)
 
 /obj/item/energy_blade/sword/is_special_cutting_tool(var/high_power)
 	return active && !high_power
 
 /obj/item/energy_blade/sword/dropped(var/mob/user)
 	..()
-	addtimer(CALLBACK(src, .proc/check_loc), 1) // Swapping hands or passing to another person should not deactivate the sword.
+	addtimer(CALLBACK(src, PROC_REF(check_loc)), 1) // Swapping hands or passing to another person should not deactivate the sword.
 
 /obj/item/energy_blade/sword/proc/check_loc()
-	if(!istype(loc, /mob) && active)
+	if(!ismob(loc) && active)
 		toggle_active()
 
 /obj/item/energy_blade/sword/on_update_icon()
@@ -43,7 +44,7 @@
 		I.color = blade_color
 		add_overlay(I)
 
-/obj/item/energy_blade/sword/adjust_mob_overlay(mob/living/user_mob, bodytype, image/overlay, slot, bodypart)
+/obj/item/energy_blade/sword/apply_additional_mob_overlays(mob/living/user_mob, bodytype, image/overlay, slot, bodypart, use_fallback_if_icon_missing = TRUE)
 	if(overlay && active && check_state_in_icon("[overlay.icon_state]-extended-glow", overlay.icon))
 		overlay.overlays += emissive_overlay(overlay.icon, "[overlay.icon_state]-extended-glow", color = blade_color)
 	return ..()

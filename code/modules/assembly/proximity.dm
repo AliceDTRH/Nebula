@@ -2,7 +2,7 @@
 	name = "proximity sensor"
 	desc = "Used for scanning and alerting when someone enters a certain proximity."
 	icon_state = "prox"
-	origin_tech = "{'magnets':1}"
+	origin_tech = @'{"magnets":1}'
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
@@ -20,7 +20,23 @@
 	var/range = 2
 
 /obj/item/assembly/prox_sensor/proc/toggle_scan()
+	if(!secured)	return 0
+	scanning = !scanning
+	update_icon()
+	return
+
 /obj/item/assembly/prox_sensor/proc/sense()
+	var/turf/mainloc = get_turf(src)
+//		if(scanning && cooldown <= 0)
+//			mainloc.visible_message("[html_icon(src)] *boop* *boop*", "*boop* *boop*")
+	if((!holder && !secured)||(!scanning)||(cooldown > 0))	return 0
+	pulse_device(0)
+	if(!holder)
+		mainloc.visible_message("[html_icon(src)] *beep* *beep*", "*beep* *beep*")
+	cooldown = 2
+	spawn(10)
+		process_cooldown()
+	return
 
 
 /obj/item/assembly/prox_sensor/activate()
@@ -46,19 +62,6 @@
 	if(. && !istype(AM, /obj/effect/ir_beam) && AM.move_speed < 12)
 		sense()
 
-/obj/item/assembly/prox_sensor/sense()
-	var/turf/mainloc = get_turf(src)
-//		if(scanning && cooldown <= 0)
-//			mainloc.visible_message("[html_icon(src)] *boop* *boop*", "*boop* *boop*")
-	if((!holder && !secured)||(!scanning)||(cooldown > 0))	return 0
-	pulse_device(0)
-	if(!holder)
-		mainloc.visible_message("[html_icon(src)] *beep* *beep*", "*beep* *beep*")
-	cooldown = 2
-	spawn(10)
-		process_cooldown()
-	return
-
 
 /obj/item/assembly/prox_sensor/Process()
 	if(scanning)
@@ -78,13 +81,7 @@
 
 /obj/item/assembly/prox_sensor/dropped()
 	. = ..()
-	addtimer(CALLBACK(src, .proc/sense), 0)
-
-/obj/item/assembly/prox_sensor/toggle_scan()
-	if(!secured)	return 0
-	scanning = !scanning
-	update_icon()
-	return
+	addtimer(CALLBACK(src, PROC_REF(sense)), 0)
 
 
 /obj/item/assembly/prox_sensor/on_update_icon()
@@ -102,20 +99,20 @@
 		holder.update_icon()
 
 /obj/item/assembly/prox_sensor/Move()
-	..()
+	. = ..()
 	sense()
 
 /obj/item/assembly/prox_sensor/interact(mob/user)//TODO: Change this to the wires thingy
 	if(!secured)
-		user.show_message("<span class='warning'>The [name] is unsecured!</span>")
+		user.show_message("<span class='warning'>\The [src] is unsecured!</span>")
 		return 0
 	var/second = time % 60
 	var/minute = (time - second) / 60
-	var/dat = text("<TT><B>Proximity Sensor</B>\n[] []:[]\n<A href='?src=\ref[];tp=-30'>-</A> <A href='?src=\ref[];tp=-1'>-</A> <A href='?src=\ref[];tp=1'>+</A> <A href='?src=\ref[];tp=30'>+</A>\n</TT>", (timing ? text("<A href='?src=\ref[];time=0'>Arming</A>", src) : text("<A href='?src=\ref[];time=1'>Not Arming</A>", src)), minute, second, src, src, src, src)
-	dat += text("<BR>Range: <A href='?src=\ref[];range=-1'>-</A> [] <A href='?src=\ref[];range=1'>+</A>", src, range, src)
-	dat += "<BR><A href='?src=\ref[src];scanning=1'>[scanning?"Armed":"Unarmed"]</A> (Movement sensor active when armed!)"
-	dat += "<BR><BR><A href='?src=\ref[src];refresh=1'>Refresh</A>"
-	dat += "<BR><BR><A href='?src=\ref[src];close=1'>Close</A>"
+	var/dat = text("<TT><B>Proximity Sensor</B>\n[] []:[]\n<A href='byond://?src=\ref[];tp=-30'>-</A> <A href='byond://?src=\ref[];tp=-1'>-</A> <A href='byond://?src=\ref[];tp=1'>+</A> <A href='byond://?src=\ref[];tp=30'>+</A>\n</TT>", (timing ? text("<A href='byond://?src=\ref[];time=0'>Arming</A>", src) : text("<A href='byond://?src=\ref[];time=1'>Not Arming</A>", src)), minute, second, src, src, src, src)
+	dat += text("<BR>Range: <A href='byond://?src=\ref[];range=-1'>-</A> [] <A href='byond://?src=\ref[];range=1'>+</A>", src, range, src)
+	dat += "<BR><A href='byond://?src=\ref[src];scanning=1'>[scanning?"Armed":"Unarmed"]</A> (Movement sensor active when armed!)"
+	dat += "<BR><BR><A href='byond://?src=\ref[src];refresh=1'>Refresh</A>"
+	dat += "<BR><BR><A href='byond://?src=\ref[src];close=1'>Close</A>"
 	show_browser(user, dat, "window=prox")
 	onclose(user, "prox")
 	return

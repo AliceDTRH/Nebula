@@ -1,7 +1,7 @@
 /obj/item/pen/reagent
 	atom_flags  = ATOM_FLAG_OPEN_CONTAINER
-	origin_tech = "{'materials':2,'esoteric':5}"
-	sharp       = 1
+	origin_tech = @'{"materials":2,"esoteric":5}'
+	sharp       = TRUE
 	pen_quality = TOOL_QUALITY_MEDIOCRE
 
 /obj/item/pen/reagent/Initialize()
@@ -12,36 +12,34 @@
 	create_reagents(30)
 	. = ..()
 
-/obj/item/pen/reagent/attack(mob/living/M, mob/living/user, var/target_zone)
+/obj/item/pen/reagent/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
 
-	if(!istype(M))
-		return
-
-	. = ..()
-
-	var/allow = M.can_inject(user, target_zone)
-	if(allow)
+	var/allow = target.can_inject(user, user.get_target_zone())
+	if(allow && user.check_intent(I_FLAG_HELP))
 		if (allow == INJECTION_PORT)
-			if(M != user)
-				to_chat(user, SPAN_WARNING("You begin hunting for an injection port on \the [M]'s suit!"))
+			if(target != user)
+				to_chat(user, SPAN_WARNING("You begin hunting for an injection port on \the [target]'s suit!"))
 			else
 				to_chat(user, SPAN_NOTICE("You begin hunting for an injection port on your suit."))
-			if(!user.do_skilled(INJECTION_PORT_DELAY, SKILL_MEDICAL, M))
-				return
+			if(!user.do_skilled(INJECTION_PORT_DELAY, SKILL_MEDICAL, target))
+				return TRUE
 		if(reagents.total_volume)
-			if(M.reagents)
+			if(target.reagents)
 				var/contained_reagents = reagents.get_reagents()
-				var/trans = reagents.trans_to_mob(M, 30, CHEM_INJECT)
-				admin_inject_log(user, M, src, contained_reagents, trans)
+				var/trans = reagents.trans_to_mob(target, 30, CHEM_INJECT)
+				admin_inject_log(user, target, src, contained_reagents, trans)
+		return TRUE
+
+	. = ..()
 
 /*
  * Sleepy Pens
  */
 /obj/item/pen/reagent/sleepy
-	origin_tech = "{'materials':2,'esoteric':5}"
+	origin_tech = @'{"materials":2,"esoteric":5}'
 
 /obj/item/pen/reagent/sleepy/make_pen_description()
-	desc = "It's \a [stroke_colour_name] [medium_name] pen with a sharp point and a carefully engraved \"Waffle Co.\"."
+	desc = "It's \a [stroke_color_name] [medium_name] pen with a sharp point and a carefully engraved \"Waffle Co.\"."
 
 /obj/item/pen/reagent/sleepy/populate_reagents()
-	reagents.add_reagent(/decl/material/liquid/paralytics, round(reagents.maximum_volume/2))
+	add_to_reagents(/decl/material/liquid/paralytics, round(reagents.maximum_volume/2))

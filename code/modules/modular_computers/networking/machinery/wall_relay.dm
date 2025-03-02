@@ -7,8 +7,24 @@
 	density = FALSE
 	obj_flags = OBJ_FLAG_MOVES_UNSUPPORTED
 	base_type = /obj/machinery/network/relay/wall_mounted
-	directional_offset = "{'NORTH':{'y':-21}, 'SOUTH':{'y':21}, 'EAST':{'x':-21}, 'WEST':{'x':21}}"
+	directional_offset = @'{"NORTH":{"y":-21}, "SOUTH":{"y":21}, "EAST":{"x":-21}, "WEST":{"x":21}}'
 
 /obj/machinery/network/relay/wall_mounted/Initialize()
 	. = ..()
 	queue_icon_update()
+
+/obj/machinery/network/relay/wall_mounted/south
+	dir = NORTH
+	pixel_y = -21
+
+/obj/machinery/network/relay/wall_mounted/north
+	dir = SOUTH
+	pixel_y = 21
+
+/obj/machinery/network/relay/wall_mounted/west
+	dir = EAST
+	pixel_x = -21
+
+/obj/machinery/network/relay/wall_mounted/east
+	dir = WEST
+	pixel_x = 21

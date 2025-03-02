@@ -4,7 +4,7 @@
 /decl/loadout_option/augmentation
 	category = /decl/loadout_category/augmentation
 	abstract_type = /decl/loadout_option/augmentation
-	flags = GEAR_NO_EQUIP | GEAR_NO_FINGERPRINTS
+	loadout_flags = GEAR_NO_EQUIP | GEAR_NO_FINGERPRINTS
 	custom_setup_proc = /obj/item/proc/AttemptAugmentation
 	custom_setup_proc_arguments = list(BP_CHEST)
 
@@ -19,7 +19,7 @@
 	else
 		..()
 
-/obj/item/organ/internal/augment/AttemptAugmentation(mob/living/carbon/human/user, target_zone)
+/obj/item/organ/internal/augment/AttemptAugmentation(mob/living/human/user, target_zone)
 	if(!istype(user))
 		return ..()
 

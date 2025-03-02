@@ -55,6 +55,10 @@ Class Procs:
 		Helper proc that allows getting the other zone of an edge given one of them.
 		Only on /connection_edge/zone, otherwise use A.
 
+	update_post_merge()
+		Called after the edge's owner is merged into another zone.
+		Marks the relevant connecting turfs for update.
+
 */
 
 
@@ -113,6 +117,10 @@ Class Procs:
 	for(var/atom/movable/M as anything in movable)
 		//If they're already being tossed, don't do it again.
 		M.handle_airflow(differential, connecting_turfs, repelled)
+
+/connection_edge/proc/update_post_merge()
+	for(var/turf/T in connecting_turfs)
+		SSair.mark_for_update(T)
 
 /connection_edge/zone/var/zone/B
 
@@ -210,6 +218,11 @@ Class Procs:
 	connecting_turfs.Remove(c.B)
 	air.group_multiplier = coefficient
 	. = ..()
+
+	// Update the air mix
+	if(coefficient && (B == c.B) && !(B in connecting_turfs))
+		B = pick(connecting_turfs)
+		air = B.return_air()
 
 /connection_edge/unsimulated/erase()
 	A.edges.Remove(src)

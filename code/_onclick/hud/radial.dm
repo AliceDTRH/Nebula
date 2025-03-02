@@ -3,57 +3,6 @@
 
 var/global/list/radial_menus = list()
 
-/obj/screen/radial/Destroy()
-	parent = null
-	return ..()
-
-/obj/screen/radial
-	icon = 'icons/screen/radial.dmi'
-	layer = HUD_ABOVE_ITEM_LAYER
-	plane = HUD_PLANE
-	var/datum/radial_menu/parent
-
-/obj/screen/radial/slice
-	icon_state = "radial_slice"
-	var/choice
-	var/next_page = FALSE
-	var/tooltips = FALSE
-
-/obj/screen/radial/slice/MouseEntered(location, control, params)
-	. = ..()
-	icon_state = "radial_slice_focus"
-	if(tooltips)
-		openToolTip(usr, src, params, title = name)
-
-/obj/screen/radial/slice/MouseExited(location, control, params)
-	. = ..()
-	icon_state = "radial_slice"
-	if(tooltips)
-		closeToolTip(usr)
-
-/obj/screen/radial/slice/Click(location, control, params)
-	if(parent && usr.client == parent.current_user)
-		if(next_page)
-			parent.next_page()
-		else
-			parent.element_chosen(choice,usr)
-
-/obj/screen/radial/center
-	name = "Close Menu"
-	icon_state = "radial_center"
-
-/obj/screen/radial/center/MouseEntered(location, control, params)
-	. = ..()
-	icon_state = "radial_center_focus"
-
-/obj/screen/radial/center/MouseExited(location, control, params)
-	. = ..()
-	icon_state = "radial_center"
-
-/obj/screen/radial/center/Click(location, control, params)
-	if(usr.client == parent.current_user)
-		parent.finished = TRUE
-
 /datum/radial_menu
 	var/list/choices = list() //List of choice id's
 	var/list/choices_icons = list() //choice_id -> icon
@@ -224,7 +173,7 @@ var/global/list/radial_menus = list()
 /datum/radial_menu/proc/get_next_id()
 	return "c_[choices.len]"
 
-/datum/radial_menu/proc/set_choices(list/new_choices, use_tooltips, use_labels)
+/datum/radial_menu/proc/set_choices(list/new_choices, use_tooltips, use_labels = RADIAL_LABELS_NONE)
 	if(choices.len)
 		Reset()
 	for(var/E in new_choices)
@@ -237,8 +186,7 @@ var/global/list/radial_menus = list()
 				choices_icons[id] = I
 	setup_menu(use_tooltips)
 
-
-/datum/radial_menu/proc/extract_image(image/E, var/use_labels)
+/datum/radial_menu/proc/extract_image(image/E, var/use_labels = RADIAL_LABELS_NONE)
 	var/mutable_appearance/MA = new /mutable_appearance(E)
 	if(MA)
 		MA.layer = HUD_ABOVE_HUD_LAYER
@@ -247,9 +195,15 @@ var/global/list/radial_menus = list()
 			MA.maptext_width = 64
 			MA.maptext_height = 64
 			MA.appearance_flags = APPEARANCE_UI_IGNORE_ALPHA
-			MA.maptext_x = -round(MA.maptext_width/2) + 16
-			MA.maptext_x = -round(MA.maptext_height/2) + 16
-			MA.maptext = STYLE_SMALLFONTS_OUTLINE("<center>[E.name]</center>", 7, COLOR_WHITE, COLOR_BLACK)
+			switch(use_labels)
+				if(RADIAL_LABELS_OFFSET)
+					MA.maptext_x = -16
+					MA.maptext_y = -8
+					MA.maptext = STYLE_SMALLFONTS_OUTLINE("<center>[E.name]</center>", 7, COLOR_WHITE, COLOR_BLACK)
+				if(RADIAL_LABELS_CENTERED)
+					MA.maptext_x = -16
+					MA.maptext_y = -16
+					MA.maptext = "<span style='font-family: \"Small Fonts\"; color: #fff; -dm-text-outline: 1 #000; font-size: 7px; text-align:center; vertical-align:middle'>[E.name]</span>"
 
 	return MA
 
@@ -268,7 +222,7 @@ var/global/list/radial_menus = list()
 	//Blank
 	menu_holder = image(icon = 'icons/effects/effects.dmi', loc = anchor, icon_state = "nothing", layer = HUD_ABOVE_ITEM_LAYER)
 	menu_holder.appearance_flags |= KEEP_APART
-	add_vis_contents(menu_holder, elements + close_button)
+	menu_holder.add_vis_contents(elements + close_button)
 	current_user.images += menu_holder
 
 /datum/radial_menu/proc/hide()
@@ -304,7 +258,7 @@ var/global/list/radial_menus = list()
 	Choices should be a list where list keys are movables or text used for element names and return value
 	and list values are movables/icons/images used for element icons
 */
-/proc/show_radial_menu(mob/user, atom/anchor, list/choices, uniqueid, radius, datum/callback/custom_check, require_near = FALSE, tooltips = FALSE, no_repeat_close = FALSE, list/check_locs, use_labels = FALSE)
+/proc/show_radial_menu(mob/user, atom/anchor, list/choices, uniqueid, radius, datum/callback/custom_check, require_near = FALSE, tooltips = FALSE, no_repeat_close = FALSE, list/check_locs, use_labels = RADIAL_LABELS_NONE)
 	if(!user || !anchor || !length(choices))
 		return
 	if(!uniqueid)

@@ -2,7 +2,7 @@
 
 /obj/effect/overmap/visitable/sector/magshield
 	name = "orbital station"
-	desc = "Sensors detect an orbital station above the exoplanet. Sporadic magentic impulses are registred inside it. Planet landing is impossible due to lower orbits being cluttered with chaotically moving metal chunks."
+	desc = "Sensors detect an orbital station above the exoplanet. Sporadic magentic impulses are registered inside it. Planet landing is impossible due to lower orbits being cluttered with chaotically moving metal chunks."
 	icon_state = "object"
 	initial_generic_waypoints = list(
 		"nav_magshield_1",
@@ -39,6 +39,11 @@
 	name = "Orbital Station Navpoint #5"
 	landmark_tag = "nav_magshield_antag"
 
+/obj/effect/shuttle_landmark/nav_magshield/dock1
+	name = "Orbital Station Docking Port #1"
+	landmark_tag = "nav_magshield_dock_1"
+	flags = SLANDMARK_FLAG_REORIENT | SLANDMARK_FLAG_AUTOSET
+
 /obj/structure/magshield/maggen
 	name = "magnetic field generator"
 	desc = "A large three-handed generator with rotating top. It is used to create high-power magnetic fields in hard vacuum."
@@ -65,16 +70,16 @@
 /obj/structure/magshield/maggen/Process()
 	var/eye_safety = 0
 	chance = rand(1,300)//I wanted to use Poisson distribution with Lambda for 5 minutes but made it simpler
-	if (chance == 1)
+	var/turf/T = get_turf(src)
+	var/area/A = get_area(src)
+	if (A && T && chance == 1)
 		empulse(src, heavy_range, lighter_range, 0)
-		var/turf/T = get_turf(src)
-		var/area/A = get_area(src)
 		log_game("EMP with size ([heavy_range], [lighter_range]) in area [A.proper_name] ([T.x], [T.y], [T.z])")
 		visible_message(
 			SPAN_DANGER("\The [src] suddenly activates!"),
 			SPAN_DANGER("Electricity arcs between \the [src]'s rotating spokes as a powerful magnetic field tugs on every metallic object nearby.")
 		)
-		for(var/mob/living/carbon/M in hear(10, get_turf(src)))
+		for(var/mob/living/M in hear(10, T))
 			eye_safety = M.eyecheck()
 			if(eye_safety < FLASH_PROTECTION_MODERATE)
 				M.flash_eyes()
@@ -85,12 +90,12 @@
 	to_chat(user, SPAN_NOTICE("You don't see how you could turn off \the [src]. You could possibly jam something into the rotating spokes."))
 	return TRUE
 
-/obj/structure/magshield/maggen/attackby(obj/item/W, mob/user)
+/obj/structure/magshield/maggen/attackby(obj/item/used_item, mob/user)
 	if (being_stopped)
 		to_chat(user, SPAN_WARNING("Somebody is already interacting with \the [src]."))
 		return TRUE
-	if(istype(W, /obj/item/stack/material/rods))
-		var/obj/item/stack/material/rods/R = W
+	if(istype(used_item, /obj/item/stack/material/rods))
+		var/obj/item/stack/material/rods/R = used_item
 		to_chat(user, SPAN_NOTICE("You start to jam \a [R.singular_name] into the rotating spokes."))
 		being_stopped = 1
 		if (!do_after(user, 100, src))
@@ -103,12 +108,13 @@
 		sleep(50)
 		visible_message(SPAN_DANGER("\The [src] explodes!"))
 		var/turf/T = get_turf(src)
-		explosion(T, 2, 3, 4, 10, 1)
 		empulse(src, heavy_range*2, lighter_range*2, 1)
-		qdel(src)
-	if(istype(W, /obj/item/mop))
-		to_chat(user, SPAN_NOTICE("You stick \the [W] into the rotating spokes, and it immediately breaks into tiny pieces."))
-		qdel(W)
+		explosion(T, 2, 3, 4, 10, 1)
+		if(!QDELETED(src))
+			qdel(src)
+	if(istype(used_item, /obj/item/mop))
+		to_chat(user, SPAN_NOTICE("You stick \the [used_item] into the rotating spokes, and it immediately breaks into tiny pieces."))
+		qdel(used_item)
 		return TRUE
 	return ..()
 
@@ -141,40 +147,24 @@
 	icon_state = "nav_light_red"
 
 
-/obj/item/book/manual/magshield_manual
+/obj/item/book/fluff/magshield_manual
 	name = "SOP for Planetary Shield Orbital Station"
 	icon = 'magshield_sprites.dmi'
 	icon_state = "mg_guide"
 	author = "Terraforms Industrial"
 	title = "Standard operating procedures for Planetary Shield Orbital Station"
-
-	dat = {"<html>
-				<head>
-				<style>
-				h1 {font-size: 18px; margin: 15px 0px 5px;}
-				h2 {font-size: 15px; margin: 15px 0px 5px;}
-				h3 {font-size: 13px; margin: 15px 0px 5px;}
-				li {margin: 2px 0px 2px 15px;}
-				ul {margin: 5px; padding: 0px;}
-				ol {margin: 5px; padding: 0px 15px;}
-				body {font-size: 13px; font-family: Verdana;}
-				</style>
-				</head>
-				<body>
-
-				<h1>Introduction</h1>
-				Terraforms Industrial is happy to see you as our customer! Please read this guide before using and operating with your custom PSOS - Planetary Shield Orbital Statiion.
-				<h2>Best uses for PSOS</h2>
-				PSOS is intended for protecting exoplanets from high energy space radiation rays and particles. Best used for planets lacking active geomagnetic field so PSOS would compensate its absence.<br>
-				<h2> Applied technologies</h2>
-				Terraforms Industrial is delivering you your new PSOS with set of four (4) high-strength magnetic field generators. Those devices use rotating supeconducter hands to create magnetic field with strength up to 5 Tesla effectively deflecting up to 99% of space radiation spectrum.<br>
-				<br>
-				Special modified vacuum radiation sensors will help you evaluate radiation level and adjust power input of PSOS magnetic generators for best efficiency and power saving.
-				<br><br><br>
-				<i>rest of the book pages are gone</i>
-				</body>
-			</html>
-			"}
+	fluff_text = {"
+		<h1>Introduction</h1>
+		Terraforms Industrial is happy to see you as our customer! Please read this guide before using and operating with your custom PSOS - Planetary Shield Orbital Statiion.
+		<h2>Best uses for PSOS</h2>
+		PSOS is intended for protecting exoplanets from high energy space radiation rays and particles. Best used for planets lacking active geomagnetic field so PSOS would compensate its absence.<br>
+		<h2> Applied technologies</h2>
+		Terraforms Industrial is delivering you your new PSOS with set of four (4) high-strength magnetic field generators. Those devices use rotating supeconducter hands to create magnetic field with strength up to 5 Tesla effectively deflecting up to 99% of space radiation spectrum.<br>
+		<br>
+		Special modified vacuum radiation sensors will help you evaluate radiation level and adjust power input of PSOS magnetic generators for best efficiency and power saving.
+		<br><br><br>
+		<i>The rest of the pages have been torn out...</i>
+	"}
 
 /obj/item/paper/magshield/tornpage
 	name = "torn book page"
@@ -182,4 +172,4 @@
 
 /obj/item/paper/magshield/log
 	name = "printed page"
-	info = "\[07:31\] Attention: solar flare detected! Automatic countermeasures activated.<br>\[07:33\] Warning: ERROR: NULL input at FARADAY_CAGE#12.TFI - line 2067: No command found. System will be rebooted.<br>\[07:39\] Warning: radiaton countermeasures inactive. Please initiate emergency protocol.<br>\[07:40\] Warning: radiaton countermeasures inactive. Please initiate emergency protocol.<br>\[07:41\] Warning: radiaton countermeasures inactive. Please initiate emergency protocol.<br>\[07:45\] Attention! Multiple systems failure. Please initiate emergency protocol<br>\[07:52\] Warning: LIDAR-ASTRA system detected multiple meteors approaching. Estimate impact time: 12.478 seconds. <br>\[07:52\] Warning! Miltiple hull breaches det~!!@#"
+	info = "\[07:31\] Attention: solar flare detected! Automatic countermeasures activated.<br>\[07:33\] Warning: ERROR: NULL input at FARADAY_CAGE#12.TFI - line 2067: No command found. System will be rebooted.<br>\[07:39\] Warning: radiation countermeasures inactive. Please initiate emergency protocol.<br>\[07:40\] Warning: radiation countermeasures inactive. Please initiate emergency protocol.<br>\[07:41\] Warning: radiation countermeasures inactive. Please initiate emergency protocol.<br>\[07:45\] Attention! Multiple systems failure. Please initiate emergency protocol<br>\[07:52\] Warning: LIDAR-ASTRA system detected multiple meteors approaching. Estimate impact time: 12.478 seconds. <br>\[07:52\] Warning! Miltiple hull breaches det~!!@#"

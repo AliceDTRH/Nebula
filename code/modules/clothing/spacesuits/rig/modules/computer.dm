@@ -51,13 +51,13 @@
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
-		/decl/material/solid/plastic = MATTER_AMOUNT_TRACE,
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_TRACE,
 		/decl/material/solid/metal/gold = MATTER_AMOUNT_TRACE
 	)
-	origin_tech = "{'programming':6,'materials':5,'engineering':6}"
+	origin_tech = @'{"programming":6,"materials":5,"engineering":6}'
 
 	var/mob/integrated_ai // Direct reference to the actual mob held in the suit.
-	var/obj/item/ai_card  // Reference to the MMI, posibrain, inteliCard or pAI card previously holding the AI.
+	var/obj/item/ai_card  // Reference to the object previously holding the AI.
 	var/obj/item/ai_verbs/verb_holder
 
 /mob
@@ -90,7 +90,7 @@
 
 	// Check if there's actually an AI to deal with.
 	var/mob/living/silicon/ai/target_ai
-	if(istype(input_device, /mob/living/silicon/ai))
+	if(isAI(input_device))
 		target_ai = input_device
 	else
 		target_ai = locate(/mob/living/silicon/ai) in input_device.contents
@@ -98,13 +98,13 @@
 	var/obj/item/aicard/card = ai_card
 
 	// Downloading from/loading to a terminal.
-	if(istype(input_device,/mob/living/silicon/ai) || istype(input_device,/obj/structure/aicore/deactivated))
+	if(isAI(input_device) || istype(input_device,/obj/structure/aicore/deactivated))
 
 		// If we're stealing an AI, make sure we have a card for it.
 		if(!card)
 			card = new /obj/item/aicard(src)
 
-		// Terminal interaction only works with an inteliCarded AI.
+		// Terminal interaction only works with an intelliCarded AI.
 		if(!istype(card))
 			return 0
 
@@ -136,7 +136,7 @@
 		return 1
 
 	// Okay, it wasn't a terminal being touched, check for all the simple insertions.
-	if(input_device.type in list(/obj/item/paicard, /obj/item/mmi, /obj/item/organ/internal/posibrain))
+	if(input_device.type in list(/obj/item/paicard, /obj/item/organ/internal/brain_interface))
 		if(integrated_ai)
 			integrated_ai.attackby(input_device,user)
 			// If the transfer was successful, we can clear out our vars.
@@ -154,7 +154,7 @@
 	if(!..())
 		return 0
 
-	var/mob/living/carbon/human/H = holder.wearer
+	var/mob/living/human/H = holder.wearer
 
 	if(!target)
 		if(ai_card)
@@ -260,7 +260,7 @@
 		return 0
 
 	if(target)
-		var/mob/living/carbon/human/H = holder.wearer
+		var/mob/living/human/H = holder.wearer
 		if(!accepts_item(target,H))
 			return 0
 	return 1
@@ -328,7 +328,7 @@
 /obj/item/rig_module/power_sink
 
 	name = "hardsuit power sink"
-	desc = "An heavy-duty power sink."
+	desc = "A heavy-duty power sink."
 	icon_state = "powersink"
 	toggleable = 1
 	activates_on_touch = 1
@@ -340,12 +340,12 @@
 	interface_name = "niling d-sink"
 	interface_desc = "Colloquially known as a power siphon, this module drains power through the suit hands into the suit battery."
 
-	origin_tech = "{'powerstorage':6,'engineering':6}"
+	origin_tech = @'{"powerstorage":6,"engineering":6}'
 	material = /decl/material/solid/metal/steel
 	matter = list(
 		/decl/material/solid/fiberglass = MATTER_AMOUNT_REINFORCEMENT,
 		/decl/material/solid/metal/gold = MATTER_AMOUNT_TRACE,
-		/decl/material/solid/plastic = MATTER_AMOUNT_TRACE
+		/decl/material/solid/organic/plastic = MATTER_AMOUNT_TRACE
 	)
 
 	var/atom/interfaced_with // Currently draining power from this device.
@@ -381,7 +381,7 @@
 		return 1
 
 	// Are we close enough?
-	var/mob/living/carbon/human/H = holder.wearer
+	var/mob/living/human/H = holder.wearer
 	if(!target.Adjacent(H))
 		return 0
 
@@ -410,7 +410,7 @@
 	if(!interfaced_with)
 		return ..()
 
-	var/mob/living/carbon/human/H
+	var/mob/living/human/H
 	if(holder && holder.wearer)
 		H = holder.wearer
 

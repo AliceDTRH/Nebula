@@ -6,13 +6,13 @@ var/global/default_gyne
 	ghost_trap_message = "They are hatching from a kharmaan egg now."
 
 /decl/ghosttrap/kharmaani_egg/forced(var/mob/user)
-	request_player(new /mob/living/carbon/alien/ascent_nymph(get_turf(user)), "A mantid nymph is ready to hatch and needs a player.")
+	request_player(new /mob/living/simple_animal/alien/kharmaan(get_turf(user)), "A mantid nymph is ready to hatch and needs a player.")
 
 /obj/structure/insectoid_egg
 	name = "alien egg"
 	desc = "A semi-translucent alien egg."
-	health = 100
-	maxhealth = 100
+	current_health = 100
+	max_health = 100
 	icon = 'mods/species/ascent/icons/egg.dmi'
 	icon_state = "egg"
 
@@ -27,7 +27,7 @@ var/global/default_gyne
 	var/hatched = FALSE					// Whether or not this egg has already hatched.
 
 	material = /decl/material/solid/gemstone/crystal
-	
+
 /obj/structure/insectoid_egg/Initialize()
 	. = ..()
 	START_PROCESSING(SSprocessing, src)
@@ -41,7 +41,7 @@ var/global/default_gyne
 
 /obj/structure/insectoid_egg/on_update_icon()
 	..()
-	if(hatched || !health)
+	if(hatched || !current_health)
 		icon_state = "egg_broken"
 	else if(hatching)
 		icon_state = "egg_break"
@@ -50,37 +50,37 @@ var/global/default_gyne
 	else
 		icon_state = "egg"
 
-/obj/structure/insectoid_egg/examine(mob/user)
+/obj/structure/insectoid_egg/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
-
-	if(hatched || !health)
-		to_chat(user, "\icon[src] \The [src] lays in shambles, having been hatched or broken.")
+	if(hatched || !current_health)
+		. += "\icon[src] \The [src] lays in shambles, having been hatched or broken."
 		return
-
 	if(maturity < 5)
-		to_chat(user, "\icon[src] \The [src] is freshly laid and sticky.")
+		. += "\icon[src] \The [src] is freshly laid and sticky."
 	else if(maturity < 15)
-		to_chat(user, "\icon[src] \The [src] is small and still to the touch.")
+		. += "\icon[src] \The [src] is small and still to the touch."
 	else if(maturity < 30)
-		to_chat(user, "\icon[src] \The [src] has swollen in size; a faint glow can be seen inside the shell.")
+		. += "\icon[src] \The [src] has swollen in size; a faint glow can be seen inside the shell."
 	else if(maturity < 50)
-		to_chat(user, "\icon[src] \The [src] emanates a faint glow and moves from time to time.")
+		. += "\icon[src] \The [src] emanates a faint glow and moves from time to time."
 	else if(maturity < 75)
-		to_chat(user, "\icon[src] \The [src] appears to be close to hatching.")
+		. += "\icon[src] \The [src] appears to be close to hatching."
 	else
-		to_chat(user, "\icon[src] \The [src] is lively and appears ready to hatch at any moment.")
+		. += "\icon[src] \The [src] is lively and appears ready to hatch at any moment."
 
 /obj/structure/insectoid_egg/Process()
-	if(!health || hatched || hatching || (world.time <= (last_tick + maturity_rate)))
+	if(!current_health || hatched || hatching || (world.time <= (last_tick + maturity_rate)))
 		return
 
 	last_tick = world.time
 	var/turf/T = get_turf(src)
-	
+	if(!T)
+		return
+
 	// Too high of temp will damage eggs.
 	if(T.temperature > (max_temperature * 1.5))
-		health = max(0, health - 5)
-	
+		current_health = max(0, current_health - 5)
+
 	if(T.temperature < min_temperature || T.temperature > max_temperature)
 		return
 
@@ -92,19 +92,19 @@ var/global/default_gyne
 		G.request_player(src, "A mantid nymph is ready to hatch and needs a player.")
 
 /obj/structure/insectoid_egg/proc/hatch(var/client/C)
-	if(!health || maturity != 100 || hatched || hatching)
+	if(!current_health || maturity != 100 || hatched || hatching)
 		return
 
-	var/mob/living/carbon/alien/ascent_nymph/new_nymph = new(src, SPECIES_MANTID_NYMPH) // Spawn in the egg.
+	var/mob/living/simple_animal/alien/kharmaan/new_nymph = new(src, SPECIES_MANTID_NYMPH) // Spawn in the egg.
 	new_nymph.lastarea = get_area(src)
 	new_nymph.key = C.ckey
 	new_nymph.real_name = "[random_id(/decl/species/mantid, 10000, 99999)] [lineage]"
 	hatching = TRUE
 	update_icon()
 	visible_message(SPAN_NOTICE("\icon[src] \The [src] trembles and cracks as it begins to hatch."))
-	addtimer(CALLBACK(src, .proc/finish_hatching), 2.5 SECONDS)
-	
-	
+	addtimer(CALLBACK(src, PROC_REF(finish_hatching)), 2.5 SECONDS)
+
+
 /obj/structure/insectoid_egg/proc/finish_hatching()
 	hatched = TRUE
 	hatching = FALSE

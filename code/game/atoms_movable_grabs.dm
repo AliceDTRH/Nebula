@@ -23,9 +23,16 @@
 
 	// Anchored check so we can operate switches etc on grab intent without getting grab failure msgs.
 	// NOTE: /mob/living overrides this to return FALSE in favour of using default_grab_interaction
-	if(isliving(user) && user.a_intent == I_GRAB && !user.lying && !anchored)
+	if(isliving(user) && user.check_intent(I_FLAG_GRAB) && !user.current_posture.prone && !anchored)
 		return try_make_grab(user)
 	return ..()
 
-/atom/movable/proc/try_make_grab(var/mob/living/user, var/defer_hand = FALSE)
-	return istype(user) && CanPhysicallyInteract(user) && !user.lying && user.make_grab(src)
+/atom/movable/proc/try_make_grab(mob/living/user, defer_hand = FALSE)
+	if(istype(user) && CanPhysicallyInteract(user) && !user.current_posture.prone)
+		if(user == buckled_mob)
+			return give_control_grab(buckled_mob)
+		return user.make_grab(src, defer_hand = defer_hand)
+	return null
+
+/atom/movable/proc/give_control_grab(var/mob/M)
+	return

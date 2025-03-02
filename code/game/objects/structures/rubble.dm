@@ -6,7 +6,7 @@
 	opacity = TRUE
 	density = TRUE
 	anchored = TRUE
-	maxhealth = 50
+	max_health = 50
 
 	var/list/loot = list(
 		/obj/item/cell,
@@ -26,21 +26,21 @@
 /obj/structure/rubble/on_update_icon()
 	..()
 	for(var/i = 1 to 7)
-		var/image/I = image(icon,"rubble[rand(1,76)]")
+		var/image/overlay_image = image(icon,"rubble[rand(1,76)]")
 		if(prob(10))
 			var/atom/A = pick(loot)
 			if(initial(A.icon) && initial(A.icon_state))
-				I.icon = initial(A.icon)
-				I.icon_state = initial(A.icon_state)
-				I.color = initial(A.color)
+				overlay_image.icon = initial(A.icon)
+				overlay_image.icon_state = initial(A.icon_state)
+				overlay_image.color = initial(A.color)
 			if(!lootleft)
-				I.color = "#54362e"
-		I.pixel_x = rand(-16,16)
-		I.pixel_y = rand(-16,16)
+				overlay_image.color = "#54362e"
+		overlay_image.pixel_x = rand(-16,16)
+		overlay_image.pixel_y = rand(-16,16)
 		var/matrix/M = matrix()
 		M.Turn(rand(0,360))
-		I.transform = M
-		add_overlay(I)
+		overlay_image.transform = M
+		add_overlay(overlay_image)
 
 	if(lootleft)
 		add_overlay("twinkle[rand(1,3)]")
@@ -51,7 +51,7 @@
 	if(!is_rummaging)
 		if(!lootleft)
 			to_chat(user, SPAN_NOTICE("There's nothing left in this one but unusable garbage..."))
-			return
+			return TRUE
 		visible_message(SPAN_NOTICE("\The [user] starts rummaging through \the [src]."))
 		is_rummaging = TRUE
 		if(do_after(user, 30))
@@ -65,20 +65,16 @@
 		to_chat(user, SPAN_WARNING("Someone is already rummaging here!"))
 	return TRUE
 
-/obj/structure/rubble/attackby(var/obj/item/I, var/mob/user)
-	if (istype(I, /obj/item/pickaxe))
-		var/obj/item/pickaxe/P = I
-		visible_message("[user] starts clearing away \the [src].")
-		if(do_after(user,P.digspeed, src))
-			visible_message("[user] clears away \the [src].")
-			if(lootleft && prob(1))
-				var/obj/item/booty = pickweight(loot)
-				booty = new booty(loc)
-			qdel(src)
+/obj/structure/rubble/attackby(var/obj/item/used_item, var/mob/user)
+	if(used_item.do_tool_interaction(TOOL_PICK, user, used_item, 3 SECONDS, set_cooldown = TRUE))
+		if(lootleft && prob(1))
+			var/obj/item/booty = pickweight(loot)
+			booty = new booty(loc)
+		qdel(src)
 		return TRUE
 	. = ..()
 
-/obj/structure/rubble/dismantle()
+/obj/structure/rubble/dismantle_structure(mob/user)
 	SHOULD_CALL_PARENT(FALSE)
 	qdel(src)
 	. = TRUE

@@ -5,62 +5,47 @@
 	icon_state = "nullrod"
 	item_state = "nullrod"
 	slot_flags = SLOT_LOWER_BODY
-	force = 10
+	item_flags = ITEM_FLAG_IS_WEAPON
 	throw_speed = 1
 	throw_range = 4
-	throwforce = 7
 	w_class = ITEM_SIZE_NORMAL
 	material = /decl/material/solid/glass
 	max_health = ITEM_HEALTH_NO_DAMAGE
+	_base_attack_force = 10
 
-/obj/item/nullrod/attack(mob/M, mob/living/user) //Paste from old-code to decult with a null rod.
-	admin_attack_log(user, M, "Attacked using \a [src]", "Was attacked with \a [src]", "used \a [src] to attack")
+/obj/item/nullrod/use_on_mob(mob/living/target, mob/living/user, animate = TRUE)
 
+	admin_attack_log(user, target, "Attacked using \a [src]", "Was attacked with \a [src]", "used \a [src] to attack")
 	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
-	user.do_attack_animation(M)
-	//if(user != M)
-	if(M.mind && LAZYLEN(M.mind.learned_spells))
-		M.silence_spells(300) //30 seconds
-		to_chat(M, "<span class='danger'>You've been silenced!</span>")
-		return
+	user.do_attack_animation(target)
 
 	if (!user.check_dexterity(DEXTERITY_WEAPONS))
-		return
+		return TRUE
 
-	if ((MUTATION_CLUMSY in user.mutations) && prob(50))
-		to_chat(user, "<span class='danger'>The rod slips out of your hand and hits your head.</span>")
+	if (user.has_genetic_condition(GENE_COND_CLUMSY) && prob(50))
+		to_chat(user, SPAN_DANGER("The rod slips out of your hand and hits your head."))
 		user.take_organ_damage(10)
 		SET_STATUS_MAX(user, STAT_PARA, 20)
-		return
+		return TRUE
 
-	if(iscultist(M))
-		M.visible_message("<span class='notice'>\The [user] waves \the [src] over \the [M]'s head.</span>")
-		var/decl/special_role/cultist/cult = GET_DECL(/decl/special_role/cultist)
-		cult.offer_uncult(M)
-		return
+	if (holy_act(target, user))
+		return TRUE
 
-	..()
+	return ..()
+
+/obj/item/nullrod/proc/holy_act(mob/living/target, mob/living/user)
+	if(target.disable_abilities(30 SECONDS))
+		to_chat(target, SPAN_DANGER("You've been silenced!"))
+		return TRUE
+	return FALSE
 
 /obj/item/nullrod/afterattack(var/atom/A, var/mob/user, var/proximity)
 	if(!proximity)
 		return
+	return A.nullrod_act(user, src)
 
-	if(istype(A, /obj/structure/deity/altar))
-		var/obj/structure/deity/altar/altar = A
-		if(!altar.linked_god.silenced) //Don't want them to infinity spam it.
-			altar.linked_god.silence(10)
-			new /obj/effect/temporary(get_turf(altar),'icons/effects/effects.dmi',"purple_electricity_constant", 10)
-			altar.visible_message("<span class='notice'>\The [altar] groans in protest as reality settles around \the [src].</span>")
-
-	if(istype(A, /turf/simulated/wall/cult))
-		var/turf/simulated/wall/cult/W = A
-		user.visible_message("<span class='notice'>\The [user] touches \the [A] with \the [src], and the enchantment affecting it fizzles away.</span>", "<span class='notice'>You touch \the [A] with \the [src], and the enchantment affecting it fizzles away.</span>")
-		W.ChangeTurf(/turf/simulated/wall)
-
-	if(istype(A, /turf/simulated/floor/cult))
-		var/turf/simulated/floor/cult/F = A
-		user.visible_message("<span class='notice'>\The [user] touches \the [A] with \the [src], and the enchantment affecting it fizzles away.</span>", "<span class='notice'>You touch \the [A] with \the [src], and the enchantment affecting it fizzles away.</span>")
-		F.ChangeTurf(/turf/simulated/floor)
+/atom/proc/nullrod_act(mob/user, obj/item/nullrod/rod)
+	return FALSE
 
 
 /obj/item/energy_net
@@ -68,9 +53,8 @@
 	desc = "It's a net made of green energy."
 	icon = 'icons/effects/effects.dmi'
 	icon_state = "energynet"
-	throwforce = 0
-	force = 0
 	max_health = 100
+	_base_attack_force = 0
 	var/net_type = /obj/effect/energy_net
 
 /obj/item/energy_net/safari
@@ -80,8 +64,7 @@
 
 /obj/item/energy_net/dropped()
 	..()
-	spawn(10)
-		if(src) qdel(src)
+	QDEL_IN(src, 1 SECOND)
 
 /obj/item/energy_net/throw_impact(atom/hit_atom)
 	..()
@@ -101,8 +84,7 @@
 		qdel(src)
 
 	// If we miss or hit an obstacle, we still want to delete the net.
-	spawn(10)
-		if(src) qdel(src)
+	QDEL_IN(src, 1 SECOND)
 
 /obj/effect/energy_net
 	name = "energy net"
@@ -116,10 +98,10 @@
 	anchored = TRUE
 	can_buckle = 0 //no manual buckling or unbuckling
 
-	var/health = 25
+	max_health = 25
 	var/countdown = 15
-	var/temporary = 1
-	var/mob/living/carbon/captured = null
+	var/temporary = TRUE
+	var/mob/living/captured = null
 	var/min_free_time = 50
 	var/max_free_time = 85
 
@@ -128,8 +110,8 @@
 	desc = "An energized net meant to subdue animals."
 
 	anchored = FALSE
-	health = 5
-	temporary = 0
+	max_health = 5
+	temporary = FALSE
 	min_free_time = 5
 	max_free_time = 10
 
@@ -148,18 +130,21 @@
 	return ..()
 
 /obj/effect/energy_net/Process()
+	if(!captured)
+		qdel(src)
+		return PROCESS_KILL
 	if(temporary)
 		countdown--
 	if(captured.buckled != src)
-		health = 0
+		current_health = 0
 	if(get_turf(src) != get_turf(captured))  //just in case they somehow teleport around or
 		countdown = 0
 	if(countdown <= 0)
-		health = 0
+		current_health = 0
 	healthcheck()
 
 /obj/effect/energy_net/Move()
-	..()
+	. = ..()
 
 	if(buckled_mob)
 		buckled_mob.forceMove(src.loc)
@@ -184,7 +169,7 @@
 		reset_plane_and_layer()
 
 /obj/effect/energy_net/proc/healthcheck()
-	if(health <=0)
+	if(current_health <=0)
 		set_density(0)
 		if(countdown <= 0)
 			visible_message("<span class='warning'>\The [src] fades away!</span>")
@@ -193,49 +178,45 @@
 		qdel(src)
 
 /obj/effect/energy_net/bullet_act(var/obj/item/projectile/Proj)
-	health -= Proj.get_structure_damage()
+	current_health -= Proj.get_structure_damage()
 	healthcheck()
 	return 0
 
 /obj/effect/energy_net/explosion_act()
 	..()
 	if(!QDELETED(src))
-		health = 0
+		current_health = 0
 		healthcheck()
 
 /obj/effect/energy_net/attack_hand(var/mob/user)
-	if(user.a_intent != I_HURT)
+	if(!user.check_intent(I_FLAG_HARM))
 		return ..()
-	var/decl/species/my_species = user.get_species()
-	if(my_species)
-		if(my_species.can_shred(user))
-			playsound(src.loc, 'sound/weapons/slash.ogg', 80, 1)
-			health -= rand(10, 20)
-		else
-			health -= rand(1,3)
+	if(user.can_shred())
+		playsound(src.loc, 'sound/weapons/slash.ogg', 80, 1)
+		current_health -= rand(10, 20)
 	else
-		health -= rand(5,8)
+		current_health -= rand(5,8)
 	to_chat(user, SPAN_DANGER("You claw at the energy net."))
 	healthcheck()
 	return TRUE
 
-/obj/effect/energy_net/attackby(obj/item/W, mob/user)
-	health -= W.force
+/obj/effect/energy_net/attackby(obj/item/used_item, mob/user)
+	current_health -= used_item.expend_attack_force(user)
 	healthcheck()
-	..()
+	return TRUE
 
 /obj/effect/energy_net/user_unbuckle_mob(mob/user)
 	return escape_net(user)
 
 
 /obj/effect/energy_net/proc/escape_net(mob/user)
+	set waitfor = FALSE
 	visible_message(
 		"<span class='warning'>\The [user] attempts to free themselves from \the [src]!</span>",
 		"<span class='warning'>You attempt to free yourself from \the [src]!</span>"
 		)
 	if(do_after(user, rand(min_free_time, max_free_time), src, incapacitation_flags = INCAPACITATION_DISABLED))
-		health = 0
+		current_health = 0
 		healthcheck()
 		return 1
-	else
-		return 0
+	return 0

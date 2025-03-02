@@ -1,16 +1,15 @@
 /mob/new_player
 	universal_speak = TRUE
 	mob_sort_value = 10
-	invisibility = 101
+	invisibility = INVISIBILITY_ABSTRACT
+	is_spawnable_type = FALSE
 	simulated = FALSE
-
 	density = FALSE
 	stat = DEAD
-
 	movement_handlers = list()
 	anchored = TRUE	//  don't get pushed around
-
 	virtual_mob = null // Hear no evil, speak no evil
+	is_spawnable_type = FALSE
 
 	var/ready = 0
 	/// Referenced when you want to delete the new_player later on in the code.
@@ -19,7 +18,7 @@
 	var/totalPlayers = 0
 	var/totalPlayersReady = 0
 	var/show_invalid_jobs = 0
-
+	var/decl/music_track/current_lobby_track
 	var/datum/browser/panel
 
 INITIALIZE_IMMEDIATE(/mob/new_player)
@@ -112,20 +111,21 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 			to_chat(src, SPAN_WARNING("Please wait for server initialization to complete..."))
 			return
 
-		if(!config.respawn_delay || client.holder || alert(src,"Are you sure you wish to observe? You will have to wait [config.respawn_delay] minute\s before being able to respawn!","Player Setup","Yes","No") == "Yes")
+		var/respawn_delay = get_config_value(/decl/config/num/respawn_delay)
+		if(!respawn_delay || client.holder || alert(src,"Are you sure you wish to observe? You will have to wait [respawn_delay] minute\s before being able to respawn!","Player Setup","Yes","No") == "Yes")
 			if(!client)	return 1
 			var/mob/observer/ghost/observer = new()
 
 			spawning = 1
 			sound_to(src, sound(null, repeat = 0, wait = 0, volume = 85, channel = sound_channels.lobby_channel))// MAD JAMS cant last forever yo
 
-
 			observer.started_as_observer = 1
 			close_spawn_windows()
-			var/obj/O = locate("landmark*Observer-Start")
-			if(istype(O))
+			var/decl/spawnpoint/spawnpoint = GET_DECL(/decl/spawnpoint/observer)
+			var/turf/T = SAFEPICK(spawnpoint.get_spawn_turfs(src))
+			if(istype(T))
 				to_chat(src, SPAN_NOTICE("Now teleporting."))
-				observer.forceMove(O.loc)
+				observer.forceMove(T)
 			else
 				to_chat(src, SPAN_DANGER("Could not locate an observer spawn point. Use the Teleport verb to jump to the map."))
 			observer.timeofdeath = world.time // Set the time of death so that the respawn timer works correctly.
@@ -133,7 +133,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 			if(isnull(client.holder))
 				announce_ghost_joinleave(src)
 
-			var/mob/living/carbon/human/dummy/mannequin = get_mannequin(client.ckey)
+			var/mob/living/human/dummy/mannequin = get_mannequin(client.ckey)
 			if(mannequin)
 				client.prefs.dress_preview_mob(mannequin)
 				observer.set_appearance(mannequin)
@@ -142,7 +142,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 				client.prefs.real_name = client.prefs.get_random_name()
 			observer.real_name = client.prefs.real_name
 			observer.SetName(observer.real_name)
-			if(!client.holder && !config.antag_hud_allowed)           // For new ghosts we remove the verb from even showing up if it's not allowed.
+			if(!client.holder && !get_config_value(/decl/config/toggle/antag_hud_allowed))           // For new ghosts we remove the verb from even showing up if it's not allowed.
 				observer.verbs -= /mob/observer/ghost/verb/toggle_antagHUD        // Poor guys, don't know what they are missing!
 			observer.key = key
 			qdel(src)
@@ -184,11 +184,15 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		return 0
 
 	if(GAME_STATE != RUNLEVEL_GAME)
-		to_chat(usr, "<span class='warning'>The round is either not ready, or has already finished...</span>")
+		to_chat(usr, SPAN_WARNING("The round is either not ready, or has already finished."))
 		return 0
 
-	if(!config.enter_allowed)
-		to_chat(usr, "<span class='notice'>There is an administrative lock on entering the game!</span>")
+	if(get_config_value(/decl/config/enum/server_whitelist) == CONFIG_SERVER_JOIN_WHITELIST && !check_server_whitelist(usr))
+		alert("Non-whitelisted players are not permitted to join rounds except as observers.")
+		return 0
+
+	if(!get_config_value(/decl/config/toggle/on/enter_allowed))
+		to_chat(usr, SPAN_WARNING("There is an administrative lock on entering the game!"))
 		return 0
 
 	if(!job || !job.is_available(client))
@@ -202,12 +206,14 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		to_chat(src, alert("That spawnpoint is unavailable. Please try another."))
 		return 0
 
-	var/turf/spawn_turf = pick(spawnpoint.turfs)
+	var/turf/spawn_turf
 	if(job.latejoin_at_spawnpoints)
 		var/obj/S = job.get_roundstart_spawnpoint()
 		spawn_turf = get_turf(S)
+	else
+		spawn_turf = SAFEPICK(spawnpoint.get_spawn_turfs(src))
 
-	if(!job.no_warn_unsafe && !SSjobs.check_unsafe_spawn(src, spawn_turf))
+	if(!spawn_turf || !job.no_warn_unsafe && !SSjobs.check_unsafe_spawn(src, spawn_turf))
 		return
 
 	// Just in case someone stole our position while we were waiting for input from alert() proc
@@ -221,7 +227,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 	if(!character)
 		return 0
 
-	character = SSjobs.equip_rank(character, job.title, 1)					//equips the human
+	character = SSjobs.equip_job_title(character, job.title, 1)					//equips the human
 	SScustomitems.equip_custom_items(character)
 
 	if(job.do_spawn_special(character, src, TRUE)) //This replaces the AI spawn logic with a proc stub. Refer to silicon.dm for the spawn logic.
@@ -235,10 +241,12 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		if(!(ASSIGNMENT_ROBOT in job.event_categories))
 			CreateModularRecord(character)
 			SSticker.minds += character.mind//Cyborgs and AIs handle this in the transform proc.	//TODO!!!!! ~Carn
-			AnnounceArrival(character, job, spawnpoint.msg)
-		else
-			AnnounceCyborg(character, job, spawnpoint.msg)
-	callHook("player_latejoin", list(job, character))
+			if(spawnpoint.spawn_announcement)
+				AnnounceArrival(character, job, spawnpoint.spawn_announcement)
+		else if(spawnpoint.spawn_announcement)
+			AnnounceCyborg(character, job, spawnpoint.spawn_announcement)
+
+	RAISE_EVENT(/decl/observ/player_latejoin, character, job)
 	log_and_message_admins("has joined the round as [character.mind.assigned_role].", character)
 
 	qdel(src)
@@ -316,7 +324,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		ordered_submaps = sortTim(SSmapping.submaps.Copy(), /proc/cmp_submap_asc)
 	for(var/datum/submap/submap as anything in ordered_submaps)
 		if(submap?.available())
-			dat += "<tr><td colspan = 3><b>[submap.name] ([submap.archetype.descriptor]):</b></td></tr>"
+			dat += "<tr><td colspan = 3><b>[submap.name] ([submap.archetype.name]):</b></td></tr>"
 			job_summaries = list()
 			for(var/otherthing in submap.jobs)
 				var/datum/job/job = submap.jobs[otherthing]
@@ -349,7 +357,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 	spawning = 1
 	close_spawn_windows()
 
-	var/mob/living/carbon/human/new_character
+	var/mob/living/human/new_character
 
 	var/decl/species/chosen_species
 	if(client.prefs.species)
@@ -360,7 +368,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		if(!job)
 			job = SSjobs.get_by_title(global.using_map.default_job_title)
 		var/decl/spawnpoint/spawnpoint = job.get_spawnpoint(client, client.prefs.ranks[job.title])
-		spawn_turf = pick(spawnpoint.turfs)
+		spawn_turf = DEFAULTPICK(spawnpoint.get_spawn_turfs(src), get_random_spawn_turf(SPAWN_FLAG_JOBS_CAN_SPAWN))
 
 	if(chosen_species)
 		if(!check_species_allowed(chosen_species))
@@ -374,7 +382,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 	new_character.lastarea = get_area(spawn_turf)
 
 	if(global.random_players)
-		var/decl/species/current_species = get_species_by_key(client.prefs.species || global.using_map.default_species)
+		var/decl/species/current_species = client.prefs.get_species_decl()
 		var/decl/pronouns/pronouns = pick(current_species.available_pronouns)
 		client.prefs.gender = pronouns.name
 		client.prefs.real_name = client.prefs.get_random_name()
@@ -385,7 +393,6 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 
 	if(mind)
 		mind.active = 0 //we wish to transfer the key manually
-		mind.original = new_character
 		var/memory = client.prefs.records[PREF_MEM_RECORD]
 		if(memory)
 			mind.StoreMemory(memory)
@@ -393,7 +400,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 
 	// Do the initial caching of the player's body icons.
 	new_character.force_update_limbs()
-	new_character.refresh_visible_overlays()
+	new_character.try_refresh_visible_overlays()
 
 	new_character.key = key		//Manually transfer the key to log them in
 	return new_character
@@ -429,6 +436,7 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 	return 1
 
 /mob/new_player/get_species_name()
+	SHOULD_CALL_PARENT(FALSE)
 	var/decl/species/chosen_species
 	if(client.prefs.species)
 		chosen_species = get_species_by_key(client.prefs.species)
@@ -436,13 +444,10 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 		return global.using_map.default_species
 	return chosen_species.name
 
-/mob/new_player/is_ready()
-	return ready && ..()
-
-/mob/new_player/hear_say(var/message, var/verb = "says", var/decl/language/language = null, var/alt_name = "",var/italics = 0, var/mob/speaker = null)
+/mob/new_player/hear_say(var/message, var/verb = "says", var/decl/language/language = null, var/italics = 0, var/mob/speaker = null)
 	return
 
-/mob/new_player/hear_radio(var/message, var/verb="says", var/decl/language/language=null, var/part_a, var/part_b, var/part_c, var/mob/speaker = null, var/hard_to_hear = 0)
+/mob/new_player/hear_radio(var/message, var/verb="says", var/decl/language/language=null, var/part_a, var/part_b, var/part_c, var/mob/speaker = null, var/hard_to_hear = 0, var/vname ="", var/vsource)
 	return
 
 /mob/new_player/show_message(msg, type, alt, alt_type)
@@ -463,8 +468,9 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 
 	if(get_preference_value(/datum/client_preference/play_lobby_music) == PREF_NO)
 		return
-	var/decl/music_track/new_track = global.using_map.get_lobby_track(global.using_map.lobby_track.type)
+	var/decl/music_track/new_track = global.using_map.get_lobby_track(current_lobby_track || global.using_map.lobby_track.type)
 	if(new_track)
+		current_lobby_track = new_track
 		new_track.play_to(src)
 
 /mob/new_player/handle_reading_literacy(var/mob/user, var/text_content, var/skip_delays, var/digital = FALSE)
@@ -475,10 +481,6 @@ INITIALIZE_IMMEDIATE(/mob/new_player)
 
 /mob/new_player/get_admin_job_string()
 	return "New player"
-
-/hook/roundstart/proc/update_lobby_browsers()
-	global.using_map.refresh_lobby_browsers()
-	return TRUE
 
 /mob/new_player/change_mob_type(var/new_type, var/turf/location, var/new_name, var/delete_old_mob = FALSE, var/subspecies)
 	to_chat(usr, SPAN_WARNING("You cannot convert players who have not entered the game yet!"))

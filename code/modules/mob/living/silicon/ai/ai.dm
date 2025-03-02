@@ -55,8 +55,11 @@ var/global/list/ai_verbs_default = list(
 	anchored = TRUE // -- TLE
 	density = TRUE
 	status_flags = CANSTUN|CANPARALYSE|CANPUSH
-	shouldnt_see = list(/obj/effect/rune)
-	maxHealth = 200
+	max_health = 200
+
+	silicon_camera = /obj/item/camera/siliconcam/ai_camera
+	silicon_radio = /obj/item/radio/headset/heads/ai_integrated
+
 	var/obj/machinery/camera/camera = null
 	var/list/connected_robots = list()
 	var/aiRestorePowerRoutine = 0
@@ -65,9 +68,6 @@ var/global/list/ai_verbs_default = list(
 	var/icon/holo_icon_longrange //Yellow hologram.
 	var/holo_icon_malf = FALSE // for new hologram system
 	var/obj/item/multitool/aiMulti = null
-
-	silicon_camera = /obj/item/camera/siliconcam/ai_camera
-	silicon_radio = /obj/item/radio/headset/heads/ai_integrated
 	var/obj/item/radio/headset/heads/ai_integrated/ai_radio
 
 	var/camera_light_on = 0	//Defines if the AI toggled the light on the camera it's looking through.
@@ -103,7 +103,7 @@ var/global/list/ai_verbs_default = list(
 	src.verbs -= ai_verbs_default
 	src.verbs += /mob/living/verb/ghost
 
-/mob/living/silicon/ai/Initialize(mapload, var/datum/ai_laws/L, var/obj/item/mmi/B, var/safety = 0)
+/mob/living/silicon/ai/Initialize(mapload, var/datum/ai_laws/L, var/obj/item/organ/internal/brain_interface/B, var/safety = 0)
 	announcement = new()
 	announcement.title = "A.I. Announcement"
 	announcement.announcement_type = "A.I. Announcement"
@@ -143,20 +143,13 @@ var/global/list/ai_verbs_default = list(
 	add_language(/decl/language/sign, 0)
 
 	if(!safety)//Only used by AIize() to successfully spawn an AI.
-		if (!B)//If there is no player/brain inside.
+		var/mob/living/brainmob = B?.get_brainmob()
+		if(!brainmob) // If there is no player/brain inside.
 			empty_playable_ai_cores += new/obj/structure/aicore/deactivated(loc)//New empty terminal.
 			. = INITIALIZE_HINT_QDEL
-		else if(B.brainmob.mind)
-			B.brainmob.mind.transfer_to(src)
-			hud_list[HEALTH_HUD]      = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[STATUS_HUD]      = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[LIFE_HUD] 		  = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[ID_HUD]          = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[WANTED_HUD]      = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[IMPLOYAL_HUD]    = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[IMPCHEM_HUD]     = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[IMPTRACK_HUD]    = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
-			hud_list[SPECIALROLE_HUD] = new /image/hud_overlay('icons/mob/hud.dmi', src, "hudblank")
+		else if(brainmob.mind)
+			brainmob.mind.transfer_to(src)
+			reset_hud_overlays()
 			ai_list += src
 
 	create_powersupply()
@@ -313,20 +306,6 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 
 	post_status("shuttle")
 
-/mob/living/silicon/ai/proc/ai_recall_shuttle()
-	set category = "Silicon Commands"
-	set name = "Cancel Evacuation"
-
-	if(check_unable(AI_CHECK_WIRELESS))
-		return
-
-	var/confirm = alert("Are you sure you want to cancel the evacuation?", "Confirm Cancel", "Yes", "No")
-	if(check_unable(AI_CHECK_WIRELESS))
-		return
-
-	if(confirm == "Yes")
-		cancel_call_proc(src)
-
 /mob/living/silicon/ai/var/emergency_message_cooldown = 0
 /mob/living/silicon/ai/proc/ai_emergency_message()
 	set category = "Silicon Commands"
@@ -390,7 +369,7 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 
 	if (href_list["track"])
 		var/mob/target = locate(href_list["track"]) in SSmobs.mob_list
-		var/mob/living/carbon/human/H = target
+		var/mob/living/human/H = target
 
 		if(!istype(H) || (html_decode(href_list["trackname"]) == H.get_visible_name()) || (html_decode(href_list["trackname"]) == H.get_id_name()))
 			ai_actual_track(target)
@@ -570,35 +549,33 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 		camera_light_on = world.timeofday + 1 * 20 // Update the light every 2 seconds.
 
 
-/mob/living/silicon/ai/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/aicard))
-
-		var/obj/item/aicard/card = W
+/mob/living/silicon/ai/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/aicard))
+		var/obj/item/aicard/card = used_item
 		card.grab_ai(src, user)
 
-	else if(IS_WRENCH(W))
+	else if(IS_WRENCH(used_item))
 		if(anchored)
 			user.visible_message("<span class='notice'>\The [user] starts to unbolt \the [src] from the plating...</span>")
 			if(!do_after(user,40, src))
 				user.visible_message("<span class='notice'>\The [user] decides not to unbolt \the [src].</span>")
-				return
+				return TRUE
 			user.visible_message("<span class='notice'>\The [user] finishes unfastening \the [src]!</span>")
 			anchored = FALSE
-			return
+			return TRUE
 		else
 			user.visible_message("<span class='notice'>\The [user] starts to bolt \the [src] to the plating...</span>")
 			if(!do_after(user,40,src))
 				user.visible_message("<span class='notice'>\The [user] decides not to bolt \the [src].</span>")
-				return
+				return TRUE
 			user.visible_message("<span class='notice'>\The [user] finishes fastening down \the [src]!</span>")
 			anchored = TRUE
-			return
-	if(try_stock_parts_install(W, user))
-		return
-	if(try_stock_parts_removal(W, user))
-		return
-	else
-		return ..()
+			return TRUE
+	if(try_stock_parts_install(used_item, user))
+		return TRUE
+	if(try_stock_parts_removal(used_item, user))
+		return TRUE
+	return ..()
 
 /mob/living/silicon/ai/proc/control_integrated_radio()
 	set name = "Radio Settings"
@@ -655,7 +632,7 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 	set category = "Silicon Commands"
 
 	multitool_mode = !multitool_mode
-	to_chat(src, "<span class='notice'>Multitool mode: [multitool_mode ? "E" : "Dise"]ngaged</span>")
+	to_chat(src, SPAN_NOTICE("Multitool mode: [multitool_mode ? "E" : "Dise"]ngaged"))
 
 /mob/living/silicon/ai/on_update_icon()
 	..()
@@ -674,11 +651,7 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 		set_light(1, 1, selected_sprite.alive_light)
 
 // Pass lying down or getting up to our pet human, if we're in a rig.
-/mob/living/silicon/ai/lay_down()
-	set name = "Rest"
-	set category = "IC"
-
-	resting = 0
+/mob/living/silicon/ai/lay_down(block_posture as null)
 	var/obj/item/rig/rig = src.get_rig()
 	if(rig)
 		rig.force_rest(src)
@@ -712,7 +685,7 @@ var/global/list/custom_ai_icons_by_ckey_and_name = list()
 	if(!A)
 		return
 
-	for(var/turf/simulated/floor/bluegrid/F in A)
+	for(var/turf/floor/bluegrid/F in A)
 		F.color = f_color
 
 	to_chat(usr, SPAN_NOTICE("Proccessing strata color was changed to \"<font color='[f_color]'>[f_color]</font>\""))

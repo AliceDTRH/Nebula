@@ -4,7 +4,7 @@
 	program_icon_state = "generic"
 	program_key_state = "mining_key"
 	program_menu_icon = "person"
-	extended_desc = "This program is capable of reconstructing damaged AI systems. It can also be used to upload basic laws to the AI. Requires direct AI connection via inteliCard slot."
+	extended_desc = "This program is capable of reconstructing damaged AI systems. It can also be used to upload basic laws to the AI. Requires direct AI connection via intelliCard slot."
 	size = 12
 	read_access = list(access_bridge)
 	requires_access_to_run = 0
@@ -29,7 +29,7 @@
 	if(!A)
 		return 0
 	if(href_list["PRG_beginReconstruction"])
-		if((A.hardware_integrity() < 100) || (A.backup_capacitor() < 100))
+		if((A.get_health_percent() < 100) || (A.backup_capacitor() < 100))
 			restoring = 1
 		return 1
 
@@ -66,14 +66,13 @@
 	if(!A || !restoring)
 		restoring = 0	// If the AI was removed, stop the restoration sequence.
 		return
-	A.adjustFireLoss(-4)
-	A.adjustBruteLoss(-4)
-	A.adjustOxyLoss(-4)
-	A.updatehealth()
+	A.heal_damage(BURN, 4, do_update_health = FALSE)
+	A.heal_damage(BRUTE, 4, do_update_health = FALSE)
+	A.heal_damage(OXY, 4)
+	A.update_health()
 	// If the AI is dead, revive it.
-	if (A.health >= -100 && A.stat == DEAD)
+	if (A.stat == DEAD && !A.should_be_dead())
 		A.set_stat(CONSCIOUS)
-		A.lying = 0
 		A.switch_from_dead_to_living_mob_list()
 		A.add_ai_verbs()
 		A.update_icon()
@@ -81,7 +80,7 @@
 		if(AC)
 			AC.update_icon()
 	// Finished restoring
-	if((A.hardware_integrity() == 100) && (A.backup_capacitor() == 100))
+	if((A.get_health_percent() == 100) && (A.backup_capacitor() == 100))
 		restoring = 0
 
 /datum/nano_module/program/computer_aidiag
@@ -106,9 +105,9 @@
 		data["error"] = "No AI located"
 	else
 		data["ai_name"] = A.name
-		data["ai_integrity"] = A.hardware_integrity()
+		data["ai_integrity"] = A.get_health_percent()
 		data["ai_capacitor"] = A.backup_capacitor()
-		data["ai_isdamaged"] = (A.hardware_integrity() < 100) || (A.backup_capacitor() < 100)
+		data["ai_isdamaged"] = (A.get_health_percent() < 100) || (A.backup_capacitor() < 100)
 		data["ai_isdead"] = (A.stat == DEAD)
 
 		var/list/all_laws[0]

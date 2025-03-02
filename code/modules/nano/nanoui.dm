@@ -124,6 +124,7 @@ nanoui is used to open and update nano browser uis
 	add_stylesheet("shared.css") // this CSS sheet is common to all UIs
 	add_stylesheet("tgui.css") // this CSS sheet is common to all UIs
 	add_stylesheet("icons.css") // this CSS sheet is common to all UIs
+	add_stylesheet("fonts.css") //Common Fonts
 
  /**
   * Set the current status (also known as visibility) of this ui.
@@ -133,7 +134,7 @@ nanoui is used to open and update nano browser uis
   *
   * @return nothing
   */
-/datum/nanoui/proc/set_status(state, push_update)
+/datum/nanoui/proc/set_nano_status(state, push_update)
 	if (state != status) // Only update if it is different
 		if (status == STATUS_DISABLED)
 			status = state
@@ -163,7 +164,7 @@ nanoui is used to open and update nano browser uis
 	if(new_status == STATUS_CLOSE)
 		close()
 		return 1
-	set_status(new_status, push_update)
+	set_nano_status(new_status, push_update)
 
  /**
   * Set the ui to auto update (every master_controller tick)
@@ -250,7 +251,7 @@ nanoui is used to open and update nano browser uis
 	stylesheets.Add(file)
 
  /**
-  * Add a JavsScript script to this UI
+  * Add a JavaScript script to this UI
   * These must be added before the UI has been opened, adding after that will have no effect
   *
   * @param file string The name of the JavaScript file from /nano/js (e.g. "my_script.js")
@@ -387,7 +388,7 @@ nanoui is used to open and update nano browser uis
 		<script type='text/javascript'>
 			function receiveUpdateData(jsonString)
 			{
-				// We need both jQuery and NanoStateManager to be able to recieve data
+				// We need both jQuery and NanoStateManager to be able to receive data
 				// At the moment any data received before those libraries are loaded will be lost
 				if (typeof NanoStateManager != 'undefined' && typeof jQuery != 'undefined')
 				{
@@ -395,7 +396,7 @@ nanoui is used to open and update nano browser uis
 				}
 				//else
 				//{
-				//	alert('browser.recieveUpdateData failed due to jQuery or NanoStateManager being unavailiable.');
+				//	alert('browser.receiveUpdateData failed due to jQuery or NanoStateManager being unavailiable.');
 				//}
 			}
 		</script>
@@ -529,13 +530,13 @@ nanoui is used to open and update nano browser uis
   *
   * @return nothing
   */
-/datum/nanoui/proc/try_update(update = 0)
+/datum/nanoui/proc/try_update(update = 0, force_open = FALSE)
 	if (!src_object || !user)
 		close()
 		return
 
 	if (status && (update || is_auto_updating))
-		update() // Update the UI (update_status() is called whenever a UI is updated)
+		update(force_open) // Update the UI (update_status() is called whenever a UI is updated)
 	else
 		update_status(1) // Not updating UI, so lets check here if status has changed
 

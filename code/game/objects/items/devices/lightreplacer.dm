@@ -50,32 +50,31 @@
 	)
 	obj_flags = OBJ_FLAG_CONDUCTIBLE
 	slot_flags = SLOT_LOWER_BODY
-	origin_tech = "{'magnets':3,'materials':2}"
+	origin_tech = @'{"magnets":3,"materials":2}'
 
 	var/max_uses = 32
 	var/uses = 32
 	var/emagged = 0
 	var/charge = 0
 
-/obj/item/lightreplacer/examine(mob/user, distance)
+/obj/item/lightreplacer/get_examine_strings(mob/user, distance, infix, suffix)
 	. = ..()
 	if(distance <= 2)
-		to_chat(user, "It has [uses] light\s remaining.")
+		. += "It has [uses] light\s remaining."
 
 /obj/item/lightreplacer/resolve_attackby(var/atom/A, mob/user)
 
 	//Check for lights in a container, refilling our charges.
-	if(istype(A, /obj/item/storage/))
-		var/obj/item/storage/S = A
+	if(A?.storage)
 		var/amt_inserted = 0
 		var/turf/T = get_turf(user)
-		for(var/obj/item/light/L in S.contents)
+		for(var/obj/item/light/L in A.storage.get_contents())
 			if(!user.stat && src.uses < src.max_uses && L.status == 0)
 				src.AddUses(1)
 				amt_inserted++
-				S.remove_from_storage(L, T, 1)
+				A.storage.remove_from_storage(user, L, T, TRUE)
 				qdel(L)
-		S.finish_bulk_removal()
+		A.storage.finish_bulk_removal()
 		if(amt_inserted)
 			to_chat(user, "You insert [amt_inserted] light\s into \The [src]. It has [uses] light\s remaining.")
 			add_fingerprint(user)
@@ -91,43 +90,37 @@
 			return
 	. = ..()
 
-/obj/item/lightreplacer/attackby(obj/item/W, mob/user)
-	if(istype(W, /obj/item/stack/material) && W.get_material_type() == /decl/material/solid/glass)
-		var/obj/item/stack/G = W
+// TODO: Refactor this to check matter or maybe even just use the fabricator recipe for lights directly
+/obj/item/lightreplacer/attackby(obj/item/used_item, mob/user)
+	if(istype(used_item, /obj/item/stack/material) && used_item.get_material_type() == /decl/material/solid/glass)
+		var/obj/item/stack/G = used_item
 		if(uses >= max_uses)
-			to_chat(user, "<span class='warning'>[src.name] is full.</span>")
-			return
+			to_chat(user, "<span class='warning'>\The [src] is full.</span>")
 		else if(G.use(1))
-			AddUses(16) //Autolathe converts 1 sheet into 16 lights.
-			to_chat(user, "<span class='notice'>You insert a piece of glass into \the [src.name]. You have [uses] light\s remaining.</span>")
-			return
+			AddUses(16) //Autolathe converts 1 sheet into 16 lights. // TODO: Make this use matter instead
+			to_chat(user, "<span class='notice'>You insert a piece of glass into \the [src]. You have [uses] light\s remaining.</span>")
 		else
 			to_chat(user, "<span class='warning'>You need one sheet of glass to replace lights.</span>")
+		return TRUE
 
-	if(istype(W, /obj/item/light))
-		var/obj/item/light/L = W
+	if(istype(used_item, /obj/item/light))
+		var/obj/item/light/L = used_item
 		if(L.status == 0) // LIGHT OKAY
 			if(uses < max_uses)
 				if(!user.try_unequip(L))
-					return
+					return TRUE
 				AddUses(1)
-				to_chat(user, "You insert \the [L.name] into \the [src.name]. You have [uses] light\s remaining.")
+				to_chat(user, "You insert \the [L] into \the [src]. You have [uses] light\s remaining.")
 				qdel(L)
-				return
+				return TRUE
 		else
 			to_chat(user, "You need a working light.")
-			return
+			return TRUE
+	return ..()
 
 /obj/item/lightreplacer/attack_self(mob/user)
-	/* // This would probably be a bit OP. If you want it though, uncomment the code.
-	if(isrobot(user))
-		var/mob/living/silicon/robot/R = user
-		if(R.emagged)
-			src.Emag()
-			to_chat(usr, "You shortcircuit the [src].")
-			return
-	*/
 	to_chat(usr, "It has [uses] lights remaining.")
+	return TRUE
 
 /obj/item/lightreplacer/on_update_icon()
 	. = ..()
@@ -157,7 +150,7 @@
 	else if(!CanUse(U))
 		to_chat(U, "\The [src]'s refill light blinks red.")
 	else if(Use(U))
-		to_chat(U, "<span class='notice'>You replace the [target.get_fitting_name()] with the [src].</span>")
+		to_chat(U, "<span class='notice'>You replace the [target.get_fitting_name()] with \the [src].</span>")
 
 		if(target.lightbulb)
 			target.remove_bulb()
